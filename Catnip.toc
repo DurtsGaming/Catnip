@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: Catnip
+## Notes: Druid addon for WoW Forever
+## Author: Durts
+## Version: 0.0.1
+
+Catnip.lua
