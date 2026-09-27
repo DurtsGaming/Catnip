@@ -3,5 +3,9 @@
 ## Notes: Druid addon for WoW Forever
 ## Author: Durts
 ## Version: 0.0.1
+## SavedVariables: CatnipDB
 
 Catnip.lua
+Layout.lua
+Resource.lua
+ComboPoints.lua

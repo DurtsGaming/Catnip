@@ -21,7 +21,7 @@ Design: read `docs/design.md` (the working spec) before feature work. It summari
 2. User runs `/reload` in-game and reports what happened (chat output, errors, screenshots).
 3. Repeat. Claude cannot run the game, so ask the user to test anything that needs in-game verification, and say exactly what to look for.
 
-New `.lua` files must be added to `Catnip.toc` or they won't load. Changes to the `.toc` itself require restarting the game, not just `/reload`.
+New `.lua` files must be added to `Catnip.toc` or they won't load. In this client, `/reload` picks up everything — new files, `.toc` changes, and textures (verified 2026-09-27) — so no game restart is needed.
 
 ## The API: verify, don't trust memory
 
