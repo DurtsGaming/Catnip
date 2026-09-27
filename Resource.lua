@@ -38,7 +38,11 @@ border:SetSize(SIZE + 6, SIZE + 6)
 border:SetPoint("CENTER")
 border:SetVertexColor(0.85, 0.85, 0.85)
 
-local text = bar:CreateFontString(nil, "OVERLAY")
+-- The number sits on its own higher layer, so the GCD shading (Gcd.lua) never dims it.
+local textLayer = CreateFrame("Frame", nil, bar)
+textLayer:SetAllPoints()
+textLayer:SetFrameLevel(bar:GetFrameLevel() + 5)
+local text = textLayer:CreateFontString(nil, "OVERLAY")
 text:SetFont(STANDARD_TEXT_FONT, 20, "OUTLINE")
 text:SetPoint("CENTER")
 

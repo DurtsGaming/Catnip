@@ -1,72 +1,38 @@
 -- Rip timer: a thin red layer just outside the swing ring, full when Rip goes up and draining clockwise.
--- Whether Rip is on the target comes from the Cooldown Manager (the user tracks Rip there); how long
--- is left comes from our own timer, started when we cast Rip, since the aura's duration is secret.
+-- An AuraContainer (see AuraContainer.lua) watches our Rip on the target. We give its button a
+-- Cooldown frame whose swipe is our ring, and Blizzard drives it with Rip's real remaining time,
+-- even in combat, including refreshes and target switches.
 local addonName, ns = ...
 
-local RIP = 1079 -- the ID the Cooldown Manager tracks Rip under
-local RIP_DURATION = 12 -- seconds; Classic's value, to be confirmed against Blizzard's Rip bar
+local RIP_RANKS = { 1079, 9492, 9493, 9752, 9894, 9896 } -- Forever: each rank's aura has its own ID
 local COLOR = { 0.9, 0.15, 0.15 }
 
-local ripName = C_Spell.GetSpellName(RIP)
+local function StyleButton(button)
+    ns.HideAuraButtonArt(button)
 
--- #5 thin ring, drawn by a Cooldown swipe, which drains clockwise by default.
-local ring = CreateFrame("Cooldown", nil, ns.hud)
-ring:SetSize(ns.DOT_RING_SIZE, ns.DOT_RING_SIZE)
-ring:SetPoint("CENTER")
-ring:SetSwipeTexture(ns.MEDIA .. "ring_dot")
-ring:SetSwipeColor(COLOR[1], COLOR[2], COLOR[3], 1)
-ring:SetDrawEdge(false)
-ring:SetDrawBling(false)
-ring:SetHideCountdownNumbers(true)
-ring:Hide()
-
--- When our Rip expires, per target. Keyed by GUID when the game lets us read it, else one shared slot.
-local expirations = {}
-
-local function TargetKey()
-    local guid = UnitGUID("target")
-    if guid == nil or ns.IsSecret(guid) then
-        return "target"
-    end
-    return guid
+    local ring = CreateFrame("Cooldown", nil, button, "CooldownFrameTemplate")
+    ring:SetAllPoints(button)
+    ring:SetSwipeTexture(ns.MEDIA .. "ring_dot")
+    ring:SetSwipeColor(COLOR[1], COLOR[2], COLOR[3], 1)
+    ring:SetDrawEdge(false)
+    ring:SetDrawBling(false)
+    ring:SetHideCountdownNumbers(true)
+    button:SetDurationCooldown(ring) -- Blizzard runs it with the aura's real (secret) timing
 end
 
-local shownExpiration
-
-local function Update()
-    local expires = expirations[TargetKey()]
-    local onTarget = ns.CDM.IsActive(RIP) -- nil if the Cooldown Manager isn't tracking Rip
-    local active = expires ~= nil and expires > GetTime() and onTarget ~= false
-
-    if not active then
-        if ring:IsShown() then
-            ns.Debug("Rip ring hidden. on target:", onTarget)
-        end
-        ring:Hide()
-        shownExpiration = nil
-        return
-    end
-
-    if shownExpiration ~= expires then
-        shownExpiration = expires
-        ring:SetCooldown(expires - RIP_DURATION, RIP_DURATION)
-    end
-    ring:Show()
+if ns.HAS_AURA_CONTAINER then
+    ns.CreateAuraContainer({
+        label = "Rip",
+        unit = "target",
+        filter = "HARMFUL",
+        spellIDs = RIP_RANKS,
+        width = ns.DOT_RING_SIZE,
+        height = ns.DOT_RING_SIZE,
+        level = 5,
+        initialize = StyleButton,
+    })
+else
+    ns.OnLoad(function()
+        ns.Print("this client has no AuraContainer, so the Rip ring is unavailable.")
+    end)
 end
-
-ring:SetScript("OnCooldownDone", Update)
-
-local events = CreateFrame("Frame")
-events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
-events:RegisterEvent("PLAYER_TARGET_CHANGED")
-events:SetScript("OnEvent", function(_, event, unit, castGUID, spellID)
-    if event == "UNIT_SPELLCAST_SUCCEEDED" and not ns.IsSecret(spellID)
-        and C_Spell.GetSpellName(spellID) == ripName then
-        local key = TargetKey()
-        expirations[key] = GetTime() + RIP_DURATION
-        ns.Debug("Rip cast, spell:", spellID, "target key:", key)
-    end
-    Update()
-end)
-
-ns.CDM.OnChange(Update)

@@ -8,8 +8,10 @@
 Catnip.lua
 Layout.lua
 CooldownManager.lua
+AuraContainer.lua
 Resource.lua
 ComboPoints.lua
 Swing.lua
+Gcd.lua
 Proc.lua
 Rip.lua
