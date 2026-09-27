@@ -2,8 +2,9 @@
 local addonName, ns = ...
 
 local COUNT = 5
-local DOT_SIZE = 22
-local ARC_RADIUS = ns.RESOURCE_SIZE / 2 + DOT_SIZE / 2 + 8
+local DOT_SIZE = 28
+local RING_THICKNESS = DOT_SIZE * 8 / 64 -- ring_small is 8px thick in a 64px texture
+local ARC_RADIUS = ns.DOT_RING_SIZE / 2 + DOT_SIZE / 2 + 3 -- just outside the Rip ring
 local ANGLES = { 150, 120, 90, 60, 30 } -- degrees, left to right; 90 is straight up
 local COLOR = { 1, 0.82, 0 }
 
@@ -15,15 +16,18 @@ for i = 1, COUNT do
     local angle = math.rad(ANGLES[i])
     local x, y = ARC_RADIUS * math.cos(angle), ARC_RADIUS * math.sin(angle)
 
-    local border = group:CreateTexture(nil, "ARTWORK")
-    border:SetTexture(ns.MEDIA .. "ring_thin_small")
+    -- Border draws above the fill, so a filled dot keeps its outline.
+    local border = group:CreateTexture(nil, "OVERLAY")
+    border:SetTexture(ns.MEDIA .. "ring_small")
     border:SetSize(DOT_SIZE, DOT_SIZE)
     border:SetPoint("CENTER", group, "CENTER", x, y)
     border:SetVertexColor(0.1, 0.1, 0.1)
 
-    local fill = group:CreateTexture(nil, "OVERLAY")
+    -- Just big enough to tuck under the ring's inner edge, so there's no gap.
+    local fill = group:CreateTexture(nil, "ARTWORK")
     fill:SetTexture(ns.MEDIA .. "circle_hard")
-    fill:SetSize(DOT_SIZE - 2, DOT_SIZE - 2)
+    local fillSize = DOT_SIZE - 2 * RING_THICKNESS + 2
+    fill:SetSize(fillSize, fillSize)
     fill:SetPoint("CENTER", border)
     fill:SetVertexColor(COLOR[1], COLOR[2], COLOR[3])
     fill:Hide()

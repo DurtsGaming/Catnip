@@ -4,8 +4,11 @@ local addonName, ns = ...
 local DEFAULTS = { x = 0, y = -180, scale = 1 }
 local MIN_SCALE, MAX_SCALE, SCALE_STEP = 0.5, 2.5, 0.05
 
+for key, value in pairs(DEFAULTS) do
+    ns.defaults[key] = value
+end
+
 local hud = ns.hud
-local db
 
 hud:SetMovable(true)
 hud:SetClampedToScreen(true)
@@ -16,6 +19,7 @@ end
 -- Position is stored as the HUD centre's offset from the screen centre, in UIParent units,
 -- so changing the scale keeps the HUD centred where it is.
 local function ApplyLayout()
+    local db = ns.db
     hud:SetScale(db.scale)
     hud:ClearAllPoints()
     hud:SetPoint("CENTER", UIParent, "CENTER", db.x / db.scale, db.y / db.scale)
@@ -25,8 +29,8 @@ local function SavePosition()
     local scale = hud:GetScale()
     local cx, cy = hud:GetCenter()
     local ux, uy = UIParent:GetCenter()
-    db.x = cx * scale - ux
-    db.y = cy * scale - uy
+    ns.db.x = cx * scale - ux
+    ns.db.y = cy * scale - uy
     ApplyLayout()
 end
 
@@ -47,7 +51,13 @@ local label = overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 label:SetPoint("BOTTOM", overlay, "TOP", 0, 4)
 
 local function UpdateLabel()
-    label:SetText(string.format("Catnip %d%%: drag to move, scroll to resize", db.scale * 100 + 0.5))
+    label:SetText(string.format("Catnip %d%%: drag to move, scroll to resize", ns.db.scale * 100 + 0.5))
+end
+
+local function SetScale(scale)
+    ns.db.scale = math.min(MAX_SCALE, math.max(MIN_SCALE, scale))
+    ApplyLayout()
+    UpdateLabel()
 end
 
 overlay:SetScript("OnDragStart", function()
@@ -58,48 +68,28 @@ overlay:SetScript("OnDragStop", function()
     SavePosition()
 end)
 overlay:SetScript("OnMouseWheel", function(_, delta)
-    db.scale = math.min(MAX_SCALE, math.max(MIN_SCALE, db.scale + delta * SCALE_STEP))
-    ApplyLayout()
-    UpdateLabel()
+    SetScale(ns.db.scale + delta * SCALE_STEP)
 end)
 
-local function SetUnlocked(unlocked)
+ns.commands[""] = function()
+    local unlocked = not overlay:IsShown()
     overlay:SetShown(unlocked)
     UpdateLabel()
-    print("|cff33ff99Catnip|r " .. (unlocked and "unlocked. Type /catnip again to lock." or "locked."))
+    ns.Print(unlocked and "unlocked. Type /catnip again to lock." or "locked.")
 end
 
-SLASH_CATNIP1 = "/catnip"
-SlashCmdList.CATNIP = function(msg)
-    local cmd, arg = strsplit(" ", strtrim(msg):lower(), 2)
-    if cmd == "" then
-        SetUnlocked(not overlay:IsShown())
-    elseif cmd == "reset" then
-        db.x, db.y, db.scale = DEFAULTS.x, DEFAULTS.y, DEFAULTS.scale
-        ApplyLayout()
-        UpdateLabel()
-    elseif cmd == "scale" and tonumber(arg) then
-        db.scale = math.min(MAX_SCALE, math.max(MIN_SCALE, tonumber(arg)))
-        ApplyLayout()
-        UpdateLabel()
+ns.commands.reset = function()
+    ns.db.x, ns.db.y = DEFAULTS.x, DEFAULTS.y
+    SetScale(DEFAULTS.scale)
+end
+
+ns.commands.scale = function(arg)
+    local scale = tonumber(arg)
+    if scale then
+        SetScale(scale)
     else
-        print("|cff33ff99Catnip|r commands: /catnip (lock/unlock), /catnip scale <0.5-2.5>, /catnip reset")
+        ns.Print("usage: /catnip scale <0.5-2.5>")
     end
 end
 
-local events = CreateFrame("Frame")
-events:RegisterEvent("ADDON_LOADED")
-events:SetScript("OnEvent", function(self, event, name)
-    if name ~= addonName then
-        return
-    end
-    CatnipDB = CatnipDB or {}
-    db = CatnipDB
-    for key, value in pairs(DEFAULTS) do
-        if db[key] == nil then
-            db[key] = value
-        end
-    end
-    ApplyLayout()
-    self:UnregisterEvent("ADDON_LOADED")
-end)
+ns.OnLoad(ApplyLayout)

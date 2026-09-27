@@ -34,16 +34,18 @@ How Catnip's MVP features can work under Midnight's addon restrictions, which Fo
 
 | Feature | Approach | Risk |
 |---------|----------|------|
-| Energy/rage circle fill | Vertical `StatusBar` with a circle texture; pass the secret `UnitPower`/`UnitPowerMax` to `SetMinMaxValues`/`SetValue` | Low |
-| Energy/rage number | `FontString:SetText(UnitPower(...))`, which accepts secrets | Low |
-| Combo points | Plain logic; not secret | Low |
-| Swing timer | **Option A:** `PLAYER_SWING(duration, weaponSlot)` event plus a duration object plus `StatusBar:SetTimerDuration` (as in EllesmereUI). **Option B:** predict from `UnitAttackSpeed` alone (as in SwingBarMidnight, which says retail 12.1 has no exact hit timestamp). A may be new in 12.1.5 or Forever-only. | Medium: need to check if `PLAYER_SWING` exists |
-| Maul queued | `C_Spell.IsCurrentSpell(maul)` on `ACTIONBAR_UPDATE_STATE`; treat a secret answer as "not queued", or use `SetVertexColorFromBoolean` | Medium |
-| Rip/Rake rings | Catch our own Rake/Rip in `UNIT_SPELLCAST_SUCCEEDED` (not secret). Match it to the target's new aura in `UNIT_AURA` `updateInfo.addedAuras` and remember its `auraInstanceID`. Feed its (secret) duration into a self-updating timer widget. | **High:** refreshes, target switching and false matches are hard; the exact duration-object API for auras is unconfirmed |
-| Clearcasting | Player buff: find via `GetUnitAuras("player", "HELPFUL")`; identify by spell ID if not secret, else by the matching trick (it's triggered by our own casts) | Medium |
+| Energy/rage circle fill | Vertical `StatusBar` with a circle texture; pass the secret `UnitPower`/`UnitPowerMax` to `SetMinMaxValues`/`SetValue` | **Verified in combat** 2026-09-27 (Cat, Bear, caster) |
+| Energy/rage number | `FontString:SetText(UnitPower(...))`, which accepts secrets | **Verified in combat** 2026-09-27 |
+| Combo points | Plain logic; not secret. `UnitPower("player", Enum.PowerType.ComboPoints)` works (player-based, not Classic target-based) | **Verified** 2026-09-27 |
+| Swing timer | `PLAYER_SWING(duration, weaponSlot)` fires at the start of each swing. `C_SwingTimer` exists too. The duration is a **plain number, not secret, even in combat** (Cat 0.99s, Bear 2.475s); slot is `0` for main hand. Because it's readable, we draw the arc ourselves (two rotated half-rings). If Blizzard makes it secret later, fall back to a Cooldown swipe (clockwise only). | **Verified** 2026-09-27 |
+| Maul queued | `C_Spell.IsCurrentSpell("Maul")` on `ACTIONBAR_UPDATE_STATE` / `CURRENT_SPELL_CAST_CHANGED`. Not secret in combat. | **Verified** 2026-09-27 |
+| Clearcasting | **Via the Cooldown Manager** (see below): watch the CDM item for Omen of Clarity (16864). The direct `C_UnitAuras.GetPlayerAuraBySpellID(16870)` works out of combat but **returns nil in combat**. In combat `UNIT_AURA`'s `updateInfo.addedAuras` is also a *secret table*. | CDM signal verified 2026-09-27; claws being tested |
+| Rip/Rake rings | Catch our own Rake/Rip in `UNIT_SPELLCAST_SUCCEEDED` (not secret). Match it to the target's new aura in `UNIT_AURA` `updateInfo.addedAuras` and remember its `auraInstanceID`. Feed its (secret) duration into a self-updating timer widget. | **High:** refreshes, target switching and false matches are hard; the exact duration-object API for auras is unconfirmed. **Setback:** in combat `addedAuras` is a secret table (seen on player; target likely the same), so this exact matching method won't work as written. |
 | Round ring fills (DoTs, swing) | A `StatusBar` can't draw a curved fill. Common approach: two half-circle textures rotated with `SetRotation`, which accepts secrets. | Medium: technique question, not API |
 
-**Fallback:** the built-in Cooldown Manager already supports Druid and has Blizzard-level data access. Addons like BetterCooldownManager and TerribleBuffTracker restyle its icons instead of reading the data themselves. If the Rip/Rake matching fails, Catnip could place Blizzard's tracked-debuff display inside our layout.
+**Cooldown Manager as a data source (verified in Forever 2026-09-27).** The CDM viewers (`BuffIconCooldownViewer`, `BuffBarCooldownViewer`, plus `EssentialCooldownViewer`, `UtilityCooldownViewer`) are ordinary frames; each tracked spell is a child. In combat: `item.cooldownInfo.spellID` and `item.cooldownID` stay **readable**, `item.auraInstanceID` is **secret** (contrary to one source), and `item:IsShown()` is **readable and follows the buff**. So: identify the item by spell ID, read `IsShown()`. The user has to add the spell to the CDM's tracked buffs/bars. Rip (1079) can be tracked there; Rake not testable yet (not unlocked at the current beta level). Technique from [EnhancedCooldownManager](https://github.com/argium/EnhancedCooldownManager/blob/HEAD/Modules/BuffBars.lua). `/catnip cdm` dumps what's readable.
+
+**Earlier fallback idea:** the built-in Cooldown Manager already supports Druid and has Blizzard-level data access. Addons like BetterCooldownManager and TerribleBuffTracker restyle its icons instead of reading the data themselves. If the Rip/Rake matching fails, Catnip could place Blizzard's tracked-debuff display inside our layout.
 
 ## Verify in-game (next step)
 

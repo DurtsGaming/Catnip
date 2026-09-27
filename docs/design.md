@@ -30,8 +30,8 @@ We need to make these (with transparency):
 
 1. **Resource circle (#1 on #2, bordered by #3).** Energy in Cat, Rage in Bear. Fills from the bottom; raw value as text in the middle.
 2. **Combo points (#1 bordered by #3).** Five small circles; fill/fade in by count. Hide the borders when not in Cat Form.
-3. **DoT rings (#5).** Rip ring around the 5th combo point, Rake ring around the 3rd. Full when applied, drains clockwise to empty.
-4. **Swing timer (#7 on #4).** Ring around the big circle. Turns red/pink when Maul is queued. Text like `0.2 / 1.0` floating above the combo points.
+3. **DoT rings (#5).** Rip is a thin red layer just outside the swing ring (changed from the original "ring around the 5th combo point"). Full when applied, drains clockwise to empty. Rake: TBD once unlocked in the beta.
+4. **Swing timer (#7 on #4).** Ring around the big circle, filling counter-clockwise from 12 o'clock, with a crisp black outline. Turns red/pink when Maul is queued. The `0.2 / 1.0` text was tried and dropped: the ring alone is the swing timer.
 5. **Clearcasting proc texture.**
 
 ## Later

@@ -1,0 +1,7 @@
+# Development-only files, left out of release zips (and GitHub's Download ZIP).
+/docs export-ignore
+/tools export-ignore
+/CLAUDE.md export-ignore
+/.claude export-ignore
+/.github export-ignore
+/.gitattributes export-ignore
