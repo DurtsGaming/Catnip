@@ -4,17 +4,6 @@ A World of Warcraft addon for the **Druid** class, targeting **WoW Forever** (cu
 
 Design: read `docs/design.md` (the working spec) before feature work. It summarizes the owner's originals, `docs/design.pdf` and `docs/layout-sketch.svg`.
 
-## Git: hands off
-
-**Never run git commands** (no commit, push, branch, stash, checkout, etc.), even in auto mode. When work reaches a sensible commit point, stop and tell the user it's time to commit, with a suggested commit message. The user runs git themselves.
-
-## Environment
-
-- Game client: `C:\Program Files (x86)\World of Warcraft\_classic_beta_\` (Forever, build 1.60.x). `_classic_era_` is regular Classic — not our target.
-- `_classic_beta_\Interface\AddOns\Catnip` is a **junction to this repo**. Edits are live in-game after `/reload`; no copying or build step.
-- TOC `## Interface: 16001` (verified in-game).
-- Git lives at `C:\Program Files\Git`; its `cmd` folder was added to the user PATH on 2026-09-27 (it was missing, so PowerShell couldn't find `git`).
-
 ## Dev loop
 
 1. Claude edits files.
