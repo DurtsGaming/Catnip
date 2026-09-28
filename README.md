@@ -1,6 +1,6 @@
 # Catnip
 
-A compact circular HUD for Feral Druids in **World of Warcraft: Forever** (currently in beta). It shows your energy/rage/mana, combo points, swing timer, Rip duration and Clearcasting procs in one place.
+A compact circular HUD for Feral Druids in **World of Warcraft: Forever** (currently in beta). It shows your energy, rage or mana (as a %), combo points, swing timer, global cooldown, Rip duration and Clearcasting procs in one place. No setup needed beyond installing it.
 
 ## Installing
 
@@ -18,15 +18,6 @@ A compact circular HUD for Feral Druids in **World of Warcraft: Forever** (curre
 4. Start the game (or type `/reload` if it's running). On the character select screen, click **AddOns** and make sure Catnip is ticked.
 
 You should see "Catnip loaded" in chat when you log in.
-
-### Cooldown Manager setup (needed for Clearcasting and Rip)
-
-In combat, WoW hides buff and debuff details from addons. Catnip gets around this by reading Blizzard's built-in Cooldown Manager, so you need to tell the Cooldown Manager to track two things:
-
-1. Open **Options → Gameplay Enhancements** and turn on the **Cooldown Manager**.
-2. In its settings, add **Omen of Clarity** and **Rip** to your tracked buffs or tracked bars.
-
-Without this, the Clearcasting claws only work out of combat, and the Rip ring won't show.
 
 ## Using it
 

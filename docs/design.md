@@ -30,13 +30,13 @@ We need to make these (with transparency):
 
 1. **Resource circle (#1 on #2, bordered by #3).** Energy in Cat, Rage in Bear. Fills from the bottom; raw value as text in the middle.
 2. **Combo points (#1 bordered by #3).** Five small circles; fill/fade in by count. Hide the borders when not in Cat Form.
-3. **DoT rings (#5).** Rip is a thin red layer just outside the swing ring (changed from the original "ring around the 5th combo point"). Full when applied, drains clockwise to empty. Rake: TBD once unlocked in the beta.
-4. **Swing timer (#7 on #4).** Ring around the big circle, filling counter-clockwise from 12 o'clock, with a crisp black outline. Turns red/pink when Maul is queued. The `0.2 / 1.0` text was tried and dropped: the ring alone is the swing timer.
-5. **Clearcasting proc texture.**
+3. **DoT rings (#5).** Rip is a red ring (~5px band) around the 5th combo point, hidden with the dots outside Cat Form. Full when applied, drains clockwise to empty. (A thin red layer outside the swing ring was tried and dropped.) Rake: likely around the 3rd combo point, once unlocked in the beta.
+4. **Swing timer (#7 on #4).** Ring around the big circle that appears full on each swing and empties clockwise from 12 o'clock (earlier versions filled, then emptied counter-clockwise), over the soft glow (#4) with a small gap from the resource circle. (A crisp black outline was tried and dropped in favour of the feathered look.) Turns red/pink when Maul is queued. The `0.2 / 1.0` text was tried and dropped: the ring alone is the swing timer.
+5. **Clearcasting proc texture.** Mirrored claw marks at the top of the resource circle. (A translucent "phantom" +10 energy preview was tried and removed.)
 
 ## Later
 
-- Mana (as %) in caster/other forms (`[noform][form:2,4]`); Lacerate stacks.
+- ~~Mana (as %) in caster/other forms~~ done: shown as a % whenever the power is mana (via `UnitPowerPercent`). Lacerate stacks still to do.
 - Segmented DoT rings (#6): Rip in 6 segments (12s, 2s ticks), Rake in 3 (9s, 3s ticks).
 - Cast bar on the #7 ring.
 - GCD "Harvey ball" over the big circle, scaled to attack speed (for timing shifts to autos).

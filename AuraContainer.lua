@@ -26,6 +26,7 @@ end
 --   spellIDs    list of aura spell IDs to show (every rank, on Forever)
 --   width, height, x, y   button size, and its centre's offset from the HUD centre
 --   level       frame level above the HUD
+--   parent      frame to live in (default the HUD); the container hides whenever it does
 --   initialize  function(button): adds our look; runs once per pooled button, out of combat
 function ns.CreateAuraContainer(options)
     local spellSet = {}
@@ -53,7 +54,7 @@ function ns.CreateAuraContainer(options)
     end
 
     local function Create()
-        container = CreateFrame("AuraContainer", nil, ns.hud, "CustomAuraContainerTemplate")
+        container = CreateFrame("AuraContainer", nil, options.parent or ns.hud, "CustomAuraContainerTemplate")
         container:SetSize(options.width, options.height)
         container:SetPoint("CENTER", ns.hud, "CENTER", options.x or 0, options.y or 0)
         container:SetFrameLevel(ns.hud:GetFrameLevel() + (options.level or 10))

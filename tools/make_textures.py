@@ -60,17 +60,6 @@ def ring_bar(size, thickness):
     return shade
 
 
-def ring_outline(size, band, line):
-    """Crisp lines along the inner and outer edges of a ring_bar band of the same size."""
-    r = size / 2 - 1
-    inner = r - band
-    def alpha(d, *_):
-        outer_edge = min(r - d + 0.5, d - (r - line) + 0.5)
-        inner_edge = min(inner + line - d + 0.5, d - inner + 0.5)
-        return max(outer_edge, inner_edge)
-    return alpha
-
-
 def ring_glow(size, center=0.78, width=0.07):
     """A soft band. Its centre sits at `center` of the radius, so Lua scales it up to line up with ring_bar."""
     r = size / 2 - 1
@@ -97,25 +86,16 @@ def claws(size, spacing=0.4, length=0.85, width=0.09, outline=5):
     return shape
 
 
-def right_half(shape):
-    """Only the right half of another shape. The swing timer rotates two of these to draw an arc."""
-    def half(d, dx, dy):
-        a, b = as_pair(shape(d, dx, dy))
-        return a * max(0.0, min(1.0, dx + 0.5)), b
-    return half
-
 
 TEXTURES = {
     # name: (size, shape)  -- numbers match docs/design.md
     "circle_hard": (256, circle_hard(256)),                 # 1
     "circle_soft": (256, circle_soft(256)),                 # 2
     "ring_thin": (256, ring(256, 6)),                       # 3, for the big circle
-    "ring_small": (64, ring(64, 8)),                        # combo point borders
-    "ring_dot": (256, ring(256, 10)),                       # 5, DoT timer layer outside the swing ring
+    "ring_small": (64, ring(64, 5)),                        # combo point borders
+    "ring_rip": (128, ring(128, 10)),                       # 5, Rip timer around combo point 5
     "ring_glow": (256, ring_glow(256)),                     # 4
     "ring_bar": (256, ring_bar(256, 20)),                   # 7
-    "ring_bar_half": (256, right_half(ring_bar(256, 20))),  # 7, for arc fills
-    "ring_bar_outline": (256, ring_outline(256, 20, 5)),    # 7, edge lines drawn over the fill
     "claws": (128, claws(128)),                             # Clearcasting proc
 }
 

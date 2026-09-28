@@ -2,8 +2,7 @@ local addonName, ns = ...
 
 ns.MEDIA = "Interface\\AddOns\\" .. addonName .. "\\media\\"
 ns.RESOURCE_SIZE = 100
-ns.SWING_RING_SIZE = 128
-ns.DOT_RING_SIZE = 144 -- Rip layer, just outside the swing ring
+ns.SWING_RING_SIZE = 134 -- band starts ~3px outside the resource circle's border
 
 -- In combat, Midnight hands addons "secret" values we can display but not compare or do math on.
 function ns.IsSecret(value)
@@ -40,7 +39,7 @@ function ns.TryRegisterEvent(frame, event)
 end
 
 local hud = CreateFrame("Frame", "CatnipHUD", UIParent)
-hud:SetSize(230, 230) -- positioned and scaled by Layout.lua
+hud:SetSize(240, 240) -- positioned and scaled by Layout.lua
 ns.hud = hud
 
 -- Saved settings (CatnipDB). Modules add their defaults to ns.defaults and

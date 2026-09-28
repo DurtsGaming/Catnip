@@ -2,19 +2,26 @@
 local addonName, ns = ...
 
 local COUNT = 5
-local DOT_SIZE = 28
-local RING_THICKNESS = DOT_SIZE * 8 / 64 -- ring_small is 8px thick in a 64px texture
-local ARC_RADIUS = ns.DOT_RING_SIZE / 2 + DOT_SIZE / 2 + 3 -- just outside the Rip ring
+local DOT_SIZE = 38
+local RING_THICKNESS = DOT_SIZE * 5 / 64 -- ring_small is 5px thick in a 64px texture
+local ARC_RADIUS = 93 -- distance of the dot centres from the HUD centre
 local ANGLES = { 150, 120, 90, 60, 30 } -- degrees, left to right; 90 is straight up
 local COLOR = { 1, 0.82, 0 }
 
 local group = CreateFrame("Frame", nil, ns.hud)
 group:SetAllPoints()
 
+-- Shared with Rip.lua, whose ring sits around dot 5 and hides with the dots outside Cat Form.
+ns.comboGroup = group
+ns.COMBO_DOT_SIZE = DOT_SIZE
+function ns.ComboDotOffset(i)
+    local angle = math.rad(ANGLES[i])
+    return ARC_RADIUS * math.cos(angle), ARC_RADIUS * math.sin(angle)
+end
+
 local fills = {}
 for i = 1, COUNT do
-    local angle = math.rad(ANGLES[i])
-    local x, y = ARC_RADIUS * math.cos(angle), ARC_RADIUS * math.sin(angle)
+    local x, y = ns.ComboDotOffset(i)
 
     -- Border draws above the fill, so a filled dot keeps its outline.
     local border = group:CreateTexture(nil, "OVERLAY")
