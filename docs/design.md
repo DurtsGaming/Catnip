@@ -6,7 +6,7 @@ Text summary of [design.pdf](design.pdf) ("Feral Forever: Resource Manager / Rot
 
 A compact, circular Feral Druid HUD, ported from a WeakAuras setup. Inspiration: [Rabble's energy WA](https://wago.io/Ak7NxBdCc) plus the same author's Rage and Mana WAs ([wago.io/p/Rabble](https://wago.io/p/Rabble)).
 
-Layout, from the centre out: the resource circle (with the GCD pie over it), the swing timer ring, then five combo point dots along an arc above, with the Rip ring around dot 5. Clearcasting claws sit at the top of the resource circle.
+Layout, from the centre out: the resource circle (with the GCD pie over it), the swing timer ring, then five combo point dots along an arc above, with the Rake ring around dot 4 and the Rip ring around dot 5. Clearcasting claws sit at the top of the resource circle.
 
 - **Combo points follow the arc** of the big circle's top edge (a paw-print shape), not a flat row. See the sketch.
 - Ignore the thin inner ring in the reference WA — it's the old Classic 2s energy ticker.
@@ -30,7 +30,7 @@ We need to make these (with transparency):
 
 1. **Resource circle (#1 on #2, bordered by #3).** Energy in Cat, Rage in Bear. Fills from the bottom; raw value as text in the middle.
 2. **Combo points (#1 bordered by #3).** Five small circles; fill/fade in by count. Hide the borders when not in Cat Form.
-3. **DoT rings (#5).** Rip is a red ring (~5px band) around the 5th combo point, hidden with the dots outside Cat Form. Full when applied, drains clockwise to empty. (A thin red layer outside the swing ring was tried and dropped.) Rake: likely around the 3rd combo point, once unlocked in the beta.
+3. **DoT rings (#5).** Rip is a red ring (~5px band) around the 5th combo point and Rake the same around the 4th (one AuraContainer each), hidden with the dots outside Cat Form. Full when applied, drains clockwise to empty. (A thin red layer outside the swing ring was tried and dropped.)
 4. **Swing timer (#7 on #4).** Ring around the big circle that appears full on each swing and empties clockwise from 12 o'clock (earlier versions filled, then emptied counter-clockwise), over the soft glow (#4) with a small gap from the resource circle. (A crisp black outline was tried and dropped in favour of the feathered look.) Turns red/pink when Maul is queued. The `0.2 / 1.0` text was tried and dropped: the ring alone is the swing timer.
 5. **Clearcasting proc texture.** Mirrored claw marks at the top of the resource circle. (A translucent "phantom" +10 energy preview was tried and removed.)
 
@@ -66,6 +66,7 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Five-second-rule ring | Built, **untested** in-game |
 | Clearcasting claws | Verified in combat (AuraContainer) |
 | Rip ring around combo dot 5 | Verified |
+| Rake ring around combo dot 4 | Built, needs in-game check (Rake not yet unlocked in the beta) |
 | Move/resize (`/catnip`) | Verified |
 
-Next candidates: fix combo points on target switch; Rake ring (once unlocked); items from "Later".
+Next candidates: fix combo points on target switch; items from "Later".

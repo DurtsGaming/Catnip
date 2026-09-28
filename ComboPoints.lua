@@ -11,7 +11,7 @@ local COLOR = { 1, 0.82, 0 }
 local group = CreateFrame("Frame", nil, ns.hud)
 group:SetAllPoints()
 
--- Shared with Rip.lua, whose ring sits around dot 5 and hides with the dots outside Cat Form.
+-- Shared with DotRings.lua, whose rings sit around dots 4 and 5 and hides with the dots outside Cat Form.
 ns.comboGroup = group
 ns.COMBO_DOT_SIZE = DOT_SIZE
 function ns.ComboDotOffset(i)
