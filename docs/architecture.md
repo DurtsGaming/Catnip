@@ -1,0 +1,85 @@
+# Catnip architecture
+
+How the code is organised, so a new session can start a feature without reading every file. For *why* things work this way under Midnight's combat restrictions, see [api-research.md](api-research.md). For what to build, see [design.md](design.md).
+
+## Files (load order, from `Catnip.toc`)
+
+| File | Owns |
+|------|------|
+| `Catnip.lua` | Core: the HUD frame (`ns.hud`, 240×240), shared sizes, saved settings, slash commands, debug helpers |
+| `Layout.lua` | Moving/resizing the HUD: `/catnip` unlock (drag, mouse wheel), `/catnip scale`, `/catnip reset` |
+| `CooldownManager.lua` | `ns.CDM`: reads Blizzard's Cooldown Manager frames. Now only the Clearcasting fallback uses it; also `/catnip cdm` |
+| `AuraContainer.lua` | `ns.CreateAuraContainer`: shared setup for Blizzard's AuraContainer (how we show auras in combat) |
+| `Resource.lua` | Big centre circle: energy/rage/mana fill + number (mana as %) |
+| `ComboPoints.lua` | Five dots on an arc above the circle; Cat Form only |
+| `Swing.lua` | Swing timer ring (Cooldown swipe from `PLAYER_SWING`) + Maul-queued tint |
+| `Gcd.lua` | GCD "Harvey ball": dark pie over the resource circle |
+| `Proc.lua` | Clearcasting claws (AuraContainer; Cooldown Manager fallback) |
+| `Rip.lua` | Rip timer ring around combo dot 5 (AuraContainer) |
+
+New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses another's `ns.*` (e.g. `Rip.lua` needs `ComboPoints.lua` and `AuraContainer.lua` first).
+
+## Shared namespace (`local addonName, ns = ...`)
+
+**Core (`Catnip.lua`)**
+- `ns.hud`: the frame everything draws in. Layout.lua positions and scales it.
+- Sizes: `ns.RESOURCE_SIZE` (100), `ns.SWING_RING_SIZE` (134). `ns.MEDIA`: texture folder path.
+- `ns.db`: saved settings (`CatnipDB`), ready inside `ns.OnLoad` callbacks. Modules add defaults to `ns.defaults` at file load.
+- `ns.OnLoad(fn)`: run `fn` once saved settings are loaded (`ADDON_LOADED`).
+- `ns.commands.<name> = fn(arg)`: adds `/catnip <name> <arg>`. `ns.commands[""]` is plain `/catnip`. Update the help text in `Catnip.lua` when adding one.
+- `ns.Print(...)`, `ns.Debug(...)` (only with `/catnip debug` on; secret-safe), `ns.Describe(v)`, `ns.IsSecret(v)`.
+- `ns.TryRegisterEvent(frame, event)`: registers an event that may not exist in this client; returns success.
+
+**Features**
+- `ns.CreateAuraContainer{ label, unit, filter, spellIDs, width, height, x, y, level, parent, initialize }` and `ns.HideAuraButtonArt(button)` (AuraContainer.lua). `ns.HAS_AURA_CONTAINER`.
+- `ns.comboGroup`, `ns.COMBO_DOT_SIZE`, `ns.ComboDotOffset(i)` (ComboPoints.lua): for things placed around combo dots.
+- `ns.CDM.IsActive(spellID)`, `ns.CDM.OnChange(fn)` (CooldownManager.lua).
+
+## Layering (frame levels above `ns.hud`)
+
+| Level | What |
+|-------|------|
+| hud | Resource backdrop (soft circle), swing glow |
+| +1 | Resource bar, swing ring, combo dots group |
+| +3 | GCD Harvey ball (over the fill) |
+| +5 | Rip AuraContainer |
+| bar +5 | Resource number (above the GCD shading) |
+| +10 | Clearcasting AuraContainer (claws) |
+| +20 | Unlock overlay (Layout.lua) |
+
+Gotcha: `CooldownFrameTemplate` pins its frame to fill the parent; call `ClearAllPoints()` before sizing it (see `Gcd.lua`).
+
+## Patterns to reuse
+
+- **Showing a secret number**: pass it straight to `StatusBar:SetValue`/`SetMinMaxValues` or `FontString:SetText`/`string.format`. Never compare or do math on it.
+- **Showing an aura in combat** (buff on player, debuff on target): `ns.CreateAuraContainer`. Blizzard shows a button while the aura is up; our look goes on the button in `initialize` and must be static after that (the button and its children are off-limits to our code later). For a timer, create a `Cooldown` in `initialize` and register it with `button:SetDurationCooldown(cooldown)`: Blizzard drives it with the real duration. Examples: `Proc.lua` (static claws), `Rip.lua` (timer ring).
+- **Timer rings**: a `Cooldown` frame with `SetSwipeTexture(<ring texture>)`, `SetDrawEdge(false)`, `SetDrawBling(false)`, `SetHideCountdownNumbers(true)`. Starts full and empties clockwise. Plain-number timings go to `SetCooldown`; secret ones need a duration object (`SetCooldownFromDurationObject`).
+
+## Textures
+
+`py tools/make_textures.py` regenerates everything in `media/` (32-bit TGA). Textures are white shapes with transparency, tinted in-game with `SetVertexColor`/`SetSwipeColor`. To add one, write a shape function and add it to `TEXTURES`. After changing a ring's thickness, update any Lua constant that depends on it (they're commented, e.g. `ComboPoints.lua` `RING_THICKNESS`, `Rip.lua` `RING_SIZE`). Preview textures before shipping: an earlier bug left a texture's corners opaque.
+
+Current set: `circle_hard`, `circle_soft`, `ring_thin` (resource border), `ring_small` (combo dots), `ring_rip`, `ring_glow`, `ring_bar` (swing), `claws`.
+
+## Debugging and testing
+
+The user tests in-game; Claude can't run the game. Each change ends with exact steps and what to look for.
+
+- `/catnip debug` toggles grey debug lines (saved). Modules print startup facts, e.g. which detection method is active.
+- `/catnip cdm` lists what the Cooldown Manager is tracking and what's readable.
+- Errors: the user has BugSack; ask for the full error text including the **Locals** block, which usually pinpoints the cause.
+- `/reload` picks up everything, including `.toc` and texture changes.
+- To verify an unknown API, add debug output that prints what the game actually returns (with `ns.Describe`, which shows `<secret>`), test in and out of combat, then record the result in api-research.md.
+
+## Reference addons
+
+- **Blood in the Water** (another Forever Feral addon), installed locally at `C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\BloodInTheWater\`. Its comments document many Forever quirks; it's where the AuraContainer technique came from. Read it before researching online.
+- **EllesmereUI** on GitHub: swing timer via `PLAYER_SWING` (PR #2150), Forever GCD fix (PR #2240).
+- **EnhancedCooldownManager** on GitHub: the Cooldown Manager reading technique.
+
+## Releasing
+
+1. Bump `## Version` in `Catnip.toc` (e.g. `0.1.0-beta.3`).
+2. The user commits, pushes, then tags and pushes the tag: `git tag v0.1.0-beta.3`, `git push origin v0.1.0-beta.3`.
+3. `.github/workflows/release.yml` builds `Catnip-<tag>.zip` (a `Catnip/` folder) and publishes it on the Releases page. Tags containing `-` become pre-releases. `.gitattributes` keeps dev files (`docs/`, `tools/`, `CLAUDE.md`, etc.) out of the zip.
+4. Keep `README.md` (player-facing install and usage) in sync with features.

@@ -6,7 +6,7 @@ Text summary of [design.pdf](design.pdf) ("Feral Forever: Resource Manager / Rot
 
 A compact, circular Feral Druid HUD, ported from a WeakAuras setup. Inspiration: [Rabble's energy WA](https://wago.io/Ak7NxBdCc) plus the same author's Rage and Mana WAs ([wago.io/p/Rabble](https://wago.io/p/Rabble)).
 
-Layout: a big central circle (resource), five small combo-point circles along an arc above it, and a ring around the central circle (swing timer).
+Layout, from the centre out: the resource circle (with the GCD pie over it), the swing timer ring, then five combo point dots along an arc above, with the Rip ring around dot 5. Clearcasting claws sit at the top of the resource circle.
 
 - **Combo points follow the arc** of the big circle's top edge (a paw-print shape), not a flat row. See the sketch.
 - Ignore the thin inner ring in the reference WA — it's the old Classic 2s energy ticker.
@@ -39,7 +39,7 @@ We need to make these (with transparency):
 - ~~Mana (as %) in caster/other forms~~ done: shown as a % whenever the power is mana (via `UnitPowerPercent`). Lacerate stacks still to do.
 - Segmented DoT rings (#6): Rip in 6 segments (12s, 2s ticks), Rake in 3 (9s, 3s ticks).
 - Cast bar on the #7 ring.
-- GCD "Harvey ball" over the big circle, scaled to attack speed (for timing shifts to autos).
+- ~~GCD "Harvey ball" over the big circle~~ built (a dark pie over the resource circle). The "scaled to attack speed, for timing shifts to autos" part isn't possible: the timings are secret in combat.
 - Indicators: Faerie Fire missing on target; Tiger's Fury off cooldown; Thistle Tea off cooldown; number of shifts affordable with current mana; Enrage available; Enrage buff/debuff active.
 - Short cooldowns tracked like DoTs: Tiger's Fury, Primal Bite, Faerie Fire.
 - Buffs: Berserk, Frenzied Regeneration, potions/procs; a summed "proc power" fill (like the old WotLK WA) for timing Berserk.
@@ -50,12 +50,19 @@ We need to make these (with transparency):
 - Cooldowns of 1 min or longer: Berserk, potions, Enrage, Nature's Grasp.
 - Internal cooldowns: Omen, weapon procs.
 
-## Open questions (verify in-game)
+## Status (as of 0.1.0-beta.2)
 
-Forever uses the Midnight API with combat restrictions, so each data source needs checking before we build on it. See [api-research.md](api-research.md) for the planned approach per feature.
+How each piece works is in [architecture.md](architecture.md); the API facts behind it are in [api-research.md](api-research.md).
 
-- Player energy/rage/mana and combo points: expected readable, unverified.
-- Rip/Rake durations on the target: target debuff data may be restricted in combat. **High risk.**
-- Swing timer: classic swing timers rely on the combat log, which Midnight restricts. **High risk.**
-- Maul queued state, Clearcasting buff, form detection: unverified.
-- Custom texture file format and loading.
+| Feature | State |
+|---------|-------|
+| Resource circle (energy/rage fill + number) | Verified in combat |
+| Mana shown as % | Built, **untested** |
+| Combo points | Verified. **Open issue:** may not update on target switch (Forever combo points may be per-target; see api-research.md) |
+| Swing timer (clockwise, Maul tint) | Timing and Maul verified; clockwise swipe version **untested** |
+| GCD Harvey ball | Works; latest size fix **untested** |
+| Clearcasting claws | Verified in combat (AuraContainer) |
+| Rip ring around combo dot 5 | Built, **untested** at this position and size |
+| Move/resize (`/catnip`) | Verified |
+
+Next candidates: fix combo points on target switch; Rake ring (once unlocked); items from "Later".

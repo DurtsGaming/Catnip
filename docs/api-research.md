@@ -1,73 +1,90 @@
 # Midnight API research
 
-How Catnip's MVP features can work under Midnight's addon restrictions, which Forever inherits. Researched 2026-09-27 from web sources (listed at the bottom). **Nothing here has been verified in the Forever client yet**; see "Verify in-game".
+What we know about Forever's addon API: Midnight's (12.x) rules with Forever-specific quirks. Each fact says whether it was **verified** in Catnip in the Forever client (with the date) or comes from a source. When something new is verified or disproved, update this file.
 
 ## How the restrictions work
 
-- **Secret values.** Restricted APIs return values that are sealed boxes. Addon code can't compare them, do math on them, or save them. Addon code *can* pass them into certain widget methods, which render them: `StatusBar:SetValue`, `StatusBar:SetMinMaxValues` (both verified), `FontString:SetText` (verified), `SetAlpha`, `SetRotation`, texture coloring. `string.format` and `C_StringUtil` accept them too. Test with `issecretvalue(v)`. **Not** `Cooldown:SetCooldown`: it rejects secrets from addon code ("Secret values are only allowed during untainted execution", verified 2026-09-27). For secret cooldowns use duration objects: `C_Spell.GetSpellCooldownDuration(id)` into `Cooldown:SetCooldownFromDurationObject`.
-- **When restrictions apply:** in combat (including open world and target dummies), during boss encounters, in Mythic+, and in PvP matches. Outside those, most APIs return normal values.
-- **Design rule this implies:** Catnip *displays* combat data but can't *decide* things based on it. "Show energy as a fill" works. "Glow when energy > 40" doesn't, unless the value is non-secret.
+- **Secret values.** In combat, restricted APIs return sealed values. Addon code can't compare them, do math on them, or save them. It *can* pass them to some widget methods, which display them.
+  - Accept secrets (verified 2026-09-27): `StatusBar:SetValue`, `StatusBar:SetMinMaxValues`, `FontString:SetText`, `string.format`.
+  - Accept secrets (from sources, untested by us): `SetAlpha`, `SetRotation`, texture colouring, `C_StringUtil`.
+  - **Reject secrets from addon code** (verified): `Cooldown:SetCooldown` ("Secret values are only allowed during untainted execution"). For secret timings use duration objects: `C_Spell.GetSpellCooldownDuration(id)` → `Cooldown:SetCooldownFromDurationObject`.
+  - `issecretvalue(v)` tests a value; `ns.IsSecret` wraps it.
+- **Tainted vs. untainted.** Blizzard's own code gets real numbers; addon code gets secrets. Hooking Blizzard's frames doesn't help: the hook is addon code too.
+- **When restrictions apply:** in combat (including open world and target dummies), boss encounters, Mythic+, PvP. Out of combat most values are readable.
+- **Design rule:** Catnip can *display* combat data but not *decide* things from it. "Fill a bar with energy" works; "glow when energy > 40" doesn't.
+- **Forbidden objects.** Some Blizzard frames (AuraContainer buttons) error on *any* method call from addon code, even `IsShown()`, and frames we attach to them become forbidden too (verified).
 
-## Helper APIs built for this
+## What's readable in combat (verified in Forever unless noted)
 
-- **Duration objects:** `C_DurationUtil.CreateDuration()`, `:SetTimeFromStart(start, duration)`, `:SetTimeSpan(start, end)`.
-- **Self-updating timers:** `StatusBar:SetTimerDuration(durationObj, interpolation)` and `StatusBar:SetTimer(expirationTime, duration, modRate)`. The bar animates on its own, and addon code never sees the numbers.
-- **Booleans:** `SetAlphaFromBoolean(bool, alphaIfTrue, alphaIfFalse)` and `SetVertexColorFromBoolean(bool, colorIfTrue, colorIfFalse)` show or tint something based on a secret true/false.
-- **Auras:** `C_UnitAuras.GetUnitAuras(unit, filter, max, sortRule, sortDir)` (the list itself isn't secret, but its contents are) and `C_UnitAuras.GetAuraDurationRemainingPercent(auraInstanceID, curve)`.
-- **Cooldowns:** `C_Spell.GetSpellCooldownRemaining(spellID)` returns a duration object.
-- **Restriction state:** `C_RestrictedActions.IsRestrictionActive(Enum.AddOnRestrictionType.X)`.
+| Data | In combat |
+|------|-----------|
+| Energy, rage, mana (`UnitPower`, `UnitPowerMax`) | Secret; display via StatusBar/FontString |
+| Mana as a percentage | `UnitPowerPercent("player", powerType, false, CurveConstants.ScaleTo100)`: computed engine-side (0-100), then `string.format("%d%%", …)`. **Built, untested in combat** |
+| Combo points (`UnitPower("player", Enum.PowerType.ComboPoints)`) | Readable (dots work in combat). **Open issue:** Blood in the Water says Forever combo points are per-target and `UnitPower` doesn't reset on target switch; it uses `GetComboPoints("player", "target")`. Unverified by us |
+| `UnitPowerType` | Readable |
+| `PLAYER_SWING(duration, slot)` | Readable number (Cat 0.99s, Bear 2.475s); slot 0 = main hand. `C_SwingTimer` exists |
+| `C_Spell.IsCurrentSpell("Maul")` | Readable |
+| Player's own casts (`UNIT_SPELLCAST_SUCCEEDED`, spell ID) | Readable |
+| Ability cooldowns (`C_Spell.GetSpellCooldown`) | `startTime`, `duration`, `modRate` secret; `isOnGCD`, `isActive`, `isEnabled` readable |
+| Player buffs by ID (`C_UnitAuras.GetPlayerAuraBySpellID`) | **Returns nil** in combat (works out of combat) |
+| `UNIT_AURA` `updateInfo.addedAuras` | The whole list is a secret table; can't loop over it |
+| `auraInstanceID` | Secret (at least on Cooldown Manager items; one source claimed otherwise) |
+| Cooldown Manager items | `cooldownInfo.spellID`, `cooldownID`, `IsShown()` readable; `auraInstanceID` secret |
+| `COMBAT_LOG_EVENT_UNFILTERED` | Removed from the addon API (source) |
 
-## What's secret and what isn't
+## Techniques that work
 
-| Data | Status |
-|------|--------|
-| Energy, rage, mana (`UnitPower`/`UnitPowerMax`, primary power) | **Secret**, always |
-| Combo points | **Not secret** (secondary resource) |
-| Player's own casts (`UNIT_SPELLCAST_*` on `player`) | **Not secret**, even in combat |
-| `auraInstanceID` | **Never secret** |
-| Aura spell IDs, names, durations | Secret while restricted (player buffs less restricted than target debuffs) |
-| Spell cooldowns | Secret while restricted (some whitelisted) |
-| `COMBAT_LOG_EVENT_UNFILTERED` | **Removed** from the addon API entirely |
-| `UnitAttackSpeed`, `PLAYER_SWING` args, `C_Spell.IsCurrentSpell` | May be secret; addons guard with `issecretvalue` |
+### AuraContainer: showing auras in combat (verified)
 
-## MVP feature plan
+Patch 12.1.0 widget; the main tool for buffs and debuffs. Learned from the Blood in the Water addon. Catnip's shared setup is `AuraContainer.lua` (`ns.CreateAuraContainer`).
 
-| Feature | Approach | Risk |
-|---------|----------|------|
-| Energy/rage circle fill | Vertical `StatusBar` with a circle texture; pass the secret `UnitPower`/`UnitPowerMax` to `SetMinMaxValues`/`SetValue` | **Verified in combat** 2026-09-27 (Cat, Bear, caster) |
-| Energy/rage number | `FontString:SetText(UnitPower(...))`, which accepts secrets | **Verified in combat** 2026-09-27 |
-| Combo points | Plain logic; not secret. `UnitPower("player", Enum.PowerType.ComboPoints)` works (player-based, not Classic target-based) | **Verified** 2026-09-27 |
-| Swing timer | `PLAYER_SWING(duration, weaponSlot)` fires at the start of each swing. `C_SwingTimer` exists too. The duration is a **plain number, not secret, even in combat** (Cat 0.99s, Bear 2.475s); slot is `0` for main hand. Because it's readable, `Cooldown:SetCooldown(GetTime(), duration)` accepts it; the swipe empties clockwise. (A counter-clockwise version used two rotated half-ring textures in clip frames; dropped when the design went clockwise.) If Blizzard makes it secret later, SetCooldown will reject it. | **Verified** 2026-09-27 |
-| Global cooldown | GCD dummy spell 61304 **doesn't exist in Forever**; Forever reports the GCD on **Classic's GCD spell 29515** (from [EllesmereUI PR #2240](https://github.com/EllesmereGaming/EllesmereUI/pull/2240), which fixed exactly this). In combat `C_Spell.GetSpellCooldown` returns start/duration/modRate as secrets but **`isOnGCD`, `isActive` and `isEnabled` as plain booleans** (verified). `SetCooldown` rejects the secrets, so: duration object via `GetSpellCooldownDuration` + `SetCooldownFromDurationObject`, with an `isOnGCD` + Classic GCD length (1.0s energy, 1.5s otherwise) backup. | Harvey ball in `Gcd.lua`, duration-object route being tested 2026-09-27 |
-| Maul queued | `C_Spell.IsCurrentSpell("Maul")` on `ACTIONBAR_UPDATE_STATE` / `CURRENT_SPELL_CAST_CHANGED`. Not secret in combat. | **Verified** 2026-09-27 |
-| Clearcasting | **Via the Cooldown Manager** (see below): watch the CDM item for Omen of Clarity (16864). The direct `C_UnitAuras.GetPlayerAuraBySpellID(16870)` works out of combat but **returns nil in combat**. In combat `UNIT_AURA`'s `updateInfo.addedAuras` is also a *secret table*. | CDM signal verified 2026-09-27; claws being tested |
-| Rip/Rake rings | **AuraContainer** on `target`, `HARMFUL\|PLAYER`, filtered to every Rip rank; our own Cooldown frame (swipe = our ring) registered via `button:SetDurationCooldown`, so Blizzard drives the real timing. Replaces the earlier plan (cast-event timer + Cooldown Manager presence), which guessed the duration and lost track on target switches. The `addedAuras` matching trick doesn't work in combat (secret table). Rake: same approach once unlocked. | Being tested 2026-09-27 |
-| Round ring fills (DoTs, swing) | A `StatusBar` can't draw a curved fill. Common approach: two half-circle textures rotated with `SetRotation`, which accepts secrets. | Medium: technique question, not API |
+- `CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")`. We configure: `SetUnit("player"/"target")`, `SetAuraGroupFilterString("main", "HELPFUL|PLAYER")` (or `HARMFUL|PLAYER`), `SetAuraGroupCandidateFilters("main", { includeSpellIDs = {[id]=true} })`, `SetAuraGroupMaxFrameCount`, `SetAuraGroupLayout`, `SetFlowLayoutAnchorPoint`/`SetFlowLayoutGrowthDirection` (required, or nothing shows), `SetEnabled(true)`.
+- Blizzard's engine fetches and filters the auras and shows an `AuraButton` while a match is up. Our code never learns whether it's up.
+- **Containers can't be created in combat.** Unit and filters can change any time; re-apply on `PLAYER_TARGET_CHANGED` for target containers.
+- **Buttons are pooled (10) and created at setup**, out of combat, when `initializeFrame(button)` runs. They start **empty and zero-sized**: size them there, or nothing on them shows.
+- **Buttons are forbidden after setup**, and so is anything we parent to them. So our look must be **static** (textures, animations). Anything that needs updating must live outside the button, and the button can't tell our code when it's shown (an `OnShow`-script "gate" idea is untested).
+- **Register our own widgets** and Blizzard drives them with real aura data: `button:SetDurationCooldown(cooldownFrame)` (timer swipe; used for Rip), `SetIcon(texture)`, `SetApplicationCount(fontString)`, `AddPandemicRegion(region)`.
+- Feature check: `C_XMLUtil.GetTemplateInfo("CustomAuraContainerTemplate")`.
 
-**Cooldown Manager as a data source (verified in Forever 2026-09-27).** The CDM viewers (`BuffIconCooldownViewer`, `BuffBarCooldownViewer`, plus `EssentialCooldownViewer`, `UtilityCooldownViewer`) are ordinary frames; each tracked spell is a child. In combat: `item.cooldownInfo.spellID` and `item.cooldownID` stay **readable**, `item.auraInstanceID` is **secret** (contrary to one source), and `item:IsShown()` is **readable and follows the buff**. So: identify the item by spell ID, read `IsShown()`. The user has to add the spell to the CDM's tracked buffs/bars. Rip (1079) can be tracked there; Rake not testable yet (not unlocked at the current beta level). Technique from [EnhancedCooldownManager](https://github.com/argium/EnhancedCooldownManager/blob/HEAD/Modules/BuffBars.lua). `/catnip cdm` dumps what's readable.
+### Global cooldown (verified)
 
-**AuraContainer (found 2026-09-27 in the Blood in the Water addon, works in Forever).** Patch 12.1.0 added a Blizzard widget made for this: `CreateFrame("AuraContainer", nil, parent, "CustomAuraContainerTemplate")`. The addon only configures it (`SetUnit`, `SetAuraGroupFilterString("main", "HELPFUL|PLAYER")`, `SetAuraGroupCandidateFilters("main", { includeSpellIDs = {...} })`, `SetAuraGroupMaxFrameCount`, `SetEnabled`), and Blizzard's engine fetches, filters and updates the auras itself, showing an `AuraButton` (with its own `Cooldown` swipe) while a matching aura is up. No Cooldown Manager setup needed from the user. Caveats: containers can't be *created* in combat (filters and units can change any time); AuraButtons can only be restyled out of combat (`initializeFrame` callback), and the addon never learns in Lua whether the aura is up, so visuals must live on the button. Feature check: `C_XMLUtil.GetTemplateInfo("CustomAuraContainerTemplate")`. **Verified in Catnip 2026-09-27** (Clearcasting claws): the container pre-creates a pool of 10 buttons at setup, out of combat, so `initializeFrame` runs then; buttons start at **zero size** and must be sized there or nothing on them shows; our own child frame (textures + animation) on the button shows and hides with the aura, in combat. AuraButtons are **forbidden objects** to addon code: even `button:IsShown()` errors ("Attempt to access forbidden object"), so don't query them after setup. **Frames we parent to a button become forbidden too** (2026-09-27: `SetShown` on our own child StatusBar errored in combat), so anything on a button must be static after setup (textures, animations). For something that must update, keep it outside the button. An untested idea: a tiny child frame's `OnShow`/`OnHide` scripts on the button as the on/off signal (tried for a Clearcasting energy preview, which was removed before it was verified). Buttons start **empty**: the addon creates its own widgets and registers them, and Blizzard then drives them with the real aura data: `button:SetIcon(texture)`, `button:SetDurationCooldown(cooldownFrame)` (timer swipe), `button:SetApplicationCount(fontString)` (stacks), `button:AddPandemicRegion(region)` (shown in the refresh window). Catnip's shared setup is `AuraContainer.lua`.
+- Retail's GCD dummy spell 61304 **doesn't exist in Forever**. Forever reports the GCD on **Classic's GCD spell 29515** (from [EllesmereUI PR #2240](https://github.com/EllesmereGaming/EllesmereUI/pull/2240)).
+- In combat, start and duration are secret, but `isActive`/`isOnGCD` are readable. So: when `isActive`, `C_Spell.GetSpellCooldownDuration(29515)` → `SetCooldownFromDurationObject`. Backup if that's ever rejected: on `isOnGCD`, run our own sweep of the Classic length (1.0s energy abilities, 1.5s otherwise).
+- Can't scale anything to the GCD or attack speed in combat: the numbers are secret.
 
-**Forever combo points (from Blood in the Water's comments, unverified by us):** combo points are per-target, Classic-style. `UnitPower("player", 4)` does *not* reset on `PLAYER_TARGET_CHANGED`; that addon reads `GetComboPoints("player", "target")` instead. Catnip's combo dots currently use `UnitPower`. Forever aura IDs from that addon: Clearcasting 16870; Rip ranks 1079, 9492, 9493, 9752, 9894, 9896; Rake ranks 1822, 1823, 1824, 9904.
+### Swing timer (verified)
 
-**Earlier fallback idea:** the built-in Cooldown Manager already supports Druid and has Blizzard-level data access. Addons like BetterCooldownManager and TerribleBuffTracker restyle its icons instead of reading the data themselves. If the Rip/Rake matching fails, Catnip could place Blizzard's tracked-debuff display inside our layout.
+`PLAYER_SWING` gives a plain duration, so `Cooldown:SetCooldown(GetTime(), duration)` works. If Blizzard ever makes it secret, SetCooldown will reject it. An earlier counter-clockwise version used two rotated half-ring textures in clip frames (`SetClipsChildren` + `SetRotation`); it worked, but was dropped when the design went clockwise.
 
-## Verify in-game (next step)
+### Cooldown Manager reading (verified; now only a fallback)
 
-A probe module that prints, in and out of combat on a target dummy:
-1. `issecretvalue()` on energy, rage, energy max, combo points.
-2. Whether `PLAYER_SWING` can be registered, and whether `C_SwingTimer` exists; if so, its payload.
-3. `UnitAttackSpeed("player")`, and whether it's secret.
-4. `UNIT_SPELLCAST_SUCCEEDED` spell IDs for Rake/Rip/Maul.
-5. `UNIT_AURA` `addedAuras` on target: which fields come through, and which are secret.
-6. `C_Spell.IsCurrentSpell` for Maul while queued.
-7. Whether the helper APIs above exist in Forever (`C_DurationUtil`, `StatusBar.SetTimerDuration`, `C_RestrictedActions`, etc.).
+The Cooldown Manager viewers (`BuffIconCooldownViewer`, `BuffBarCooldownViewer`, `EssentialCooldownViewer`, `UtilityCooldownViewer`) are ordinary frames; each tracked spell is a child. Identify an item by `cooldownInfo.spellID` and read `IsShown()`. Needs the player to track the spell in the Cooldown Manager, so AuraContainer replaced it. Technique from [EnhancedCooldownManager](https://github.com/argium/EnhancedCooldownManager/blob/HEAD/Modules/BuffBars.lua). `/catnip cdm` dumps the items.
+
+## Forever spell and aura IDs
+
+| What | IDs |
+|------|-----|
+| Clearcasting (buff) | 16870 |
+| Omen of Clarity (talent; Cooldown Manager tracks this) | 16864 |
+| Rip ranks (each rank's aura has its own ID) | 1079, 9492, 9493, 9752, 9894, 9896 |
+| Rake ranks | 1822, 1823, 1824, 9904 (not yet unlocked in the beta) |
+| GCD spell | 29515 |
+| Tiger's Fury / Berserk (from Blood in the Water) | 5217 / 417141 |
+
+## Dead ends (don't retry)
+
+- Reading the GCD from spell 61304 (doesn't exist in Forever).
+- Passing secret cooldowns to `Cooldown:SetCooldown`.
+- Matching new auras via `UNIT_AURA` `addedAuras` + `auraInstanceID` (both secret in combat).
+- A cast-event timer for Rip (guessed the duration, lost track on target switches); replaced by AuraContainer.
+- Updating frames attached to AuraContainer buttons (forbidden).
+- `C_UnitAuras.GetPlayerAuraBySpellID` in combat (returns nil).
 
 ## Sources
 
-- [Warcraft Wiki: Patch 12.0.0 planned API changes](https://warcraft.wiki.gg/wiki/Patch_12.0.0/Planned_API_changes): the main technical reference
+- [Warcraft Wiki: Patch 12.0.0 planned API changes](https://warcraft.wiki.gg/wiki/Patch_12.0.0/Planned_API_changes): the main technical reference (some claims turned out wrong for Forever; trust verified facts above)
 - [Blizzard: Combat philosophy and addon disarmament in Midnight](https://news.blizzard.com/en-us/article/24246290/combat-philosophy-and-addon-disarmament-in-midnight)
-- [EllesmereUI PR #2150: swing timer via PLAYER_SWING](https://github.com/EllesmereGaming/EllesmereUI/pull/2150)
-- [SwingBarMidnight: UnitAttackSpeed-based prediction](https://github.com/UnknownAlienHuman/swing-bar-midnight)
-- [Spiritbloom.Pro: tracking specific buffs in Midnight (auraInstanceID matching)](https://spiritbloom.pro/blog/tracking-buffs-in-midnight)
-- [Warcraft Tavern: secret values, Cooldown Manager](https://www.warcrafttavern.com/wow/news/wow-midnight-developer-talk-new-secret-values-combat-info-cooldown-manager-combat-addons-nerfed/)
+- Blood in the Water addon (local, see [architecture.md](architecture.md#reference-addons))
+- [EllesmereUI PR #2150](https://github.com/EllesmereGaming/EllesmereUI/pull/2150) (swing timer), [PR #2240](https://github.com/EllesmereGaming/EllesmereUI/pull/2240) (Forever GCD)
+- [EnhancedCooldownManager](https://github.com/argium/EnhancedCooldownManager)
+- [C_Spell.GetSpellCooldown](https://warcraft.wiki.gg/wiki/API_C_Spell.GetSpellCooldown), [Cooldown:SetCooldown](https://warcraft.wiki.gg/wiki/API_Cooldown_SetCooldown)
