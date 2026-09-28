@@ -38,7 +38,7 @@ We need to make these (with transparency):
 
 - ~~Mana (as %) in caster/other forms~~ done: shown as a % whenever the power is mana (via `UnitPowerPercent`). Lacerate stacks still to do.
 - Segmented DoT rings (#6): Rip in 6 segments (12s, 2s ticks), Rake in 3 (9s, 3s ticks).
-- Cast bar on the #7 ring.
+- ~~Cast bar on the #7 ring~~ built: a gold ring replaces the swing ring while casting (fills clockwise); channels are blue and drain. Below the ring: `0.0 / 2.5s` (remaining time for channels) and the spell name.
 - ~~GCD "Harvey ball" over the big circle~~ built (a dark pie over the resource circle). The "scaled to attack speed, for timing shifts to autos" part isn't possible: the timings are secret in combat.
 - Indicators: Faerie Fire missing on target; Tiger's Fury off cooldown; Thistle Tea off cooldown; number of shifts affordable with current mana; Enrage available; Enrage buff/debuff active.
 - Short cooldowns tracked like DoTs: Tiger's Fury, Primal Bite, Faerie Fire.
@@ -61,6 +61,7 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Combo points | Verified. **Open issue:** may not update on target switch (Forever combo points may be per-target; see api-research.md) |
 | Swing timer (clockwise, Maul tint) | Verified |
 | GCD Harvey ball | Verified |
+| Cast bar on the swing ring | Built, **untested** in-game |
 | Clearcasting claws | Verified in combat (AuraContainer) |
 | Rip ring around combo dot 5 | Verified |
 | Move/resize (`/catnip`) | Verified |

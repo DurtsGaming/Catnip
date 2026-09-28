@@ -27,6 +27,7 @@ ring:SetSwipeTexture(ns.MEDIA .. "ring_bar")
 ring:SetDrawEdge(false)
 ring:SetDrawBling(false)
 ring:SetHideCountdownNumbers(true)
+ns.swingRing = ring -- Cast.lua hides it (via alpha, so it keeps timing) while casting
 
 local function SetRingColor(color)
     ring:SetSwipeColor(color[1], color[2], color[3], 1)

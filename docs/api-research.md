@@ -24,6 +24,7 @@ What we know about Forever's addon API: Midnight's (12.x) rules with Forever-spe
 | `UnitPowerType` | Readable |
 | `PLAYER_SWING(duration, slot)` | Readable number (Cat 0.99s, Bear 2.475s); slot 0 = main hand. `C_SwingTimer` exists |
 | `C_Spell.IsCurrentSpell("Maul")` | Readable |
+| Player's cast or channel (`UnitCastingInfo`, `UnitChannelInfo`) | Unverified. ThreatPlates (Forever-adapted, installed locally) treats start/end times as secret and uses `UnitCastingDuration`/`UnitChannelDuration` duration objects instead; `Cast.lua` does the same via `Cooldown:SetCooldownFromDurationObject`. For text, ThreatPlates passes `duration:GetRemainingDuration()` straight to `string.format` every frame; `GetElapsedDuration`/`GetTotalDuration` are assumed (unverified) and `Cast.lua` falls back to remaining-only if they're missing |
 | Player's own casts (`UNIT_SPELLCAST_SUCCEEDED`, spell ID) | Readable |
 | Ability cooldowns (`C_Spell.GetSpellCooldown`) | `startTime`, `duration`, `modRate` secret; `isOnGCD`, `isActive`, `isEnabled` readable |
 | Player buffs by ID (`C_UnitAuras.GetPlayerAuraBySpellID`) | **Returns nil** in combat (works out of combat) |

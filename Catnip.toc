@@ -12,6 +12,7 @@ AuraContainer.lua
 Resource.lua
 ComboPoints.lua
 Swing.lua
+Cast.lua
 Gcd.lua
 Proc.lua
 Rip.lua

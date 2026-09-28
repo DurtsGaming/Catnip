@@ -13,6 +13,7 @@ How the code is organised, so a new session can start a feature without reading 
 | `Resource.lua` | Big centre circle: energy/rage/mana fill + number (mana as %) |
 | `ComboPoints.lua` | Five dots on an arc above the circle; Cat Form only |
 | `Swing.lua` | Swing timer ring (Cooldown swipe from `PLAYER_SWING`) + Maul-queued tint |
+| `Cast.lua` | Cast bar: takes the swing ring's place while casting or channelling (duration objects) |
 | `Gcd.lua` | GCD "Harvey ball": dark pie over the resource circle |
 | `Proc.lua` | Clearcasting claws (AuraContainer; Cooldown Manager fallback) |
 | `Rip.lua` | Rip timer ring around combo dot 5 (AuraContainer) |
@@ -33,6 +34,7 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 **Features**
 - `ns.CreateAuraContainer{ label, unit, filter, spellIDs, width, height, x, y, level, parent, initialize }` and `ns.HideAuraButtonArt(button)` (AuraContainer.lua). `ns.HAS_AURA_CONTAINER`.
 - `ns.comboGroup`, `ns.COMBO_DOT_SIZE`, `ns.ComboDotOffset(i)` (ComboPoints.lua): for things placed around combo dots.
+- `ns.swingRing` (Swing.lua): the swing Cooldown. Cast.lua sets its alpha to 0 while casting, so it keeps timing underneath.
 - `ns.CDM.IsActive(spellID)`, `ns.CDM.OnChange(fn)` (CooldownManager.lua).
 
 ## Layering (frame levels above `ns.hud`)
@@ -40,7 +42,7 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 | Level | What |
 |-------|------|
 | hud | Resource backdrop (soft circle), swing glow |
-| +1 | Resource bar, swing ring, combo dots group |
+| +1 | Resource bar, swing ring, cast ring (same spot; only one visible), combo dots group |
 | +3 | GCD Harvey ball (over the fill) |
 | +5 | Rip AuraContainer |
 | bar +5 | Resource number (above the GCD shading) |
