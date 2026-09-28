@@ -73,9 +73,11 @@ The user tests in-game; Claude can't run the game. Each change ends with exact s
 
 ## Reference addons
 
-- **Blood in the Water** (another Forever Feral addon), installed locally at `C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\BloodInTheWater\`. Its comments document many Forever quirks; it's where the AuraContainer technique came from. Read it before researching online.
-- **EllesmereUI** on GitHub: swing timer via `PLAYER_SWING` (PR #2150), Forever GCD fix (PR #2240).
-- **EnhancedCooldownManager** on GitHub: the Cooldown Manager reading technique.
+Check these before general web searching, in this order:
+
+1. **[EllesmereUI](https://github.com/EllesmereGaming/EllesmereUI)**: a large Midnight UI suite with many active contributors, now being adapted for Forever. The best source for current API usage. Search its code and pull requests: Forever-specific fixes land as PRs, e.g. the swing timer via `PLAYER_SWING` (PR #2150) and the Forever GCD fix (PR #2240).
+2. **Blood in the Water** (another Forever Feral addon), installed locally at `C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\BloodInTheWater\`. Its comments document many Forever quirks; it's where the AuraContainer technique came from.
+3. **[EnhancedCooldownManager](https://github.com/argium/EnhancedCooldownManager)**: the Cooldown Manager reading technique.
 
 ## Releasing
 
