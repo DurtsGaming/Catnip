@@ -19,7 +19,7 @@ What we know about Forever's addon API: Midnight's (12.x) rules with Forever-spe
 | Data | In combat |
 |------|-----------|
 | Energy, rage, mana (`UnitPower`, `UnitPowerMax`) | Secret; display via StatusBar/FontString |
-| Mana as a percentage | `UnitPowerPercent("player", powerType, false, CurveConstants.ScaleTo100)`: computed engine-side (0-100), then `string.format("%d%%", …)`. **Built, untested in combat** |
+| Mana as a percentage | `UnitPowerPercent("player", powerType, false, CurveConstants.ScaleTo100)`: computed engine-side (0-100), then `string.format("%d%%", …)`. **Verified** 2026-09-27 |
 | Combo points (`UnitPower("player", Enum.PowerType.ComboPoints)`) | Readable (dots work in combat). **Open issue:** Blood in the Water says Forever combo points are per-target and `UnitPower` doesn't reset on target switch; it uses `GetComboPoints("player", "target")`. Unverified by us |
 | `UnitPowerType` | Readable |
 | `PLAYER_SWING(duration, slot)` | Readable number (Cat 0.99s, Bear 2.475s); slot 0 = main hand. `C_SwingTimer` exists |

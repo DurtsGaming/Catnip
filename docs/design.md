@@ -57,12 +57,12 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Feature | State |
 |---------|-------|
 | Resource circle (energy/rage fill + number) | Verified in combat |
-| Mana shown as % | Built, **untested** |
+| Mana shown as % | Verified |
 | Combo points | Verified. **Open issue:** may not update on target switch (Forever combo points may be per-target; see api-research.md) |
-| Swing timer (clockwise, Maul tint) | Timing and Maul verified; clockwise swipe version **untested** |
-| GCD Harvey ball | Works; latest size fix **untested** |
+| Swing timer (clockwise, Maul tint) | Verified |
+| GCD Harvey ball | Verified |
 | Clearcasting claws | Verified in combat (AuraContainer) |
-| Rip ring around combo dot 5 | Built, **untested** at this position and size |
+| Rip ring around combo dot 5 | Verified |
 | Move/resize (`/catnip`) | Verified |
 
 Next candidates: fix combo points on target switch; Rake ring (once unlocked); items from "Later".
