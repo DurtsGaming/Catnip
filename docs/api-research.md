@@ -71,6 +71,7 @@ The Cooldown Manager viewers (`BuffIconCooldownViewer`, `BuffBarCooldownViewer`,
 | Omen of Clarity (talent; Cooldown Manager tracks this) | 16864 |
 | Rip ranks (each rank's aura has its own ID) | 1079, 9492, 9493, 9752, 9894, 9896 |
 | Rake ranks | 1822, 1823, 1824, 9904 (not yet unlocked in the beta) |
+| Enrage (Bear; buff, 10s) | 5229 (**verified** 2026-09-27) |
 | GCD spell | 29515 |
 | Tiger's Fury / Berserk (from Blood in the Water) | 5217 / 417141 |
 

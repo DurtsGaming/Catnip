@@ -23,6 +23,7 @@ backdrop:SetVertexColor(0, 0, 0, 0.4) -- light enough for the GCD shading to sho
 local bar = CreateFrame("StatusBar", nil, hud)
 bar:SetSize(SIZE, SIZE)
 bar:SetPoint("CENTER")
+bar:SetFrameLevel(hud:GetFrameLevel() + 2) -- leaves +1 for the Enrage tint behind it (Enrage.lua)
 bar:SetOrientation("VERTICAL")
 bar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
 

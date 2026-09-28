@@ -18,6 +18,7 @@ How the code is organised, so a new session can start a feature without reading 
 | `Gcd.lua` | GCD "Harvey ball": dark pie over the resource circle |
 | `Proc.lua` | Clearcasting claws (AuraContainer; Cooldown Manager fallback) |
 | `DotRings.lua` | DoT timer rings: Rake around combo dot 4, Rip around dot 5 (one AuraContainer each) |
+| `Enrage.lua` | Bear Form: a red disc behind the rage fill while Enrage is up (AuraContainer), so the empty part of the circle reads red |
 
 New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses another's `ns.*` (e.g. `DotRings.lua` needs `ComboPoints.lua` and `AuraContainer.lua` first).
 
@@ -43,11 +44,12 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 | Level | What |
 |-------|------|
 | hud | Resource backdrop (soft circle), swing glow |
-| +1 | Resource bar, swing ring, cast ring (same spot; only one visible), combo dots group |
+| +1 | Enrage tint (behind the fill), swing ring, cast ring (same spot; only one visible), combo dots group |
+| +2 | Resource bar |
 | +3 | GCD Harvey ball (over the fill) |
 | +4 | Five-second-rule ring (over the resource border) |
 | +5 | DoT ring AuraContainers (Rake, Rip) |
-| bar +5 | Resource number (above the GCD shading) |
+| bar +5 (+7) | Resource number (above the GCD shading) |
 | +10 | Clearcasting AuraContainer (claws) |
 | +20 | Unlock overlay (Layout.lua) |
 
