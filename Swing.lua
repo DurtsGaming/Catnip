@@ -36,7 +36,6 @@ end
 SetRingColor(COLOR)
 
 local function OnSwing(duration, weaponSlot)
-    ns.Debug("PLAYER_SWING duration:", duration, "slot:", weaponSlot)
     if ns.IsSecret(duration) or not duration or duration <= 0 then
         ring:Clear()
         return

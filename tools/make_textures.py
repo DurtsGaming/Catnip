@@ -50,6 +50,12 @@ def ring(size, thickness):
     return lambda d, *_: min(r - d + 0.5, d - (r - thickness) + 0.5)
 
 
+def half_ring(size, thickness):
+    """The left half of a ring, on a full-size canvas so it rotates around the ring's centre."""
+    full = ring(size, thickness)
+    return lambda d, dx, dy: min(full(d), -dx + 0.5)
+
+
 def ring_bar(size, thickness):
     """A thick ring, brightest along the middle of the band for a rounded look."""
     r = size / 2 - 1
@@ -94,6 +100,7 @@ TEXTURES = {
     "ring_thin": (256, ring(256, 6)),                       # 3, for the big circle
     "ring_small": (64, ring(64, 5)),                        # combo point borders
     "ring_rip": (128, ring(128, 10)),                       # 5, Rip timer around combo point 5
+    "ring_mana_half": (256, half_ring(256, 10)),            # five-second rule: left half, rotated into view
     "ring_glow": (256, ring_glow(256)),                     # 4
     "ring_bar": (256, ring_bar(256, 20)),                   # 7
     "claws": (128, claws(128)),                             # Clearcasting proc

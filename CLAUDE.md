@@ -12,10 +12,9 @@ Keep these current: when a feature changes or a fact is verified, update the rel
 ## Dev loop
 
 1. Claude edits files.
-2. User runs `/reload` in-game and reports what happened (chat output, errors, screenshots).
-3. Repeat. Claude cannot run the game, so ask the user to test anything that needs in-game verification, and say exactly what to look for.
+2. User runs `/reload` in-game and reports what happened (chat output, errors, screenshots).3. Repeat. Claude cannot run the game, so ask the user to test anything that needs in-game verification, and say exactly what to look for.
 
-New `.lua` files must be added to `Catnip.toc` or they won't load. In this client, `/reload` picks up everything — new files, `.toc` changes, and textures (verified 2026-09-27) — so no game restart is needed.
+New `.lua` files must be added to `Catnip.toc` or they won't load. In this client, `/reload` picks up new files, `.toc` file lists, and textures (verified 2026-09-27), so no game restart is needed for those. Exception: a **new `## SavedVariables` name was not saved after a `/reload`** (2026-09-27), probably needing a full restart; store new data inside `CatnipDB` instead.
 
 ## The API: verify, don't trust memory
 

@@ -14,6 +14,7 @@ How the code is organised, so a new session can start a feature without reading 
 | `ComboPoints.lua` | Five dots on an arc above the circle; Cat Form only |
 | `Swing.lua` | Swing timer ring (Cooldown swipe from `PLAYER_SWING`) + Maul-queued tint |
 | `Cast.lua` | Cast bar: takes the swing ring's place while casting or channelling (duration objects) |
+| `FiveSecondRule.lua` | Five-second-rule ring over the resource border (mana forms only); empties when a mana spell lands, then two arcs grow from 6 o'clock to meet at 12 over 5s |
 | `Gcd.lua` | GCD "Harvey ball": dark pie over the resource circle |
 | `Proc.lua` | Clearcasting claws (AuraContainer; Cooldown Manager fallback) |
 | `Rip.lua` | Rip timer ring around combo dot 5 (AuraContainer) |
@@ -34,7 +35,7 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 **Features**
 - `ns.CreateAuraContainer{ label, unit, filter, spellIDs, width, height, x, y, level, parent, initialize }` and `ns.HideAuraButtonArt(button)` (AuraContainer.lua). `ns.HAS_AURA_CONTAINER`.
 - `ns.comboGroup`, `ns.COMBO_DOT_SIZE`, `ns.ComboDotOffset(i)` (ComboPoints.lua): for things placed around combo dots.
-- `ns.swingRing` (Swing.lua): the swing Cooldown. Cast.lua sets its alpha to 0 while casting, so it keeps timing underneath.
+- `ns.swingRing` (Swing.lua): the swing Cooldown. Cast.lua sets its alpha to 0 while casting, so it keeps timing underneath.- `ns.IsClearcasting()` (Proc.lua): true/false, or nil if unknown (in combat without Omen of Clarity tracked in the Cooldown Manager).
 - `ns.CDM.IsActive(spellID)`, `ns.CDM.OnChange(fn)` (CooldownManager.lua).
 
 ## Layering (frame levels above `ns.hud`)
@@ -44,6 +45,7 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 | hud | Resource backdrop (soft circle), swing glow |
 | +1 | Resource bar, swing ring, cast ring (same spot; only one visible), combo dots group |
 | +3 | GCD Harvey ball (over the fill) |
+| +4 | Five-second-rule ring (over the resource border) |
 | +5 | Rip AuraContainer |
 | bar +5 | Resource number (above the GCD shading) |
 | +10 | Clearcasting AuraContainer (claws) |
@@ -55,13 +57,15 @@ Gotcha: `CooldownFrameTemplate` pins its frame to fill the parent; call `ClearAl
 
 - **Showing a secret number**: pass it straight to `StatusBar:SetValue`/`SetMinMaxValues` or `FontString:SetText`/`string.format`. Never compare or do math on it.
 - **Showing an aura in combat** (buff on player, debuff on target): `ns.CreateAuraContainer`. Blizzard shows a button while the aura is up; our look goes on the button in `initialize` and must be static after that (the button and its children are off-limits to our code later). For a timer, create a `Cooldown` in `initialize` and register it with `button:SetDurationCooldown(cooldown)`: Blizzard drives it with the real duration. Examples: `Proc.lua` (static claws), `Rip.lua` (timer ring).
+- **Filling a round shape from the bottom**: a vertical `StatusBar` with a flat texture, masked (`CreateMaskTexture` + `AddMaskTexture`) to a circle or ring. Example: `Resource.lua`.
+- **Arcs growing along a ring from any point** (a Cooldown swipe always starts at 12 o'clock): per side, a clip frame (`SetClipsChildren(true)`) showing half the ring, holding a half-ring texture that `SetRotation` swings into view. Example: `FiveSecondRule.lua` (two arcs from 6 o'clock meeting at 12).
 - **Timer rings**: a `Cooldown` frame with `SetSwipeTexture(<ring texture>)`, `SetDrawEdge(false)`, `SetDrawBling(false)`, `SetHideCountdownNumbers(true)`. Starts full and empties clockwise. Plain-number timings go to `SetCooldown`; secret ones need a duration object (`SetCooldownFromDurationObject`).
 
 ## Textures
 
 `py tools/make_textures.py` regenerates everything in `media/` (32-bit TGA). Textures are white shapes with transparency, tinted in-game with `SetVertexColor`/`SetSwipeColor`. To add one, write a shape function and add it to `TEXTURES`. After changing a ring's thickness, update any Lua constant that depends on it (they're commented, e.g. `ComboPoints.lua` `RING_THICKNESS`, `Rip.lua` `RING_SIZE`). Preview textures before shipping: an earlier bug left a texture's corners opaque.
 
-Current set: `circle_hard`, `circle_soft`, `ring_thin` (resource border), `ring_small` (combo dots), `ring_rip`, `ring_glow`, `ring_bar` (swing), `claws`.
+Current set: `circle_hard`, `circle_soft`, `ring_thin` (resource border), `ring_small` (combo dots), `ring_rip`, `ring_mana_half` (five-second rule: a ring's left half on a full-size canvas, for rotating), `ring_glow`, `ring_bar` (swing), `claws`.
 
 ## Debugging and testing
 
@@ -69,8 +73,8 @@ The user tests in-game; Claude can't run the game. Each change ends with exact s
 
 - `/catnip debug` toggles grey debug lines (saved). Modules print startup facts, e.g. which detection method is active.
 - `/catnip cdm` lists what the Cooldown Manager is tracking and what's readable.
-- Errors: the user has BugSack; ask for the full error text including the **Locals** block, which usually pinpoints the cause.
-- `/reload` picks up everything, including `.toc` and texture changes.
+- Errors: BugSack is **not** installed in the Forever client (checked 2026-09-27); ask the user for the full error text.
+- `/reload` picks up code, `.toc` file lists and textures, but **not a new `## SavedVariables` name** (probably needs a restart); keep new saved data inside `CatnipDB`.
 - To verify an unknown API, add debug output that prints what the game actually returns (with `ns.Describe`, which shows `<secret>`), test in and out of combat, then record the result in api-research.md.
 
 ## Reference addons

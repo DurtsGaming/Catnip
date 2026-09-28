@@ -13,6 +13,7 @@ Resource.lua
 ComboPoints.lua
 Swing.lua
 Cast.lua
+FiveSecondRule.lua
 Gcd.lua
 Proc.lua
 Rip.lua

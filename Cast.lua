@@ -107,7 +107,11 @@ local function Start(durationFn, infoFn)
     return true
 end
 
+-- Our own state: the ring can't be asked, since a Cooldown hides itself when its timer runs out.
+local isCasting = false
+
 local function SetCasting(casting)
+    isCasting = casting
     ring:SetShown(casting)
     info:SetShown(casting)
     if ns.swingRing then
@@ -145,8 +149,11 @@ for _, event in ipairs({
 end
 events:RegisterEvent("PLAYER_ENTERING_WORLD")
 events:SetScript("OnEvent", function(_, event)
+    local wasCasting = isCasting
     Update()
-    ns.Debug("cast event:", event, "shown:", ring:IsShown())
+    if isCasting ~= wasCasting then -- skip the many events that change nothing (e.g. failed casts)
+        ns.Debug("cast bar", isCasting and "shown" or "hidden", "on", event)
+    end
 end)
 
 ns.OnLoad(function()

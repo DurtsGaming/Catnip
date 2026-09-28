@@ -26,6 +26,8 @@ What we know about Forever's addon API: Midnight's (12.x) rules with Forever-spe
 | `C_Spell.IsCurrentSpell("Maul")` | Readable |
 | Player's cast or channel (`UnitCastingInfo`, `UnitChannelInfo`) | Unverified. ThreatPlates (Forever-adapted, installed locally) treats start/end times as secret and uses `UnitCastingDuration`/`UnitChannelDuration` duration objects instead; `Cast.lua` does the same via `Cooldown:SetCooldownFromDurationObject`. For text, ThreatPlates passes `duration:GetRemainingDuration()` straight to `string.format` every frame; `GetElapsedDuration`/`GetTotalDuration` are assumed (unverified) and `Cast.lua` falls back to remaining-only if they're missing |
 | Player's own casts (`UNIT_SPELLCAST_SUCCEEDED`, spell ID) | Readable |
+| Spell costs (`C_Spell.GetSpellPowerCost(spellID)`) | Unverified. `FiveSecondRule.lua` uses it to tell mana spells from energy/rage/free ones, and assumes "costs mana" if it can't read it. Unknown whether it reflects Clearcasting (cost 0) |
+| `UNIT_SPELLCAST_SENT(unit, target, castGUID, spellID)` | Unverified. Fires on button press, before the cast consumes Clearcasting; `FiveSecondRule.lua` decides "will this spend mana" here |
 | Ability cooldowns (`C_Spell.GetSpellCooldown`) | `startTime`, `duration`, `modRate` secret; `isOnGCD`, `isActive`, `isEnabled` readable |
 | Player buffs by ID (`C_UnitAuras.GetPlayerAuraBySpellID`) | **Returns nil** in combat (works out of combat) |
 | `UNIT_AURA` `updateInfo.addedAuras` | The whole list is a secret table; can't loop over it |

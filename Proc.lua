@@ -14,6 +14,20 @@ local CLAW_X = ns.RESOURCE_SIZE * 0.2 -- each set's offset from the centre line
 local CLAW_Y = ns.RESOURCE_SIZE * 0.22
 local BOX_WIDTH, BOX_HEIGHT = 2 * CLAW_X + CLAW_SIZE, CLAW_SIZE -- covers both claw sets
 
+-- Is Clearcasting up? nil if we can't tell: in combat the aura API hides it, so only the
+-- Cooldown Manager knows (if the player tracks Omen of Clarity there). Our claws don't need
+-- this (AuraContainer), but other code deciding things does (FiveSecondRule.lua).
+function ns.IsClearcasting()
+    local active = ns.CDM.IsActive(OMEN_OF_CLARITY)
+    if active ~= nil then
+        return active
+    end
+    if InCombatLockdown() then
+        return nil
+    end
+    return C_UnitAuras.GetPlayerAuraBySpellID(CLEARCASTING) ~= nil
+end
+
 -- Our look: both claw sets on one frame centred in parent, pulsing while visible.
 local function CreateClawFrame(parent)
     local frame = CreateFrame("Frame", nil, parent)
@@ -57,13 +71,13 @@ local function SetupCooldownManagerFallback()
     local warnedUntracked = false
 
     local function Update()
-        local active = ns.CDM.IsActive(OMEN_OF_CLARITY)
+        local active = ns.IsClearcasting()
         if active == nil then
-            if InCombatLockdown() and not warnedUntracked then
+            if not warnedUntracked then
                 warnedUntracked = true
                 ns.Print("add Omen of Clarity to the Cooldown Manager's tracked buffs so Clearcasting shows in combat.")
             end
-            active = C_UnitAuras.GetPlayerAuraBySpellID(CLEARCASTING) ~= nil -- works out of combat only
+            active = false
         end
         if active ~= anchor:IsShown() then
             ns.Debug("Clearcasting:", active, "in combat:", InCombatLockdown())
