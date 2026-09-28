@@ -19,7 +19,7 @@ backdrop:SetSize(SIZE * 1.3, SIZE * 1.3)
 backdrop:SetPoint("CENTER")
 backdrop:SetVertexColor(0, 0, 0, 0.4) -- light enough for the GCD shading to show over the empty part
 
--- #1 hard circle: a square vertical bar, masked to a circle so it fills from the bottom
+-- #1 circle: a square vertical bar, masked to a soft-edged circle so it fills from the bottom
 local bar = CreateFrame("StatusBar", nil, hud)
 bar:SetSize(SIZE, SIZE)
 bar:SetPoint("CENTER")
@@ -28,7 +28,7 @@ bar:SetOrientation("VERTICAL")
 bar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
 
 local mask = bar:CreateMaskTexture()
-mask:SetTexture(ns.MEDIA .. "circle_hard", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+mask:SetTexture(ns.MEDIA .. "circle_feather", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
 mask:SetAllPoints(bar)
 bar:GetStatusBarTexture():AddMaskTexture(mask)
 

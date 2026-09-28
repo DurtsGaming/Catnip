@@ -1,4 +1,4 @@
--- Global cooldown "Harvey ball": a dark pie over the resource circle that shrinks clockwise while
+-- Global cooldown "Harvey ball": a faint white pie over the resource circle that shrinks clockwise while
 -- the GCD runs. Retail reports the GCD on dummy spell 61304; Forever doesn't have it and uses
 -- Classic's GCD spell 29515 instead (found via EllesmereUI's Forever fix, PR #2240).
 --
@@ -11,14 +11,14 @@
 local addonName, ns = ...
 
 local REFERENCE_SPELL = 29515 -- Forever's GCD spell
-local SHADE = { 0, 0, 0, 0.55 }
+local SHADE = { 1, 1, 1, 0.2 }
 
 local ball = CreateFrame("Cooldown", nil, ns.hud, "CooldownFrameTemplate")
 ball:ClearAllPoints() -- the template fills its parent (the whole HUD); size it to the circle instead
 ball:SetSize(ns.RESOURCE_SIZE, ns.RESOURCE_SIZE)
 ball:SetPoint("CENTER")
 ball:SetFrameLevel(ns.hud:GetFrameLevel() + 3) -- over the resource fill, under its number
-ball:SetSwipeTexture(ns.MEDIA .. "circle_hard")
+ball:SetSwipeTexture(ns.MEDIA .. "circle_feather") -- same soft edge as the resource fill
 ball:SetSwipeColor(SHADE[1], SHADE[2], SHADE[3], SHADE[4])
 ball:SetDrawEdge(false)
 ball:SetDrawBling(false)

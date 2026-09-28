@@ -9,7 +9,7 @@ local DOTS = { -- Forever: each rank's aura has its own ID
     { label = "Rake", dot = 4, spellIDs = { 1822, 1823, 1824, 9904 } },
     { label = "Rip", dot = 5, spellIDs = { 1079, 9492, 9493, 9752, 9894, 9896 } },
 }
-local RING_SIZE = ns.COMBO_DOT_SIZE + 7 -- ~3.5px band (ring_rip is 10px thick in 128), touching the dot's edge
+local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- ~5.75px band (ring_rip is 16px thick in 128), covering the dot's border ring
 local COLOR = { 0.9, 0.15, 0.15 }
 
 local function StyleButton(button)

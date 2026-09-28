@@ -4,7 +4,7 @@
 local addonName, ns = ...
 
 local SIZE = ns.SWING_RING_SIZE
-local GLOW_SCALE = 1.18 -- lines ring_glow's soft band up with ring_bar's band (see tools/make_textures.py)
+local GLOW_SCALE = 1.14 -- ring_glow's soft band sits just inside ring_bar's band (1.18 centres it; see tools/make_textures.py)
 local COLOR = { 1, 1, 1 }
 local MAUL_COLOR = { 1, 0.3, 0.5 }
 

@@ -6,7 +6,7 @@ How the code is organised, so a new session can start a feature without reading 
 
 | File | Owns |
 |------|------|
-| `Catnip.lua` | Core: the HUD frame (`ns.hud`, 240×240), shared sizes, saved settings, slash commands, debug helpers |
+| `Catnip.lua` | Core: the HUD frame (`ns.hud`, 240×240, alpha 0.85 for everything), shared sizes, saved settings, slash commands, debug helpers |
 | `Layout.lua` | Moving/resizing the HUD: `/catnip` unlock (drag, mouse wheel), `/catnip scale`, `/catnip reset` |
 | `CooldownManager.lua` | `ns.CDM`: reads Blizzard's Cooldown Manager frames. Now only the Clearcasting fallback uses it; also `/catnip cdm` |
 | `AuraContainer.lua` | `ns.CreateAuraContainer`: shared setup for Blizzard's AuraContainer (how we show auras in combat) |
@@ -15,8 +15,8 @@ How the code is organised, so a new session can start a feature without reading 
 | `Swing.lua` | Swing timer ring (Cooldown swipe from `PLAYER_SWING`) + Maul-queued tint |
 | `Cast.lua` | Cast bar: takes the swing ring's place while casting or channelling (duration objects) |
 | `FiveSecondRule.lua` | Five-second-rule ring over the resource border (mana forms only); empties when a mana spell lands, then two arcs grow from 6 o'clock to meet at 12 over 5s |
-| `Gcd.lua` | GCD "Harvey ball": dark pie over the resource circle |
-| `Proc.lua` | Clearcasting claws (AuraContainer; Cooldown Manager fallback) |
+| `Gcd.lua` | GCD "Harvey ball": faint white pie over the resource circle |
+| `Proc.lua` | Clearcasting: white cap over the top 10% of the resource circle (AuraContainer; Cooldown Manager fallback) |
 | `DotRings.lua` | DoT timer rings: Rake around combo dot 4, Rip around dot 5 (one AuraContainer each) |
 | `Enrage.lua` | Bear Form: a red disc behind the rage fill while Enrage is up (AuraContainer), so the empty part of the circle reads red |
 
@@ -50,7 +50,7 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 | +4 | Five-second-rule ring (over the resource border) |
 | +5 | DoT ring AuraContainers (Rake, Rip) |
 | bar +5 (+7) | Resource number (above the GCD shading) |
-| +10 | Clearcasting AuraContainer (claws) |
+| +10 | Clearcasting AuraContainer (white cap) |
 | +20 | Unlock overlay (Layout.lua) |
 
 Gotcha: `CooldownFrameTemplate` pins its frame to fill the parent; call `ClearAllPoints()` before sizing it (see `Gcd.lua`).
@@ -58,7 +58,7 @@ Gotcha: `CooldownFrameTemplate` pins its frame to fill the parent; call `ClearAl
 ## Patterns to reuse
 
 - **Showing a secret number**: pass it straight to `StatusBar:SetValue`/`SetMinMaxValues` or `FontString:SetText`/`string.format`. Never compare or do math on it.
-- **Showing an aura in combat** (buff on player, debuff on target): `ns.CreateAuraContainer`. Blizzard shows a button while the aura is up; our look goes on the button in `initialize` and must be static after that (the button and its children are off-limits to our code later). For a timer, create a `Cooldown` in `initialize` and register it with `button:SetDurationCooldown(cooldown)`: Blizzard drives it with the real duration. Examples: `Proc.lua` (static claws), `DotRings.lua` (timer rings).
+- **Showing an aura in combat** (buff on player, debuff on target): `ns.CreateAuraContainer`. Blizzard shows a button while the aura is up; our look goes on the button in `initialize` and must be static after that (the button and its children are off-limits to our code later). For a timer, create a `Cooldown` in `initialize` and register it with `button:SetDurationCooldown(cooldown)`: Blizzard drives it with the real duration. Examples: `Proc.lua` (static cap), `DotRings.lua` (timer rings).
 - **Filling a round shape from the bottom**: a vertical `StatusBar` with a flat texture, masked (`CreateMaskTexture` + `AddMaskTexture`) to a circle or ring. Example: `Resource.lua`.
 - **Arcs growing along a ring from any point** (a Cooldown swipe always starts at 12 o'clock): per side, a clip frame (`SetClipsChildren(true)`) showing half the ring, holding a half-ring texture that `SetRotation` swings into view. Example: `FiveSecondRule.lua` (two arcs from 6 o'clock meeting at 12).
 - **Timer rings**: a `Cooldown` frame with `SetSwipeTexture(<ring texture>)`, `SetDrawEdge(false)`, `SetDrawBling(false)`, `SetHideCountdownNumbers(true)`. Starts full and empties clockwise. Plain-number timings go to `SetCooldown`; secret ones need a duration object (`SetCooldownFromDurationObject`).
@@ -67,7 +67,7 @@ Gotcha: `CooldownFrameTemplate` pins its frame to fill the parent; call `ClearAl
 
 `py tools/make_textures.py` regenerates everything in `media/` (32-bit TGA). Textures are white shapes with transparency, tinted in-game with `SetVertexColor`/`SetSwipeColor`. To add one, write a shape function and add it to `TEXTURES`. After changing a ring's thickness, update any Lua constant that depends on it (they're commented, e.g. `ComboPoints.lua` `RING_THICKNESS`, `DotRings.lua` `RING_SIZE`). Preview textures before shipping: an earlier bug left a texture's corners opaque.
 
-Current set: `circle_hard`, `circle_soft`, `ring_thin` (resource border), `ring_small` (combo dots), `ring_rip`, `ring_mana_half` (five-second rule: a ring's left half on a full-size canvas, for rotating), `ring_glow`, `ring_bar` (swing), `claws`.
+Current set: `circle_hard` (combo fills), `circle_feather` (soft ~3px edge: resource fill mask, GCD, Enrage), `circle_cap` (Clearcasting: top 10% of `circle_feather` on the full canvas, so it lines up with the fill), `circle_soft`, `ring_thin` (resource border), `ring_small` (combo dots), `ring_rip` (DoT rings), `ring_mana_half` (five-second rule: a ring's left half on a full-size canvas, for rotating), `ring_glow`, `ring_bar` (swing).
 
 ## Debugging and testing
 

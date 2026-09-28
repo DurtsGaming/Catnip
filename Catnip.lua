@@ -40,6 +40,7 @@ end
 
 local hud = CreateFrame("Frame", "CatnipHUD", UIParent)
 hud:SetSize(240, 240) -- positioned and scaled by Layout.lua
+hud:SetAlpha(0.85) -- every element inherits this, AuraContainers included
 ns.hud = hud
 
 -- Saved settings (CatnipDB). Modules add their defaults to ns.defaults and

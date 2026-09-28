@@ -34,7 +34,7 @@ if ns.HAS_AURA_CONTAINER then
         initialize = function(button)
             ns.HideAuraButtonArt(button)
             local tint = button:CreateTexture(nil, "ARTWORK")
-            tint:SetTexture(ns.MEDIA .. "circle_hard")
+            tint:SetTexture(ns.MEDIA .. "circle_feather")
             tint:SetAllPoints(button)
             tint:SetVertexColor(COLOR[1], COLOR[2], COLOR[3], COLOR[4])
         end,

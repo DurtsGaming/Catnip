@@ -72,38 +72,36 @@ def ring_glow(size, center=0.78, width=0.07):
     return lambda d, *_: math.exp(-(((d - center * r) / (width * r)) ** 2) / 2)
 
 
-def claws(size, spacing=0.4, length=0.85, width=0.09, outline=5):
-    """Three tapered, parallel white slashes ("///") with a black outline, for the Clearcasting proc."""
-    s = size / 2
-    half_x, half_y = 0.3 * length * s, 0.5 * length * s
-    offsets = [(-spacing * s, 0.05 * s), (0, -0.05 * s), (spacing * s, 0.05 * s)]  # middle claw sits higher
-    def shape(d, dx, dy):
-        best = -math.inf
-        for ox, oy in offsets:
-            # from bottom-left to top-right (image y grows downward)
-            ax, ay, bx, by = ox - half_x, oy + half_y, ox + half_x, oy - half_y
-            vx, vy = bx - ax, by - ay
-            t = max(0.0, min(1.0, ((dx - ax) * vx + (dy - ay) * vy) / (vx * vx + vy * vy)))
-            dist = math.hypot(dx - (ax + t * vx), dy - (ay + t * vy))
-            half_width = width * s * math.sin(math.pi * t) ** 0.6
-            best = max(best, half_width - dist)  # > 0 inside a stroke
-        stroke = max(0.0, min(1.0, best + 0.5))
-        return best + outline + 0.5, stroke  # alpha covers stroke + outline; white only in the stroke
-    return shape
+def circle_feather(size, feather=8):
+    """A circle whose edge fades out over `feather` px (~3px at the 100px resource size), for soft edges."""
+    r = size / 2 - 1
+    def alpha(d, *_):
+        t = max(0.0, min(1.0, (r + 0.5 - d) / feather))
+        return t * t * (3 - 2 * t)  # smoothstep
+    return alpha
 
+
+def circle_cap(size, depth=0.1, feather=8):
+    """The top `depth` of circle_feather (a fraction of its diameter), on the full canvas so it lines up
+    with the circle. Image y grows downward, so the top is negative dy."""
+    r = size / 2 - 1
+    circle = circle_feather(size, feather)
+    cut = -r + depth * 2 * r
+    return lambda d, dx, dy: min(circle(d), cut - dy + 0.5)
 
 
 TEXTURES = {
     # name: (size, shape)  -- numbers match docs/design.md
     "circle_hard": (256, circle_hard(256)),                 # 1
     "circle_soft": (256, circle_soft(256)),                 # 2
+    "circle_feather": (256, circle_feather(256)),           # 1, soft-edged: resource fill mask, GCD, Enrage
+    "circle_cap": (256, circle_cap(256)),                   # Clearcasting: top 10% of circle_feather
     "ring_thin": (256, ring(256, 6)),                       # 3, for the big circle
-    "ring_small": (64, ring(64, 5)),                        # combo point borders
-    "ring_rip": (128, ring(128, 10)),                       # 5, Rip timer around combo point 5
+    "ring_small": (64, ring(64, 3)),                        # combo point borders
+    "ring_rip": (128, ring(128, 16)),                       # 5, DoT timers around combo points 4 and 5
     "ring_mana_half": (256, half_ring(256, 10)),            # five-second rule: left half, rotated into view
     "ring_glow": (256, ring_glow(256)),                     # 4
     "ring_bar": (256, ring_bar(256, 20)),                   # 7
-    "claws": (128, claws(128)),                             # Clearcasting proc
 }
 
 if __name__ == "__main__":
