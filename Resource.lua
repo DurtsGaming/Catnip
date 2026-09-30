@@ -2,12 +2,15 @@
 local addonName, ns = ...
 
 local SIZE = ns.RESOURCE_SIZE
-local DEFAULT_COLOR = { 0.7, 0.7, 0.7 }
-local POWER_COLORS = {
-    [Enum.PowerType.Energy] = { 1, 0.82, 0 },
-    [Enum.PowerType.Rage] = { 0.9, 0.1, 0.1 },
-    [Enum.PowerType.Mana] = { 0.2, 0.45, 1 },
+-- Fill textures carry their own colour (the Forever energy bar's gradient; see make_textures.py), so
+-- they're drawn untinted. Anything else (or a secret power type) gets a flat grey.
+local POWER_TEXTURES = {
+    [Enum.PowerType.Energy] = ns.MEDIA .. "fill_energy",
+    [Enum.PowerType.Rage] = ns.MEDIA .. "fill_rage",
+    [Enum.PowerType.Mana] = ns.MEDIA .. "fill_mana",
 }
+local FLAT_TEXTURE = "Interface\\Buttons\\WHITE8X8"
+local DEFAULT_COLOR = { 0.7, 0.7, 0.7 }
 local SMOOTH = Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
 
 local hud = ns.hud
@@ -25,12 +28,26 @@ bar:SetSize(SIZE, SIZE)
 bar:SetPoint("CENTER")
 bar:SetFrameLevel(hud:GetFrameLevel() + 2) -- leaves +1 for the Enrage tint behind it (Enrage.lua)
 bar:SetOrientation("VERTICAL")
-bar:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
-
 local mask = bar:CreateMaskTexture()
 mask:SetTexture(ns.MEDIA .. "circle_feather", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
 mask:SetAllPoints(bar)
-bar:GetStatusBarTexture():AddMaskTexture(mask)
+
+-- Swaps the fill texture, only when it changes. If the StatusBar hands back a new texture object,
+-- the mask goes on that one too.
+local currentFile, maskedTexture
+local function SetFill(file, r, g, b)
+    if file ~= currentFile then
+        bar:SetStatusBarTexture(file)
+        currentFile = file
+        local texture = bar:GetStatusBarTexture()
+        if texture ~= maskedTexture then
+            texture:AddMaskTexture(mask)
+            maskedTexture = texture
+        end
+    end
+    bar:SetStatusBarColor(r, g, b)
+end
+SetFill(FLAT_TEXTURE, unpack(DEFAULT_COLOR))
 
 -- #3 thin ring as the border
 local border = bar:CreateTexture(nil, "OVERLAY")
@@ -63,8 +80,12 @@ end
 local function Update()
     local powerType = UnitPowerType("player")
     local knownType = not ns.IsSecret(powerType)
-    local color = (knownType and POWER_COLORS[powerType]) or DEFAULT_COLOR
-    bar:SetStatusBarColor(color[1], color[2], color[3])
+    local file = knownType and POWER_TEXTURES[powerType]
+    if file then
+        SetFill(file, 1, 1, 1)
+    else
+        SetFill(FLAT_TEXTURE, unpack(DEFAULT_COLOR))
+    end
 
     -- Current and max power may be secret in combat; StatusBar and FontString accept secrets as-is.
     local power = UnitPower("player", powerType)

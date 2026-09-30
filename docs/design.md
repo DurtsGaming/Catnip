@@ -17,7 +17,7 @@ We need to make these (with transparency):
 
 | # | Texture | Used for | Static/Dynamic | Style |
 |---|---------|----------|----------------|-------|
-| 1 | Circle – hard edge | Resource fill (soft ~3px edge); combo points | Dynamic | Flat |
+| 1 | Circle – hard edge | Resource fill (soft ~3px edge); combo points | Dynamic | WoW Forever energy bar gradient, stood on end, darker at both sides |
 | 2 | Circle – soft/glow | Background of big circle | Static | Gradient |
 | 3 | Ring – very thin | Borders of combo points and big circle | Static | Flat, thin and sharp |
 | 4 | Ring – glow | Background behind swing timer ring | Static | Gradient |
@@ -70,6 +70,7 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Rip ring around combo dot 5 | Verified |
 | Rake ring around combo dot 4 | Built, needs in-game check (Rake not yet unlocked in the beta) |
 | Enrage tint (Bear: resource background turns red while Enrage is up) | Verified |
+| Gradient fill textures (resource circle per power, combo points) | Built, **untested** in-game |
 | Move/resize (unlock mode) | Verified |
 | Settings window (`/catnip`): lock/unlock, reset, scale, position (X/Y from screen centre), slider values typeable, hide Blizzard cast bar, debug | Built, **untested** in-game |
 

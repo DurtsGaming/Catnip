@@ -6,7 +6,6 @@ local DOT_SIZE = 38
 local RING_THICKNESS = DOT_SIZE * 3 / 64 -- ring_small is 3px thick in a 64px texture
 local ARC_RADIUS = 93 -- distance of the dot centres from the HUD centre
 local ANGLES = { 150, 120, 90, 60, 30 } -- degrees, left to right; 90 is straight up
-local COLOR = { 1, 0.82, 0 }
 
 local group = CreateFrame("Frame", nil, ns.hud)
 group:SetAllPoints()
@@ -32,12 +31,12 @@ for i = 1, COUNT do
 
     -- Tucks ~0.5px under the ring's inner edge (the ring sits 1/64 in from the texture edge), so
     -- there's no gap but the whole ring still shows. Any bigger and the fill covers the thin ring.
+    -- combo_fill is the full energy fill cut to a circle (colour baked in, so untinted).
     local fill = group:CreateTexture(nil, "ARTWORK")
-    fill:SetTexture(ns.MEDIA .. "circle_hard")
+    fill:SetTexture(ns.MEDIA .. "combo_fill")
     local fillSize = DOT_SIZE - 2 * RING_THICKNESS
     fill:SetSize(fillSize, fillSize)
     fill:SetPoint("CENTER", border)
-    fill:SetVertexColor(COLOR[1], COLOR[2], COLOR[3])
     fill:Hide()
 
     local fadeIn = fill:CreateAnimationGroup()
