@@ -81,13 +81,62 @@ def circle_feather(size, feather=8):
     return alpha
 
 
-def circle_cap(size, depth=0.1, feather=8):
-    """The top `depth` of circle_feather (a fraction of its diameter), on the full canvas so it lines up
-    with the circle. Image y grows downward, so the top is negative dy."""
+def top_window(dx, dy, max_angle, power=1.0):
+    """1 at 12 o'clock, easing to 0 at `max_angle` radians either side. Image y grows downward."""
+    a = abs(math.atan2(dx, -dy))
+    return 0.0 if a >= max_angle else math.cos(math.pi / 2 * a / max_angle) ** power
+
+
+def gauss(x, sigma):
+    return math.exp(-(x * x) / (2 * sigma * sigma))
+
+
+def crescent_line(size):
+    """Clearcasting: a thin bright arc just inside the top of circle_feather, thinning toward its ends."""
     r = size / 2 - 1
-    circle = circle_feather(size, feather)
-    cut = -r + depth * 2 * r
-    return lambda d, dx, dy: min(circle(d), cut - dy + 0.5)
+    circle = circle_feather(size)
+    return lambda d, dx, dy: circle(d) * gauss(d - 0.93 * r, 0.026 * r) * top_window(dx, dy, math.radians(72), 1.4)
+
+
+def crescent_edge(size):
+    """Clearcasting: a thin band just inside crescent_line, tinted black, to give the arc a crisp
+    lower edge on any fill."""
+    r = size / 2 - 1
+    circle = circle_feather(size)
+    return lambda d, dx, dy: circle(d) * gauss(d - 0.86 * r, 0.018 * r) * top_window(dx, dy, math.radians(72), 1.4)
+
+
+def crescent_bloom(size):
+    """Clearcasting: a glow hugging the inside of the top rim, plus light spilling downward in soft rays
+    from a point just under 12 o'clock."""
+    r = size / 2 - 1
+    circle = circle_feather(size)
+    def alpha(d, dx, dy):
+        rim = math.exp(-((r - d) / r) / 0.13) * top_window(dx, dy, math.radians(83), 1.2) * 0.95
+        px, py = dx, dy + 0.9 * r  # from the light source; angle 0 is straight down
+        q = math.hypot(px, py) / r
+        angle = math.atan2(px, py)
+        rays = 0.6 + 0.4 * (0.5 + 0.5 * math.cos(angle * 15)) ** 2
+        down = 0.0 if abs(angle) >= math.radians(95) else math.cos(math.pi / 2 * abs(angle) / math.radians(95))
+        spill = math.exp(-q / 0.32) * rays * down * 1.1
+        return circle(d) * min(1.0, rim + spill)
+    return alpha
+
+
+def crescent_shadow(size):
+    """Clearcasting: a soft, slightly larger version of crescent_bloom without rays, tinted black
+    under the light so it has something dark to shine on (a bright fill otherwise washes it out)."""
+    r = size / 2 - 1
+    circle = circle_feather(size)
+    def alpha(d, dx, dy):
+        rim = math.exp(-((r - d) / r) / 0.2) * top_window(dx, dy, math.radians(95), 1.0)
+        px, py = dx, dy + 0.9 * r
+        q = math.hypot(px, py) / r
+        angle = math.atan2(px, py)
+        down = 0.0 if abs(angle) >= math.radians(105) else math.cos(math.pi / 2 * abs(angle) / math.radians(105))
+        spill = math.exp(-q / 0.42) * down
+        return circle(d) * min(1.0, rim + spill)
+    return alpha
 
 
 TEXTURES = {
@@ -95,7 +144,10 @@ TEXTURES = {
     "circle_hard": (256, circle_hard(256)),                 # 1
     "circle_soft": (256, circle_soft(256)),                 # 2
     "circle_feather": (256, circle_feather(256)),           # 1, soft-edged: resource fill mask, GCD, Enrage
-    "circle_cap": (256, circle_cap(256)),                   # Clearcasting: top 10% of circle_feather
+    "crescent_line": (256, crescent_line(256)),             # Clearcasting: bright arc inside the top rim
+    "crescent_bloom": (256, crescent_bloom(256)),           # Clearcasting: glow and rays under the arc
+    "crescent_shadow": (256, crescent_shadow(256)),         # Clearcasting: dark backing under the glow
+    "crescent_edge": (256, crescent_edge(256)),             # Clearcasting: dark line under the arc
     "ring_thin": (256, ring(256, 6)),                       # 3, for the big circle
     "ring_small": (64, ring(64, 3)),                        # combo point borders
     "ring_rip": (128, ring(128, 16)),                       # 5, DoT timers around combo points 4 and 5

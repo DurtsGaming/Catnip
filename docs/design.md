@@ -6,7 +6,7 @@ Text summary of [design.pdf](design.pdf) ("Feral Forever: Resource Manager / Rot
 
 A compact, circular Feral Druid HUD, ported from a WeakAuras setup. Inspiration: [Rabble's energy WA](https://wago.io/Ak7NxBdCc) plus the same author's Rage and Mana WAs ([wago.io/p/Rabble](https://wago.io/p/Rabble)).
 
-Layout, from the centre out: the resource circle (with the GCD pie over it), the swing timer ring, then five combo point dots along an arc above, with the Rake ring around dot 4 and the Rip ring around dot 5. Clearcasting lights a white cap over the top of the resource circle. The whole HUD draws at 0.85 alpha.
+Layout, from the centre out: the resource circle (with the GCD pie over it), the swing timer ring, then five combo point dots along an arc above, with the Rake ring around dot 4 and the Rip ring around dot 5. Clearcasting lights a crescent of light inside the top of the resource circle. The whole HUD draws at 0.85 alpha.
 
 - **Combo points follow the arc** of the big circle's top edge (a paw-print shape), not a flat row. See the sketch.
 - Ignore the thin inner ring in the reference WA — it's the old Classic 2s energy ticker.
@@ -24,7 +24,7 @@ We need to make these (with transparency):
 | 5 | Ring – thin | Small DoT timers | Dynamic | Flat |
 | 6 | Ring – thin partial | Segmented DoT timers (later) | Dynamic | Flat |
 | 7 | Ring – bar | Swing timer (cast bar later) | Dynamic | Gradient |
-| – | Proc texture | Clearcasting | Dynamic | White cap: top 10% of the resource circle |
+| – | Proc texture | Clearcasting | Dynamic | Crescent: bright arc inside the top rim plus a downward glow, additive |
 
 ## MVP
 
@@ -33,7 +33,7 @@ We need to make these (with transparency):
 3. **DoT rings (#5).** Rip is a red ring (~5.75px band, overlapping the dot's border ring) around the 5th combo point and Rake the same around the 4th (one AuraContainer each), hidden with the dots outside Cat Form. Full when applied, drains clockwise to empty. (A thin red layer outside the swing ring was tried and dropped.)
 4. **Swing timer (#7 on #4).** Ring around the big circle that appears full on each swing and empties clockwise from 12 o'clock (earlier versions filled, then emptied counter-clockwise), over the soft glow (#4, pulled slightly inside the bar's band) with a small gap from the resource circle. (A crisp black outline was tried and dropped in favour of the feathered look.) Turns red/pink when Maul is queued. The `0.2 / 1.0` text was tried and dropped: the ring alone is the swing timer.
 5. **Enrage tint.** In Bear Form, while the Enrage buff is up, the empty part of the resource circle turns a dim red (a red disc behind the rage fill).
-6. **Clearcasting proc texture.** A pulsing white cap over the top 10% of the resource circle. (Mirrored claw marks were used first.) (A translucent "phantom" +10 energy preview was tried and removed.)
+6. **Clearcasting proc texture.** A crescent of light: a thin bright arc just inside the top rim (barely dims) over a glow with soft rays spilling down into the fill (breathes), both drawn additively so they read as light, over a steady soft black backing (40%) and a thin dark line just under the arc (60%) so they still have contrast on a full energy fill (additive white alone barely changes bright yellow). Picked from five mockups (crescent, moonbeams, rim light, halo, sheen). (Mirrored claw marks were used first, then an opaque white cap over the top 10%, which looked like a sticker.) (A translucent "phantom" +10 energy preview was tried and removed.)
 
 ## Later
 
@@ -66,7 +66,7 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Cast bar on the swing ring | Built, **untested** in-game |
 | Blizzard player cast bar hidden | Verified (incl. after Edit Mode) |
 | Five-second-rule ring | Built, **untested** in-game |
-| Clearcasting cap | Claws verified in combat (AuraContainer); white cap **untested** in-game |
+| Clearcasting crescent | Claws verified in combat (AuraContainer); crescent **untested** in-game |
 | Rip ring around combo dot 5 | Verified |
 | Rake ring around combo dot 4 | Built, needs in-game check (Rake not yet unlocked in the beta) |
 | Enrage tint (Bear: resource background turns red while Enrage is up) | Verified |

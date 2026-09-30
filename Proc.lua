@@ -1,17 +1,19 @@
--- Clearcasting (Omen of Clarity) proc: a pulsing white cap over the top 10% of the resource circle.
+-- Clearcasting (Omen of Clarity) proc: a crescent of light inside the top of the resource circle.
 --
 -- In combat the aura API hides player buffs, so we can't check Clearcasting ourselves.
 -- Preferred: an AuraContainer (see AuraContainer.lua). Blizzard shows its button while the aura
--- is up and our cap rides on it; our code never learns whether the proc is up.
+-- is up and our crescent rides on it; our code never learns whether the proc is up.
 -- Fallback without AuraContainer: the Cooldown Manager (user must track Omen of Clarity there).
 local addonName, ns = ...
 
 local OMEN_OF_CLARITY = 16864 -- what the Cooldown Manager tracks
 local CLEARCASTING = 16870 -- the buff itself
-local SIZE = ns.RESOURCE_SIZE -- circle_cap is drawn on a full-circle canvas, so it lines up with the fill
+local SIZE = ns.RESOURCE_SIZE -- crescent textures are drawn on a full-circle canvas, so they line up with the fill
+local SHADOW_ALPHA = 0.4 -- dark backing under the crescent
+local EDGE_ALPHA = 0.6 -- dark line under the bright arc
 
 -- Is Clearcasting up? nil if we can't tell: in combat the aura API hides it, so only the
--- Cooldown Manager knows (if the player tracks Omen of Clarity there). Our cap doesn't need
+-- Cooldown Manager knows (if the player tracks Omen of Clarity there). Our crescent doesn't need
 -- this (AuraContainer), but other code deciding things does (FiveSecondRule.lua).
 function ns.IsClearcasting()
     local active = ns.CDM.IsActive(OMEN_OF_CLARITY)
@@ -24,27 +26,54 @@ function ns.IsClearcasting()
     return C_UnitAuras.GetPlayerAuraBySpellID(CLEARCASTING) ~= nil
 end
 
--- Our look: the cap on a frame filling parent, pulsing while visible.
-local function CreateCapFrame(parent)
-    local frame = CreateFrame("Frame", nil, parent)
-    frame:SetAllPoints(parent)
+-- An additive texture filling frame, with an alpha pulse. Returns the pulse to play.
+local function AddGlowLayer(frame, textureName, lowAlpha, duration)
+    local texture = frame:CreateTexture(nil, "OVERLAY")
+    texture:SetTexture(ns.MEDIA .. textureName)
+    texture:SetAllPoints(frame)
+    texture:SetBlendMode("ADD") -- brightens what's under it, so it reads as light rather than paint
 
-    local cap = frame:CreateTexture(nil, "OVERLAY")
-    cap:SetTexture(ns.MEDIA .. "circle_cap")
-    cap:SetAllPoints(frame)
-
-    local pulse = frame:CreateAnimationGroup()
+    local pulse = texture:CreateAnimationGroup()
     pulse:SetLooping("BOUNCE")
     local fade = pulse:CreateAnimation("Alpha")
     fade:SetFromAlpha(1)
-    fade:SetToAlpha(0.5)
-    fade:SetDuration(0.6)
+    fade:SetToAlpha(lowAlpha)
+    fade:SetDuration(duration)
     fade:SetSmoothing("IN_OUT")
+    return pulse
+end
 
-    frame:SetScript("OnShow", function() pulse:Play() end)
-    frame:SetScript("OnHide", function() pulse:Stop() end)
+-- Our look: a crescent of light inside the top rim, on a frame filling parent. The glow under
+-- it breathes; the arc itself barely dims, so the proc stays readable at the glow's low point.
+-- A steady dark backing sits under both: additive light can't brighten a full energy fill (yellow
+-- is already near max), so this dims the fill there and gives the light contrast.
+local function CreateCrescentFrame(parent)
+    local frame = CreateFrame("Frame", nil, parent)
+    frame:SetAllPoints(parent)
+
+    local shadow = frame:CreateTexture(nil, "ARTWORK") -- below the OVERLAY glow layers
+    shadow:SetTexture(ns.MEDIA .. "crescent_shadow")
+    shadow:SetAllPoints(frame)
+    shadow:SetVertexColor(0, 0, 0, SHADOW_ALPHA)
+
+    local edge = frame:CreateTexture(nil, "ARTWORK", nil, 1) -- a dark line just under the arc, for a crisp edge
+    edge:SetTexture(ns.MEDIA .. "crescent_edge")
+    edge:SetAllPoints(frame)
+    edge:SetVertexColor(0, 0, 0, EDGE_ALPHA)
+
+    local pulses = {
+        AddGlowLayer(frame, "crescent_bloom", 0.68, 0.9),
+        AddGlowLayer(frame, "crescent_line", 0.95, 1.8),
+    }
+    local function Play()
+        for _, pulse in ipairs(pulses) do pulse:Play() end
+    end
+    frame:SetScript("OnShow", Play)
+    frame:SetScript("OnHide", function()
+        for _, pulse in ipairs(pulses) do pulse:Stop() end
+    end)
     if frame:IsVisible() then
-        pulse:Play()
+        Play()
     end
 end
 
@@ -55,7 +84,7 @@ local function SetupCooldownManagerFallback()
     anchor:SetPoint("CENTER")
     anchor:SetFrameLevel(ns.hud:GetFrameLevel() + 10)
     anchor:Hide()
-    CreateCapFrame(anchor)
+    CreateCrescentFrame(anchor)
 
     local warnedUntracked = false
 
@@ -92,7 +121,7 @@ if ns.HAS_AURA_CONTAINER then
         level = 10, -- above the resource fill and GCD pie
         initialize = function(button)
             ns.HideAuraButtonArt(button)
-            CreateCapFrame(button)
+            CreateCrescentFrame(button)
         end,
     })
 else

@@ -16,7 +16,7 @@ How the code is organised, so a new session can start a feature without reading 
 | `Cast.lua` | Cast bar: takes the swing ring's place while casting or channelling (duration objects); hides Blizzard's player cast bar |
 | `FiveSecondRule.lua` | Five-second-rule ring over the resource border (mana forms only); empties when a mana spell lands, then two arcs grow from 6 o'clock to meet at 12 over 5s |
 | `Gcd.lua` | GCD "Harvey ball": faint white pie over the resource circle |
-| `Proc.lua` | Clearcasting: white cap over the top 10% of the resource circle (AuraContainer; Cooldown Manager fallback) |
+| `Proc.lua` | Clearcasting: additive crescent of light inside the top of the resource circle (AuraContainer; Cooldown Manager fallback) |
 | `DotRings.lua` | DoT timer rings: Rake around combo dot 4, Rip around dot 5 (one AuraContainer each) |
 | `Enrage.lua` | Bear Form: a red disc behind the rage fill while Enrage is up (AuraContainer), so the empty part of the circle reads red |
 | `Options.lua` | Settings window (plain `/catnip`): custom-drawn section/button/checkbox/slider helpers; loads last so every module's `ns.*` functions exist |
@@ -52,7 +52,7 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 | +4 | Five-second-rule ring (over the resource border) |
 | +5 | DoT ring AuraContainers (Rake, Rip) |
 | bar +5 (+7) | Resource number (above the GCD shading) |
-| +10 | Clearcasting AuraContainer (white cap) |
+| +10 | Clearcasting AuraContainer (crescent) |
 | +20 | Unlock overlay (Layout.lua) |
 
 Gotcha: `CooldownFrameTemplate` pins its frame to fill the parent; call `ClearAllPoints()` before sizing it (see `Gcd.lua`).
@@ -69,7 +69,7 @@ Gotcha: `CooldownFrameTemplate` pins its frame to fill the parent; call `ClearAl
 
 `py tools/make_textures.py` regenerates everything in `media/` (32-bit TGA). Textures are white shapes with transparency, tinted in-game with `SetVertexColor`/`SetSwipeColor`. To add one, write a shape function and add it to `TEXTURES`. After changing a ring's thickness, update any Lua constant that depends on it (they're commented, e.g. `ComboPoints.lua` `RING_THICKNESS`, `DotRings.lua` `RING_SIZE`). Preview textures before shipping: an earlier bug left a texture's corners opaque.
 
-Current set: `circle_hard` (combo fills), `circle_feather` (soft ~3px edge: resource fill mask, GCD, Enrage), `circle_cap` (Clearcasting: top 10% of `circle_feather` on the full canvas, so it lines up with the fill), `circle_soft`, `ring_thin` (resource border), `ring_small` (combo dots), `ring_rip` (DoT rings), `ring_mana_half` (five-second rule: a ring's left half on a full-size canvas, for rotating), `ring_glow`, `ring_bar` (swing).
+Current set: `circle_hard` (combo fills), `circle_feather` (soft ~3px edge: resource fill mask, GCD, Enrage), `crescent_line` and `crescent_bloom` (Clearcasting, drawn with `SetBlendMode("ADD")`) over `crescent_shadow` and `crescent_edge` (tinted black, normal blend; on the full `circle_feather` canvas, so they line up with the fill), `circle_soft`, `ring_thin` (resource border), `ring_small` (combo dots), `ring_rip` (DoT rings), `ring_mana_half` (five-second rule: a ring's left half on a full-size canvas, for rotating), `ring_glow`, `ring_bar` (swing).
 
 ## Debugging and testing
 
