@@ -5,7 +5,7 @@
 -- sides and meet at 12 o'clock after the 5 seconds.
 --
 -- Only casts that really spend mana count: not ones with no mana cost (skinning), nor ones made
--- free by Clearcasting. Our casts' spell IDs, spell costs and UnitPowerType are readable in
+-- free by Clearcasting (judged by whether the cast used the buff up). Our casts' spell IDs, spell costs and UnitPowerType are readable in
 -- combat and the timer is our own clock; Clearcasting is the exception (see ns.IsClearcasting).
 local addonName, ns = ...
 
@@ -85,45 +85,49 @@ local function CostsMana(spellID)
     return not ok or result
 end
 
--- Whether casting spellID now will spend mana: it costs mana, and Clearcasting won't make it free.
--- If Clearcasting can't be read (in combat, untracked by the Cooldown Manager), assume it's down.
-local function WillSpendMana(spellID)
-    if not CostsMana(spellID) then
-        return false, "no mana cost"
-    end
-    if ns.IsClearcasting and ns.IsClearcasting() then
-        return false, "Clearcasting"
-    end
-    return true, "costs mana"
+local function IsClearcasting()
+    return ns.IsClearcasting and ns.IsClearcasting()
 end
 
--- Decided when the cast is sent, before it succeeds: by then Clearcasting is already used up.
--- Keyed by spell ID (castGUID may be secret); holds { spends, reason }.
-local pending = {}
+local function Spent(spellID, at, reason)
+    lastSpend = math.max(lastSpend or 0, at)
+    local name = not ns.IsSecret(spellID) and C_Spell.GetSpellName(spellID) or spellID
+    ns.Debug("5s rule:", name, "spent mana, ring reset (" .. reason .. ")")
+end
+
+-- Whether Clearcasting was up when each cast was sent, keyed by spell ID (castGUID may be
+-- secret). Only damage and healing spells use it up (not shapeshifts, Wrath or buffs), so rather
+-- than listing those, a cast sent with it up is free only if it's gone once the cast lands.
+-- If Clearcasting can't be read (in combat, untracked by the Cooldown Manager), assume it's down.
+local ccWhenSent = {}
 
 local function OnSent(spellID)
     if spellID and not ns.IsSecret(spellID) then
-        pending[spellID] = { WillSpendMana(spellID) }
+        ccWhenSent[spellID] = IsClearcasting()
     end
 end
 
 local function OnSucceeded(spellID)
-    local spends, reason, when
-    if spellID and not ns.IsSecret(spellID) and pending[spellID] then
-        spends, reason, when = pending[spellID][1], pending[spellID][2], "when sent"
-        pending[spellID] = nil
-    else
-        spends, reason = WillSpendMana(spellID)
-        when = "on success"
+    local hadCC = spellID and not ns.IsSecret(spellID) and ccWhenSent[spellID]
+    if spellID and not ns.IsSecret(spellID) then
+        ccWhenSent[spellID] = nil
     end
-    if spends or reason ~= "no mana cost" then -- skip the constant energy/rage abilities
-        local name = not ns.IsSecret(spellID) and C_Spell.GetSpellName(spellID) or spellID
-        ns.Debug("5s rule:", name, spends and "spent mana, ring reset" or "no reset",
-            "(" .. reason .. ", " .. when .. ")")
+    if not CostsMana(spellID) then
+        return
     end
-    if spends then
-        lastSpend = GetTime()
+    local castAt = GetTime()
+    if not hadCC then
+        Spent(spellID, castAt, "costs mana")
+        return
     end
+    C_Timer.After(0.2, function() -- give the buff time to drop
+        if IsClearcasting() == false then
+            local name = not ns.IsSecret(spellID) and C_Spell.GetSpellName(spellID) or spellID
+            ns.Debug("5s rule:", name, "no reset (used Clearcasting)")
+        else
+            Spent(spellID, castAt, "Clearcasting not used")
+        end
+    end)
 end
 
 local events = CreateFrame("Frame")
