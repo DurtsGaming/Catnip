@@ -1,4 +1,5 @@
--- Moving and resizing the HUD. /catnip toggles unlock mode: drag to move, mouse wheel to resize.
+-- Moving and resizing the HUD. Unlock mode (settings window or /catnip unlock): drag to move,
+-- mouse wheel to resize.
 local addonName, ns = ...
 
 local DEFAULTS = { x = 0, y = -180, scale = 1 }
@@ -32,6 +33,14 @@ local function SavePosition()
     ns.db.x = cx * scale - ux
     ns.db.y = cy * scale - uy
     ApplyLayout()
+    ns.SettingsChanged()
+end
+
+-- Offset of the HUD centre from the screen centre, in UIParent units.
+function ns.SetHudPosition(x, y)
+    ns.db.x, ns.db.y = x, y
+    ApplyLayout()
+    ns.SettingsChanged()
 end
 
 -- Unlock overlay: catches the mouse only while unlocked, so the HUD never blocks clicks otherwise.
@@ -54,10 +63,29 @@ local function UpdateLabel()
     label:SetText(string.format("Catnip %d%%: drag to move, scroll to resize", ns.db.scale * 100 + 0.5))
 end
 
+ns.MIN_SCALE, ns.MAX_SCALE, ns.SCALE_STEP = MIN_SCALE, MAX_SCALE, SCALE_STEP
+
 local function SetScale(scale)
     ns.db.scale = math.min(MAX_SCALE, math.max(MIN_SCALE, scale))
     ApplyLayout()
     UpdateLabel()
+    ns.SettingsChanged()
+end
+ns.SetHudScale = SetScale
+
+function ns.IsHudUnlocked()
+    return overlay:IsShown()
+end
+
+function ns.SetHudUnlocked(unlocked)
+    overlay:SetShown(unlocked)
+    UpdateLabel()
+    ns.SettingsChanged()
+end
+
+function ns.ResetHudLayout()
+    ns.db.x, ns.db.y = DEFAULTS.x, DEFAULTS.y
+    SetScale(DEFAULTS.scale)
 end
 
 overlay:SetScript("OnDragStart", function()
@@ -71,17 +99,17 @@ overlay:SetScript("OnMouseWheel", function(_, delta)
     SetScale(ns.db.scale + delta * SCALE_STEP)
 end)
 
-ns.commands[""] = function()
-    local unlocked = not overlay:IsShown()
-    overlay:SetShown(unlocked)
-    UpdateLabel()
-    ns.Print(unlocked and "unlocked. Type /catnip again to lock." or "locked.")
+ns.commands.unlock = function()
+    ns.SetHudUnlocked(true)
+    ns.Print("unlocked. Type /catnip lock when done.")
 end
 
-ns.commands.reset = function()
-    ns.db.x, ns.db.y = DEFAULTS.x, DEFAULTS.y
-    SetScale(DEFAULTS.scale)
+ns.commands.lock = function()
+    ns.SetHudUnlocked(false)
+    ns.Print("locked.")
 end
+
+ns.commands.reset = ns.ResetHudLayout
 
 ns.commands.scale = function(arg)
     local scale = tonumber(arg)

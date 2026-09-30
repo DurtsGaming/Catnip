@@ -159,3 +159,51 @@ end)
 ns.OnLoad(function()
     ns.Debug("cast bar method:", UnitCastingDuration and "duration object" or "UnitCastingInfo times")
 end)
+
+-- Blizzard's player cast bar: ours replaces it, so (by default) park it under a hidden frame
+-- (EllesmereUI's technique; it leaves Blizzard's events and code untouched). Edit Mode re-parents
+-- the bar during layout changes, so park it again afterwards, but never in combat or while Edit
+-- Mode is open: SetParent there runs Blizzard's layout code under our taint.
+ns.defaults.hideBlizzardCastBar = true
+
+local hiddenParent = CreateFrame("Frame")
+hiddenParent:Hide()
+local originalParent
+
+-- Parks or releases the bar to match the setting. Changes wait until after combat.
+function ns.UpdateBlizzardCastBar()
+    local bar = PlayerCastingBarFrame
+    if not bar or not ns.db or InCombatLockdown()
+        or (EditModeManagerFrame and EditModeManagerFrame:IsShown()) then
+        return
+    end
+    local parked = bar:GetParent() == hiddenParent
+    if ns.db.hideBlizzardCastBar and not parked then
+        originalParent = bar:GetParent()
+        bar:SetParent(hiddenParent)
+        ns.Debug("Blizzard cast bar hidden")
+    elseif not ns.db.hideBlizzardCastBar and parked then
+        -- Never hand it back to a hidden parent (e.g. an Edit Mode layout frame), or it stays invisible.
+        local parent = originalParent
+        if not (parent and parent:IsVisible()) then
+            parent = UIParent
+        end
+        bar:SetParent(parent)
+        ns.Debug("Blizzard cast bar shown")
+    end
+end
+
+local function UpdateBlizzardBarSoon()
+    C_Timer.After(0, ns.UpdateBlizzardCastBar)
+end
+
+local parker = CreateFrame("Frame")
+parker:RegisterEvent("PLAYER_LOGIN")
+parker:RegisterEvent("PLAYER_REGEN_ENABLED") -- catch up on a re-parent that happened in combat
+parker:SetScript("OnEvent", UpdateBlizzardBarSoon)
+if PlayerCastingBarFrame then
+    hooksecurefunc(PlayerCastingBarFrame, "SetParent", UpdateBlizzardBarSoon)
+end
+if EditModeManagerFrame then
+    EditModeManagerFrame:HookScript("OnHide", UpdateBlizzardBarSoon)
+end

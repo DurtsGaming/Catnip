@@ -59,6 +59,10 @@ Patch 12.1.0 widget; the main tool for buffs and debuffs. Learned from the Blood
 
 `PLAYER_SWING` gives a plain duration, so `Cooldown:SetCooldown(GetTime(), duration)` works. If Blizzard ever makes it secret, SetCooldown will reject it. An earlier counter-clockwise version used two rotated half-ring textures in clip frames (`SetClipsChildren` + `SetRotation`); it worked, but was dropped when the design went clockwise.
 
+### Hiding Blizzard's player cast bar (verified 2026-09-29)
+
+From EllesmereUI (`EllesmereUI_SharedHelpers.lua`, `SetPlayerCastBarSuppressed`): re-parent `PlayerCastingBarFrame` to a hidden frame instead of unregistering its events. Edit Mode re-parents the bar during layout changes, so hook `SetParent` and park it again on the next frame, but never in combat or while `EditModeManagerFrame` is shown (SetParent there runs Blizzard's layout code under addon taint). EllesmereUI warns against re-arming the bar via `SetUnit`: it iterates a table that errors when tainted. `Cast.lua` does this.
+
 ### Cooldown Manager reading (verified; now only a fallback)
 
 The Cooldown Manager viewers (`BuffIconCooldownViewer`, `BuffBarCooldownViewer`, `EssentialCooldownViewer`, `UtilityCooldownViewer`) are ordinary frames; each tracked spell is a child. Identify an item by `cooldownInfo.spellID` and read `IsShown()`. Needs the player to track the spell in the Cooldown Manager, so AuraContainer replaced it. Technique from [EnhancedCooldownManager](https://github.com/argium/EnhancedCooldownManager/blob/HEAD/Modules/BuffBars.lua). `/catnip cdm` dumps the items.

@@ -40,7 +40,7 @@ We need to make these (with transparency):
 - ~~Mana (as %) in caster/other forms~~ done: shown as a % whenever the power is mana (via `UnitPowerPercent`). Lacerate stacks still to do.
 - ~~Five-second rule~~ built: whenever the power is mana (out of Cat/Bear), a dark blue ring over the resource circle's border. Full while regenerating (and during a cast: mana is only spent when it lands), and after a mana spend it empties, then two arcs grow from 6 o'clock up both sides and meet at 12 o'clock over 5 seconds. (A bottom-up "water level" fill was tried first; the arcs read better.) Only casts that really spend mana reset it: not ones with no mana cost (skinning) or made free by Clearcasting. In combat, Clearcasting is only known if Omen of Clarity is tracked in the Cooldown Manager; otherwise a free cast still resets the ring. Doesn't know when mana is full (secret in combat), so it shows then too.
 - Segmented DoT rings (#6): Rip in 6 segments (12s, 2s ticks), Rake in 3 (9s, 3s ticks).
-- ~~Cast bar on the #7 ring~~ built: a gold ring replaces the swing ring while casting (fills clockwise); channels are blue and drain. Below the ring: `0.0 / 2.5s` (remaining time for channels) and the spell name.
+- ~~Cast bar on the #7 ring~~ built: a gold ring replaces the swing ring while casting (fills clockwise); channels are blue and drain. Below the ring: `0.0 / 2.5s` (remaining time for channels) and the spell name. Blizzard's player cast bar is hidden by default, since this replaces it (a setting turns that off).
 - ~~GCD "Harvey ball" over the big circle~~ built (a faint white pie over the resource circle; originally dark). The "scaled to attack speed, for timing shifts to autos" part isn't possible: the timings are secret in combat.
 - Indicators: Faerie Fire missing on target; Tiger's Fury off cooldown; Thistle Tea off cooldown; number of shifts affordable with current mana; Enrage available; Enrage buff/debuff active.
 - Short cooldowns tracked like DoTs: Tiger's Fury, Primal Bite, Faerie Fire.
@@ -64,11 +64,13 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Swing timer (clockwise, Maul tint) | Verified |
 | GCD Harvey ball | Verified |
 | Cast bar on the swing ring | Built, **untested** in-game |
+| Blizzard player cast bar hidden | Verified (incl. after Edit Mode) |
 | Five-second-rule ring | Built, **untested** in-game |
 | Clearcasting cap | Claws verified in combat (AuraContainer); white cap **untested** in-game |
 | Rip ring around combo dot 5 | Verified |
 | Rake ring around combo dot 4 | Built, needs in-game check (Rake not yet unlocked in the beta) |
 | Enrage tint (Bear: resource background turns red while Enrage is up) | Verified |
-| Move/resize (`/catnip`) | Verified |
+| Move/resize (unlock mode) | Verified |
+| Settings window (`/catnip`): lock/unlock, reset, scale, position (X/Y from screen centre), slider values typeable, hide Blizzard cast bar, debug | Built, **untested** in-game |
 
 Next candidates: fix combo points on target switch; items from "Later".

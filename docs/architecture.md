@@ -7,18 +7,19 @@ How the code is organised, so a new session can start a feature without reading 
 | File | Owns |
 |------|------|
 | `Catnip.lua` | Core: the HUD frame (`ns.hud`, 240×240, alpha 0.85 for everything), shared sizes, saved settings, slash commands, debug helpers |
-| `Layout.lua` | Moving/resizing the HUD: `/catnip` unlock (drag, mouse wheel), `/catnip scale`, `/catnip reset` |
+| `Layout.lua` | Moving/resizing the HUD: unlock mode (drag, mouse wheel), `/catnip lock`/`unlock`/`scale`/`reset`; `ns.SetHudScale`, `ns.SetHudPosition`, `ns.SetHudUnlocked`, `ns.IsHudUnlocked`, `ns.ResetHudLayout` |
 | `CooldownManager.lua` | `ns.CDM`: reads Blizzard's Cooldown Manager frames. Now only the Clearcasting fallback uses it; also `/catnip cdm` |
 | `AuraContainer.lua` | `ns.CreateAuraContainer`: shared setup for Blizzard's AuraContainer (how we show auras in combat) |
 | `Resource.lua` | Big centre circle: energy/rage/mana fill + number (mana as %) |
 | `ComboPoints.lua` | Five dots on an arc above the circle; Cat Form only |
 | `Swing.lua` | Swing timer ring (Cooldown swipe from `PLAYER_SWING`) + Maul-queued tint |
-| `Cast.lua` | Cast bar: takes the swing ring's place while casting or channelling (duration objects) |
+| `Cast.lua` | Cast bar: takes the swing ring's place while casting or channelling (duration objects); hides Blizzard's player cast bar |
 | `FiveSecondRule.lua` | Five-second-rule ring over the resource border (mana forms only); empties when a mana spell lands, then two arcs grow from 6 o'clock to meet at 12 over 5s |
 | `Gcd.lua` | GCD "Harvey ball": faint white pie over the resource circle |
 | `Proc.lua` | Clearcasting: white cap over the top 10% of the resource circle (AuraContainer; Cooldown Manager fallback) |
 | `DotRings.lua` | DoT timer rings: Rake around combo dot 4, Rip around dot 5 (one AuraContainer each) |
 | `Enrage.lua` | Bear Form: a red disc behind the rage fill while Enrage is up (AuraContainer), so the empty part of the circle reads red |
+| `Options.lua` | Settings window (plain `/catnip`): custom-drawn section/button/checkbox/slider helpers; loads last so every module's `ns.*` functions exist |
 
 New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses another's `ns.*` (e.g. `DotRings.lua` needs `ComboPoints.lua` and `AuraContainer.lua` first).
 
@@ -29,6 +30,7 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 - Sizes: `ns.RESOURCE_SIZE` (100), `ns.SWING_RING_SIZE` (134). `ns.MEDIA`: texture folder path.
 - `ns.db`: saved settings (`CatnipDB`), ready inside `ns.OnLoad` callbacks. Modules add defaults to `ns.defaults` at file load.
 - `ns.OnLoad(fn)`: run `fn` once saved settings are loaded (`ADDON_LOADED`).
+- `ns.SettingsChanged()` after changing a setting; `ns.OnSettingsChanged(fn)` to react (the settings window refreshes on it). To add a setting: default in `ns.defaults`, an apply function in the owning module, a control in `Options.lua`.
 - `ns.commands.<name> = fn(arg)`: adds `/catnip <name> <arg>`. `ns.commands[""]` is plain `/catnip`. Update the help text in `Catnip.lua` when adding one.
 - `ns.Print(...)`, `ns.Debug(...)` (only with `/catnip debug` on; secret-safe), `ns.Describe(v)`, `ns.IsSecret(v)`.
 - `ns.TryRegisterEvent(frame, event)`: registers an event that may not exist in this client; returns success.

@@ -23,11 +23,12 @@ You should see "Catnip loaded" in chat when you log in.
 
 | Command | What it does |
 |---------|--------------|
-| `/catnip` | Unlock the HUD: drag to move, scroll to resize. Type it again to lock. |
+| `/catnip` | Open the settings window: move (by dragging or exact position) and resize the HUD, and choose whether to hide Blizzard's cast bar. |
+| `/catnip unlock` | Unlock the HUD: drag to move, scroll to resize. `/catnip lock` when done. |
 | `/catnip scale 1.2` | Set an exact size (0.5 to 2.5). |
 | `/catnip reset` | Put the HUD back in its default spot and size. |
 
-Your position and size are saved between sessions.
+Catnip hides Blizzard's own cast bar by default, since the HUD shows your casts. Your settings are saved between sessions.
 
 ## Updating
 

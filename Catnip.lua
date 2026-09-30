@@ -51,6 +51,18 @@ function ns.OnLoad(callback)
     loadCallbacks[#loadCallbacks + 1] = callback
 end
 
+-- Call ns.SettingsChanged() after changing a setting, so anything showing it (the settings
+-- window) can refresh.
+local settingsCallbacks = {}
+function ns.OnSettingsChanged(callback)
+    settingsCallbacks[#settingsCallbacks + 1] = callback
+end
+function ns.SettingsChanged()
+    for _, callback in ipairs(settingsCallbacks) do
+        callback()
+    end
+end
+
 -- Slash commands: modules add handlers to ns.commands; "/catnip <name> <arg>".
 ns.commands = {}
 SLASH_CATNIP1 = "/catnip"
@@ -60,13 +72,14 @@ SlashCmdList.CATNIP = function(msg)
     if handler then
         handler(arg)
     else
-        ns.Print("commands: /catnip (lock/unlock), /catnip scale <0.5-2.5>, /catnip reset, /catnip debug, /catnip cdm")
+        ns.Print("commands: /catnip (settings), /catnip lock, /catnip unlock, /catnip scale <0.5-2.5>, /catnip reset, /catnip debug, /catnip cdm")
     end
 end
 
 ns.commands.debug = function()
     ns.db.debug = not ns.db.debug
     ns.Print("debug " .. (ns.db.debug and "on" or "off"))
+    ns.SettingsChanged()
 end
 
 local frame = CreateFrame("Frame")

@@ -18,3 +18,4 @@ Gcd.lua
 Proc.lua
 DotRings.lua
 Enrage.lua
+Options.lua

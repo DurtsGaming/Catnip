@@ -1,10 +1,24 @@
 {
   "permissions": {
+    "allow": [
+      "Bash(git clone --depth 1 *)",
+      "PowerShell(git clone --depth 1 *)"
+    ],
     "deny": [
-      "Bash(git *)",
-      "Bash(git)",
-      "PowerShell(git *)",
-      "PowerShell(git)"
+      "Bash(git add *)", "Bash(git commit *)", "Bash(git push *)", "Bash(git pull *)",
+      "Bash(git fetch *)", "Bash(git checkout *)", "Bash(git switch *)", "Bash(git branch *)",
+      "Bash(git merge *)", "Bash(git rebase *)", "Bash(git reset *)", "Bash(git restore *)",
+      "Bash(git stash *)", "Bash(git tag *)", "Bash(git rm *)", "Bash(git mv *)",
+      "Bash(git clean *)", "Bash(git revert *)", "Bash(git cherry-pick *)", "Bash(git am *)",
+      "Bash(git apply *)", "Bash(git remote *)", "Bash(git config *)", "Bash(git init *)",
+      "Bash(git worktree *)", "Bash(git -C *)",
+      "PowerShell(git add *)", "PowerShell(git commit *)", "PowerShell(git push *)", "PowerShell(git pull *)",
+      "PowerShell(git fetch *)", "PowerShell(git checkout *)", "PowerShell(git switch *)", "PowerShell(git branch *)",
+      "PowerShell(git merge *)", "PowerShell(git rebase *)", "PowerShell(git reset *)", "PowerShell(git restore *)",
+      "PowerShell(git stash *)", "PowerShell(git tag *)", "PowerShell(git rm *)", "PowerShell(git mv *)",
+      "PowerShell(git clean *)", "PowerShell(git revert *)", "PowerShell(git cherry-pick *)", "PowerShell(git am *)",
+      "PowerShell(git apply *)", "PowerShell(git remote *)", "PowerShell(git config *)", "PowerShell(git init *)",
+      "PowerShell(git worktree *)", "PowerShell(git -C *)"
     ]
   }
 }
