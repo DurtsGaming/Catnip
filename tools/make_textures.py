@@ -55,12 +55,6 @@ def ring(size, thickness):
     return lambda d, *_: min(r - d + 0.5, d - (r - thickness) + 0.5)
 
 
-def half_ring(size, thickness):
-    """The left half of a ring, on a full-size canvas so it rotates around the ring's centre."""
-    full = ring(size, thickness)
-    return lambda d, dx, dy: min(full(d), -dx + 0.5)
-
-
 def ring_bar(size, thickness):
     """A thick ring, brightest along the middle of the band for a rounded look."""
     r = size / 2 - 1
@@ -77,6 +71,17 @@ def ring_bar_half(size, thickness):
     def shade(d, dx, dy):
         alpha, value = full(d)
         return min(alpha, -dx + 0.5), value
+    return shade
+
+
+def ring_tube_half(size, thickness, edge=0.35):
+    """The left half of a thin ring shaded like a tube: full brightness along the middle of the band,
+    `edge` at its rims, on a full-size canvas so it rotates around the ring's centre."""
+    r = size / 2 - 1
+    full = ring(size, thickness)
+    def shade(d, dx, dy):
+        u = clamp01((r - d) / thickness)
+        return min(full(d), -dx + 0.5), edge + (1 - edge) * math.sin(math.pi * u) ** 0.7
     return shade
 
 
@@ -215,10 +220,10 @@ TEXTURES = {
     "crescent_bloom": (256, crescent_bloom(256)),           # Clearcasting: glow and rays under the arc
     "crescent_shadow": (256, crescent_shadow(256)),         # Clearcasting: dark backing under the glow
     "crescent_edge": (256, crescent_edge(256)),             # Clearcasting: dark line under the arc
-    "ring_thin": (256, ring(256, 6)),                       # 3, for the big circle
+    "ring_thin": (256, ring(256, 10)),                      # 3, for the big circle; same band as ring_mana_half
     "ring_small": (64, ring(64, 3)),                        # combo point borders
     "ring_rip": (128, ring(128, 16)),                       # 5, DoT timers around combo points 4 and 5
-    "ring_mana_half": (256, half_ring(256, 10)),            # five-second rule: left half, rotated into view
+    "ring_mana_half": (256, ring_tube_half(256, 10)),       # five-second rule: shaded left half, rotated into view; same band as ring_thin
     "ring_glow": (256, ring_glow(256)),                     # 4
     "ring_bar": (256, ring_bar(256, 20)),                   # 7
     "ring_bar_half": (256, ring_bar_half(256, 20)),         # 7, cast bar: left half, rotated into view

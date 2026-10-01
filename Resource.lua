@@ -49,7 +49,8 @@ local function SetFill(file, r, g, b)
 end
 SetFill(FLAT_TEXTURE, unpack(DEFAULT_COLOR))
 
--- #3 thin ring as the border
+-- #3 ring as the border: the same size and band as the five-second-rule ring (FiveSecondRule.lua),
+-- so the black shows exactly where the blue drains away
 local border = bar:CreateTexture(nil, "OVERLAY")
 border:SetTexture(ns.MEDIA .. "ring_thin")
 border:SetSize(SIZE + 6, SIZE + 6)

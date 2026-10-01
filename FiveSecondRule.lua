@@ -1,16 +1,19 @@
 -- Five-second rule: mana only regenerates once 5 seconds have passed since mana was last spent.
--- Out of Cat/Bear Form (whenever the power is mana), a dark blue ring over the resource circle's
--- border shows it: full while regenerating (including during a cast, since mana is only spent
--- when it lands), and after a mana spend it empties, then two arcs grow from 6 o'clock up both
--- sides and meet at 12 o'clock after the 5 seconds.
+-- Mana keeps its own clock in every form, so in all of them a deep indigo ring over the resource
+-- circle's border shows it: a mana spend fills it, then it opens at 12 o'clock and the two ends
+-- retreat down both sides, meeting at 6 o'clock as the 5 seconds run out. Empty while
+-- regenerating (including during a cast, since mana is only spent when it lands).
 --
 -- Only casts that really spend mana count: not ones with no mana cost (skinning), nor ones made
--- free by Clearcasting (judged by whether the cast used the buff up). Our casts' spell IDs, spell costs and UnitPowerType are readable in
--- combat and the timer is our own clock; Clearcasting is the exception (see ns.IsClearcasting).
+-- free by Clearcasting (judged by whether the cast used the buff up). Cat and Bear abilities cost
+-- energy or rage, so they don't count; shapeshifting costs mana, so it does. Our casts' spell IDs
+-- and spell costs are readable in combat and the timer is our own clock; Clearcasting is the
+-- exception (see ns.IsClearcasting).
 local addonName, ns = ...
 
 local RULE = 5
-local COLOR = { 0.1, 0.25, 0.8 }
+-- Deep indigo, well darker than the mana fill's bright azure; the texture adds tube shading.
+local COLOR = { 0.12, 0.14, 0.55 }
 local MANA = Enum.PowerType.Mana
 
 local SIZE = ns.RESOURCE_SIZE + 6 -- matches the border in Resource.lua, which the ring covers
@@ -18,11 +21,11 @@ local SIZE = ns.RESOURCE_SIZE + 6 -- matches the border in Resource.lua, which t
 -- Each side of the ring is a clip frame showing only its half. Inside it, a half-ring texture
 -- (ring_mana_half, the left half) rotates around the ring's centre: starting on the far side,
 -- where it's clipped away, it swings in from 6 o'clock until it fills its half at 12 o'clock.
+-- The ring drains by running that backwards.
 local holder = CreateFrame("Frame", nil, ns.hud)
 holder:SetSize(SIZE, SIZE)
 holder:SetPoint("CENTER")
 holder:SetFrameLevel(ns.hud:GetFrameLevel() + 4) -- over the GCD shading, under the resource number
-holder:Hide()
 
 local function CreateSide(point)
     local clip = CreateFrame("Frame", nil, holder)
@@ -41,17 +44,16 @@ end
 local rightArc = CreateSide("RIGHT")
 local leftArc = CreateSide("LEFT")
 
--- progress 0-1 -> each arc has swept `angle` (0 to pi) up its side. SetRotation turns
+-- fill 0-1 -> each arc has swept `angle` (0 to pi) up its side. SetRotation turns
 -- counter-clockwise: the left half turned by +angle enters the right side from the bottom, and
 -- turned by pi - angle (a right half turned clockwise) enters the left side from the bottom.
-local function SetProgress(progress)
-    local angle = math.pi * progress
+local function SetFill(fill)
+    local angle = math.pi * fill
     rightArc:SetRotation(angle)
     leftArc:SetRotation(math.pi - angle)
 end
 
 local lastSpend -- GetTime() of the last mana spend
-local isMana = false
 
 local function Progress()
     if not lastSpend then
@@ -60,14 +62,13 @@ local function Progress()
     return math.min((GetTime() - lastSpend) / RULE, 1)
 end
 
-holder:SetScript("OnUpdate", function()
-    SetProgress(Progress())
-end)
-
-local function Refresh()
-    holder:SetShown(isMana)
-    SetProgress(Progress())
+-- The ring's fill: full right after a spend, empty once regenerating.
+local function Update()
+    SetFill(1 - Progress())
 end
+
+holder:SetScript("OnUpdate", Update)
+Update()
 
 -- Whether a spell has a mana cost (skinning, for one, has none). If it can't be read, assume so.
 local function CostsMana(spellID)
@@ -131,18 +132,12 @@ local function OnSucceeded(spellID)
 end
 
 local events = CreateFrame("Frame")
-events:RegisterEvent("PLAYER_ENTERING_WORLD")
-events:RegisterUnitEvent("UNIT_DISPLAYPOWER", "player")
 events:RegisterUnitEvent("UNIT_SPELLCAST_SENT", "player")
 events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 events:SetScript("OnEvent", function(_, event, ...)
     if event == "UNIT_SPELLCAST_SENT" then
         OnSent((select(4, ...))) -- unit, target, castGUID, spellID
-    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
-        OnSucceeded((select(3, ...))) -- unit, castGUID, spellID
     else
-        local powerType = UnitPowerType("player")
-        isMana = not ns.IsSecret(powerType) and powerType == MANA
+        OnSucceeded((select(3, ...))) -- unit, castGUID, spellID
     end
-    Refresh()
 end)
