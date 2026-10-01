@@ -1,13 +1,17 @@
 -- Cast bar: while the player casts or channels, a ring takes the swing timer's exact place (same
 -- size, texture and glow) and the swing ring goes invisible. The swing ring keeps running
--- underneath, so it reappears in sync when the cast ends. Casts fill clockwise from 12 o'clock;
--- channels start full and drain. Below the ring: "elapsed / total" (remaining for channels) and
--- the spell name.
+-- underneath, so it reappears in sync when the cast ends. Casts fill counter-clockwise from
+-- 12 o'clock; channels start full and drain clockwise (the same shape, run backwards). Below the
+-- ring: "elapsed / total" (remaining for channels) and the spell name.
 --
 -- Cast timings may be secret in combat, so the ring is driven by duration objects
 -- (UnitCastingDuration / UnitChannelDuration -> Cooldown:SetCooldownFromDurationObject), the same
 -- technique as Gcd.lua, and the time text passes the object's (possibly secret) numbers straight
 -- to string.format. Both seen in the Forever-adapted ThreatPlates castbar.
+--
+-- A Cooldown swipe only runs clockwise, so a cast's counter-clockwise fill is drawn with two
+-- rotated half-ring arcs instead (FiveSecondRule.lua's technique). That needs the cast's progress
+-- as a number; if it's secret, the cast falls back to the swipe, filling clockwise.
 local addonName, ns = ...
 
 local SIZE = ns.SWING_RING_SIZE
@@ -23,6 +27,41 @@ ring:SetDrawEdge(false)
 ring:SetDrawBling(false)
 ring:SetHideCountdownNumbers(true)
 ring:Hide()
+
+-- The counter-clockwise fill: each side is a clip frame showing only its half, holding a left
+-- half-ring that rotates into view. Shown instead of the swipe while the progress is readable.
+local arcs = CreateFrame("Frame", nil, ns.hud)
+arcs:SetSize(SIZE, SIZE)
+arcs:SetPoint("CENTER")
+arcs:SetFrameLevel(ring:GetFrameLevel())
+arcs:Hide()
+
+local function CreateSide(point)
+    local clip = CreateFrame("Frame", nil, arcs)
+    clip:SetPoint("TOP" .. point)
+    clip:SetPoint("BOTTOM" .. point)
+    clip:SetWidth(SIZE / 2)
+    clip:SetClipsChildren(true)
+    local arc = clip:CreateTexture(nil, "ARTWORK")
+    arc:SetTexture(ns.MEDIA .. "ring_bar_half")
+    arc:SetSize(SIZE, SIZE)
+    arc:SetPoint("CENTER", arcs)
+    arc:SetVertexColor(CAST_COLOR[1], CAST_COLOR[2], CAST_COLOR[3])
+    return arc
+end
+
+local leftArc = CreateSide("LEFT")
+local rightArc = CreateSide("RIGHT")
+
+-- progress 0-1 -> the fill's angle runs 0 to 2pi counter-clockwise from 12 o'clock: first down
+-- the left side, then up the right. SetRotation turns counter-clockwise. The left half turned by
+-- pi sits on the right (clipped away) and turning further enters the left side from 12 o'clock;
+-- unturned it sits on the left (clipped away) and turning enters the right side from 6 o'clock.
+local function SetArcs(progress)
+    local angle = 2 * math.pi * math.max(0, math.min(progress, 1))
+    leftArc:SetRotation(math.pi + math.min(angle, math.pi))
+    rightArc:SetRotation(math.max(angle - math.pi, 0))
+end
 
 -- Text under the ring: "0.0 / 2.5s", then the spell name.
 local info = CreateFrame("Frame", nil, ns.hud)
@@ -41,6 +80,33 @@ nameText:SetPoint("TOP", timeText, "BOTTOM", 0, -2)
 -- The running cast: a duration object, or plain start/end seconds on a client without one.
 local channel, durationObject, startTime, endTime
 local fullFormat = true -- false once the object turns out to lack elapsed/total getters
+local useArcs = false -- whether this cast is drawn by the arcs (else the swipe)
+
+-- The cast's progress 0-1, or nil if it can't be worked out (secret timings).
+local function Progress()
+    local ok, progress = pcall(function()
+        if durationObject then
+            return durationObject:GetElapsedDuration() / durationObject:GetTotalDuration()
+        end
+        return (GetTime() - startTime) / (endTime - startTime)
+    end)
+    if ok and type(progress) == "number" and not ns.IsSecret(progress) then
+        return progress
+    end
+end
+
+-- Draws the arcs, or hands the cast over to the swipe if the progress can't be read.
+local function UpdateArcs()
+    local progress = Progress()
+    if progress then
+        SetArcs(progress)
+        return
+    end
+    ns.Debug("cast: progress unreadable, filling clockwise with the swipe")
+    useArcs = false
+    arcs:Hide()
+    ring:Show()
+end
 
 local function FormatFromObject()
     if fullFormat then
@@ -64,6 +130,9 @@ local function FormatFromObject()
 end
 
 info:SetScript("OnUpdate", function()
+    if useArcs then
+        UpdateArcs()
+    end
     if durationObject then
         FormatFromObject()
     elseif startTime then
@@ -112,7 +181,12 @@ local isCasting = false
 
 local function SetCasting(casting)
     isCasting = casting
-    ring:SetShown(casting)
+    useArcs = casting and not channel and Progress() ~= nil
+    if useArcs then
+        UpdateArcs()
+    end
+    ring:SetShown(casting and not useArcs)
+    arcs:SetShown(useArcs)
     info:SetShown(casting)
     if ns.swingRing then
         ns.swingRing:SetAlpha(casting and 0 or 1)
@@ -127,7 +201,7 @@ local function Update()
     local shown = false
     if IsActive(UnitCastingInfo) then
         channel = false
-        ring:SetReverse(true) -- fill, like a cast bar
+        ring:SetReverse(true) -- fill, like a cast bar (only seen if the arcs can't be used)
         ring:SetSwipeColor(CAST_COLOR[1], CAST_COLOR[2], CAST_COLOR[3], 1)
         shown = Start(UnitCastingDuration, UnitCastingInfo)
     elseif IsActive(UnitChannelInfo) then

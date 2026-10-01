@@ -57,7 +57,7 @@ Patch 12.1.0 widget; the main tool for buffs and debuffs. Learned from the Blood
 
 ### Swing timer (verified)
 
-`PLAYER_SWING` gives a plain duration, so `Cooldown:SetCooldown(GetTime(), duration)` works. If Blizzard ever makes it secret, SetCooldown will reject it. An earlier counter-clockwise version used two rotated half-ring textures in clip frames (`SetClipsChildren` + `SetRotation`); it worked, but was dropped when the design went clockwise.
+`PLAYER_SWING` gives a plain duration, so `Cooldown:SetCooldown(GetTime(), duration)` works. If Blizzard ever makes it secret, SetCooldown will reject it. An earlier counter-clockwise version used two rotated half-ring textures in clip frames (`SetClipsChildren` + `SetRotation`); it worked, but was dropped when the design went clockwise. The cast bar now uses the same technique for its counter-clockwise fill (`ring_bar_half`); that needs the cast's progress as a plain number, which is unverified in combat (`Cast.lua` falls back to a clockwise swipe if it's secret).
 
 ### Hiding Blizzard's player cast bar (verified 2026-09-29)
 

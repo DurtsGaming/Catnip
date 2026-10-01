@@ -71,6 +71,15 @@ def ring_bar(size, thickness):
     return shade
 
 
+def ring_bar_half(size, thickness):
+    """The left half of ring_bar, on a full-size canvas so it rotates around the ring's centre."""
+    full = ring_bar(size, thickness)
+    def shade(d, dx, dy):
+        alpha, value = full(d)
+        return min(alpha, -dx + 0.5), value
+    return shade
+
+
 def ring_glow(size, center=0.78, width=0.07):
     """A soft band. Its centre sits at `center` of the radius, so Lua scales it up to line up with ring_bar."""
     r = size / 2 - 1
@@ -212,6 +221,7 @@ TEXTURES = {
     "ring_mana_half": (256, half_ring(256, 10)),            # five-second rule: left half, rotated into view
     "ring_glow": (256, ring_glow(256)),                     # 4
     "ring_bar": (256, ring_bar(256, 20)),                   # 7
+    "ring_bar_half": (256, ring_bar_half(256, 20)),         # 7, cast bar: left half, rotated into view
     # Coloured, drawn untinted.
     "fill_energy": (128, power_fill(128, FOREVER_ENERGY)),  # 1, resource fill in Cat Form
     "fill_rage": (128, power_fill(128, FOREVER_RAGE)),      # 1, resource fill in Bear Form

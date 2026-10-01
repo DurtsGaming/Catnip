@@ -11,7 +11,7 @@
 local addonName, ns = ...
 
 local REFERENCE_SPELL = 29515 -- Forever's GCD spell
-local SHADE = { 1, 1, 1, 0.2 }
+local SHADE = { 1, 1, 1, 0.3 }
 
 local ball = CreateFrame("Cooldown", nil, ns.hud, "CooldownFrameTemplate")
 ball:ClearAllPoints() -- the template fills its parent (the whole HUD); size it to the circle instead
