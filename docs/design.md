@@ -34,6 +34,7 @@ We need to make these (with transparency):
 4. **Swing timer (#7 on #4).** Ring around the big circle that appears full on each swing and empties clockwise from 12 o'clock (earlier versions filled, then emptied counter-clockwise), over the soft glow (#4, pulled slightly inside the bar's band) with a small gap from the resource circle. (A crisp black outline was tried and dropped in favour of the feathered look.) Turns red/pink when Maul is queued. The `0.2 / 1.0` text was tried and dropped: the ring alone is the swing timer.
 5. **Enrage tint.** In Bear Form, while the Enrage buff is up, the empty part of the resource circle turns a dim red (a red disc behind the rage fill).
 6. **Clearcasting proc texture.** A crescent of light: a thin bright arc just inside the top rim (barely dims) over a glow with soft rays spilling down into the fill (breathes), both drawn additively so they read as light, over a steady soft black backing (40%) and a thin dark line just under the arc (60%) so they still have contrast on a full energy fill (additive white alone barely changes bright yellow). Picked from five mockups (crescent, moonbeams, rim light, halo, sheen). (Mirrored claw marks were used first, then an opaque white cap over the top 10%, which looked like a sticker.) (A translucent "phantom" +10 energy preview was tried and removed.)
+7. **Stealth: night motes.** While stealthed (Prowl, or Shadowmeld), the HUD fades to 50% of its normal opacity (a setting), the energy fill turns from gold to the Prowl icon's colours (deep violet at the bottom, through purple, to dark teal at the top), and nine violet and teal motes circle it at different distances and speeds, twinkling. The motes stay at full brightness while the rest fades. (First built keeping energy gold at 70%; the owner then asked for the recolour and a deeper fade.) Fades in and out over 0.4s. Picked from two rounds of mockups (round 1 recoloured the energy, which was ruled out; round 2 had paw trail, cat's eyes, glowing paw, night sky, eclipse, shadow tendrils, shimmer sweep, cloak sheen, night motes, shadow aura).
 
 ## Later
 
@@ -72,6 +73,7 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Enrage tint (Bear: resource background turns red while Enrage is up) | Verified |
 | Gradient fill textures (resource circle per power, combo points) | Built, **untested** in-game |
 | Move/resize (unlock mode) | Verified |
+| Stealth: night motes and fade (`/catnip stealth` previews) | Built, **untested** in-game |
 | Settings window (`/catnip`): lock/unlock, reset, scale, position (X/Y from screen centre), slider values typeable, hide Blizzard cast bar, debug | Built, **untested** in-game |
 
 Next candidates: fix combo points on target switch; items from "Later".

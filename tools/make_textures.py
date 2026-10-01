@@ -110,6 +110,12 @@ def gauss(x, sigma):
     return math.exp(-(x * x) / (2 * sigma * sigma))
 
 
+def mote(size):
+    """Stealth: a small spark, a bright core in a soft halo, for drawing additively."""
+    r = size / 2 - 1
+    return lambda d, *_: min(1.0, gauss(d, 0.14 * r) + 0.6 * gauss(d, 0.4 * r)) * clamp01(r - d)
+
+
 def crescent_line(size):
     """Clearcasting: a thin bright arc just inside the top of circle_feather, thinning toward its ends."""
     r = size / 2 - 1
@@ -169,6 +175,10 @@ FOREVER_MANA = [(0, 61, 139), (1, 66, 149), (2, 73, 164), (4, 83, 182), (6, 93, 
 FOREVER_RAGE = [(160, 0, 0), (169, 0, 0), (179, 0, 0), (190, 1, 1), (203, 7, 4), (215, 17, 10),
                 (227, 29, 18), (238, 47, 28), (247, 65, 41), (254, 85, 53), (255, 98, 62), (255, 110, 69)]
 
+# Stealth: the energy fill while prowling, in the Prowl icon's colours: deep violet at the bottom,
+# through purple, to a dark teal at the top. Not measured; picked to match the icon.
+PROWL = [(34, 12, 72), (72, 30, 132), (96, 52, 168), (52, 112, 160), (26, 140, 142)]
+
 
 def sample(values, t):
     """Linear interpolation through evenly spaced values (numbers or tuples), t in 0..1."""
@@ -227,10 +237,12 @@ TEXTURES = {
     "ring_glow": (256, ring_glow(256)),                     # 4
     "ring_bar": (256, ring_bar(256, 20)),                   # 7
     "ring_bar_half": (256, ring_bar_half(256, 20)),         # 7, cast bar: left half, rotated into view
+    "mote": (32, mote(32)),                                 # stealth: night motes circling the HUD
     # Coloured, drawn untinted.
     "fill_energy": (128, power_fill(128, FOREVER_ENERGY)),  # 1, resource fill in Cat Form
     "fill_rage": (128, power_fill(128, FOREVER_RAGE)),      # 1, resource fill in Bear Form
     "fill_mana": (128, power_fill(128, FOREVER_MANA)),      # 1, resource fill otherwise
+    "fill_prowl": (128, power_fill(128, PROWL)),            # 1, energy fill while stealthed
     "combo_fill": (128, combo_fill(128)),                   # 1, combo points
 }
 

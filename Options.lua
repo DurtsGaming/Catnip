@@ -279,6 +279,11 @@ Slider("Vertical position", function() return -HalfHeight() end, HalfHeight, 1, 
     function() return ns.db.y end,
     function(y) ns.SetHudPosition(ns.db.x, y) end)
 
+-- In percent, so the steps are whole numbers.
+Slider("HUD opacity while stealthed", 0, 100, 5, "%.0f%%",
+    function() return ns.db.stealthAlpha * 100 end,
+    function(percent) ns.SetStealthFade(percent / 100) end)
+
 Section("Blizzard UI")
 
 Checkbox("Hide Blizzard's cast bar",

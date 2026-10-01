@@ -33,6 +33,8 @@ What we know about Forever's addon API: Midnight's (12.x) rules with Forever-spe
 | `UNIT_AURA` `updateInfo.addedAuras` | The whole list is a secret table; can't loop over it |
 | `auraInstanceID` | Secret (at least on Cooldown Manager items; one source claimed otherwise) |
 | Cooldown Manager items | `cooldownInfo.spellID`, `cooldownID`, `IsShown()` readable; `auraInstanceID` secret |
+| `IsStealthed()`, `UPDATE_STEALTH` | Both exist and work out of combat: true while prowling, false after (**verified** 2026-09-30). Stealth breaks on entering combat, so combat behaviour doesn't matter. `Stealth.lua` also listens to `UNIT_AURA` as a backup |
+| `Region:SetIgnoreParentAlpha` | Exists (**verified** 2026-09-30); `Stealth.lua`'s motes use it to stay bright while the HUD fades |
 | `COMBAT_LOG_EVENT_UNFILTERED` | Removed from the addon API (source) |
 
 ## Techniques that work
@@ -91,6 +93,8 @@ The Cooldown Manager viewers (`BuffIconCooldownViewer`, `BuffBarCooldownViewer`,
 - A cast-event timer for Rip (guessed the duration, lost track on target switches); replaced by AuraContainer.
 - Updating frames attached to AuraContainer buttons (forbidden).
 - `C_UnitAuras.GetPlayerAuraBySpellID` in combat (returns nil).
+- Orbiting a texture with a `Rotation` animation whose `SetOrigin` pivots on a point far outside it (the HUD centre), plus a second looping `Alpha` group on the same texture: the textures vanished (2026-09-30). Unclear which of the two caused it; they showed once both were stopped. Moving them in `OnUpdate` instead.
+- `OnUpdate` on a parentless `CreateFrame("Frame")`: never fired (2026-09-30). Parent it to `UIParent`.
 
 ## Sources
 

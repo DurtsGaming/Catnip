@@ -19,6 +19,7 @@ How the code is organised, so a new session can start a feature without reading 
 | `Proc.lua` | Clearcasting: additive crescent of light inside the top of the resource circle (AuraContainer; Cooldown Manager fallback) |
 | `DotRings.lua` | DoT timer rings: Rake around combo dot 4, Rip around dot 5 (one AuraContainer each) |
 | `Enrage.lua` | Bear Form: a red disc behind the rage fill while Enrage is up (AuraContainer), so the empty part of the circle reads red |
+| `Stealth.lua` | Stealth (Prowl, Shadowmeld): fades the HUD to the `stealthAlpha` setting, swaps the energy fill to `fill_prowl` (via `ns.SetResourceStealthed`) and shows night motes circling it (additive, ignoring the HUD's alpha, moved in `OnUpdate`); `/catnip stealth` previews it |
 | `Options.lua` | Settings window (plain `/catnip`): custom-drawn section/button/checkbox/slider helpers; loads last so every module's `ns.*` functions exist |
 
 New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses another's `ns.*` (e.g. `DotRings.lua` needs `ComboPoints.lua` and `AuraContainer.lua` first).
@@ -27,7 +28,7 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 
 **Core (`Catnip.lua`)**
 - `ns.hud`: the frame everything draws in. Layout.lua positions and scales it.
-- Sizes: `ns.RESOURCE_SIZE` (100), `ns.SWING_RING_SIZE` (134). `ns.MEDIA`: texture folder path.
+- Sizes: `ns.RESOURCE_SIZE` (100), `ns.SWING_RING_SIZE` (134). `ns.HUD_ALPHA` (0.85): the HUD's normal alpha; Stealth.lua fades from it, so set the HUD's alpha only there. `ns.MEDIA`: texture folder path.
 - `ns.db`: saved settings (`CatnipDB`), ready inside `ns.OnLoad` callbacks. Modules add defaults to `ns.defaults` at file load.
 - `ns.OnLoad(fn)`: run `fn` once saved settings are loaded (`ADDON_LOADED`).
 - `ns.SettingsChanged()` after changing a setting; `ns.OnSettingsChanged(fn)` to react (the settings window refreshes on it). To add a setting: default in `ns.defaults`, an apply function in the owning module, a control in `Options.lua`.
@@ -39,6 +40,7 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 - `ns.CreateAuraContainer{ label, unit, filter, spellIDs, width, height, x, y, level, parent, initialize }` and `ns.HideAuraButtonArt(button)` (AuraContainer.lua). `ns.HAS_AURA_CONTAINER`.
 - `ns.comboGroup`, `ns.COMBO_DOT_SIZE`, `ns.ComboDotOffset(i)` (ComboPoints.lua): for things placed around combo dots.
 - `ns.swingRing` (Swing.lua): the swing Cooldown. Cast.lua sets its alpha to 0 while casting, so it keeps timing underneath.- `ns.IsClearcasting()` (Proc.lua): true/false, or nil if unknown (in combat without Omen of Clarity tracked in the Cooldown Manager).
+- `ns.SetStealthFade(fraction)` (Stealth.lua): the HUD's opacity while stealthed. `ns.SetResourceStealthed(bool)` (Resource.lua): energy uses `fill_prowl` while true.
 - `ns.CDM.IsActive(spellID)`, `ns.CDM.OnChange(fn)` (CooldownManager.lua).
 
 ## Layering (frame levels above `ns.hud`)
@@ -52,6 +54,7 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 | +4 | Five-second-rule ring (over the resource border) |
 | +5 | DoT ring AuraContainers (Rake, Rip) |
 | bar +5 (+7) | Resource number (above the GCD shading) |
+| +9 | Stealth motes (ignore the HUD's alpha) |
 | +10 | Clearcasting AuraContainer (crescent) |
 | +20 | Unlock overlay (Layout.lua) |
 
@@ -63,13 +66,15 @@ Gotcha: `CooldownFrameTemplate` pins its frame to fill the parent; call `ClearAl
 - **Showing an aura in combat** (buff on player, debuff on target): `ns.CreateAuraContainer`. Blizzard shows a button while the aura is up; our look goes on the button in `initialize` and must be static after that (the button and its children are off-limits to our code later). For a timer, create a `Cooldown` in `initialize` and register it with `button:SetDurationCooldown(cooldown)`: Blizzard drives it with the real duration. Examples: `Proc.lua` (static cap), `DotRings.lua` (timer rings).
 - **Filling a round shape from the bottom**: a vertical `StatusBar` with a flat or baked-gradient texture, masked (`CreateMaskTexture` + `AddMaskTexture`) to a circle or ring. Example: `Resource.lua`.
 - **Arcs growing along a ring from any point** (a Cooldown swipe always starts at 12 o'clock): per side, a clip frame (`SetClipsChildren(true)`) showing half the ring, holding a half-ring texture that `SetRotation` swings into view. Examples: `FiveSecondRule.lua` (two arcs anchored at 6 o'clock, shrinking from 12), `Cast.lua`.
+- **Orbiting a texture around the HUD**: re-anchor it each frame in an `OnUpdate` on a frame that's only shown while needed, from `GetTime()`. Not a `Rotation` animation pivoting on the HUD centre: that made the textures vanish (see api-research.md). Example: `Stealth.lua`.
+- **`OnUpdate` driver frames**: give them a parent (`UIParent`). A parentless `CreateFrame("Frame")` never got `OnUpdate` in Forever (2026-09-30).
 - **Timer rings**: a `Cooldown` frame with `SetSwipeTexture(<ring texture>)`, `SetDrawEdge(false)`, `SetDrawBling(false)`, `SetHideCountdownNumbers(true)`. Starts full and empties clockwise. Plain-number timings go to `SetCooldown`; secret ones need a duration object (`SetCooldownFromDurationObject`).
 
 ## Textures
 
 `py tools/make_textures.py` regenerates everything in `media/` (32-bit TGA). Most textures are white shapes with transparency, tinted in-game with `SetVertexColor`/`SetSwipeColor`. The power fills are the exception: they carry their own colour and are drawn untinted (shape functions can return `(alpha, (r, g, b))`). To add one, write a shape function and add it to `TEXTURES`. After changing a ring's thickness, update any Lua constant that depends on it (they're commented, e.g. `ComboPoints.lua` `RING_THICKNESS`, `DotRings.lua` `RING_SIZE`). Preview textures before shipping: an earlier bug left a texture's corners opaque.
 
-Current set: `fill_energy`, `fill_rage`, `fill_mana` (resource fill, swapped in by power type) and `combo_fill` (the full energy fill cut to a circle), all coloured: the WoW Forever power bars' gradients measured from screenshots, stood on their end (energy: dark gold at the bottom to pale lemon at the top; rage: deep red to coral; mana: dark navy to saturated blue, no paling), with the rounded shading run across the width (darker at both sides). `forever_colour` can also take a plain colour for a bar we haven't measured. Picked from mockups (flat, spark, bevel, liquid, orb, wave, then four ways of shading the "tube"). Then `circle_hard` (unused now), `circle_feather` (soft ~3px edge: resource fill mask, GCD, Enrage), `crescent_line` and `crescent_bloom` (Clearcasting, drawn with `SetBlendMode("ADD")`) over `crescent_shadow` and `crescent_edge` (tinted black, normal blend; on the full `circle_feather` canvas, so they line up with the fill), `circle_soft`, `ring_thin` (resource border; same band as `ring_mana_half`, so keep their sizes and thicknesses in step), `ring_small` (combo dots), `ring_rip` (DoT rings), `ring_mana_half` (five-second rule: a ring's left half on a full-size canvas, for rotating, shaded like a tube: bright down the middle, 35% at the rims), `ring_glow`, `ring_bar` (swing), `ring_bar_half` (cast bar: `ring_bar`'s left half, for rotating).
+Current set: `fill_energy`, `fill_rage`, `fill_mana` (resource fill, swapped in by power type), `fill_prowl` (energy while stealthed: violet to dark teal, picked to match the Prowl icon, not measured) and `combo_fill` (the full energy fill cut to a circle), all coloured: the WoW Forever power bars' gradients measured from screenshots, stood on their end (energy: dark gold at the bottom to pale lemon at the top; rage: deep red to coral; mana: dark navy to saturated blue, no paling), with the rounded shading run across the width (darker at both sides). `forever_colour` can also take a plain colour for a bar we haven't measured. Picked from mockups (flat, spark, bevel, liquid, orb, wave, then four ways of shading the "tube"). Then `circle_hard` (unused now), `circle_feather` (soft ~3px edge: resource fill mask, GCD, Enrage), `crescent_line` and `crescent_bloom` (Clearcasting, drawn with `SetBlendMode("ADD")`) over `crescent_shadow` and `crescent_edge` (tinted black, normal blend; on the full `circle_feather` canvas, so they line up with the fill), `circle_soft`, `ring_thin` (resource border; same band as `ring_mana_half`, so keep their sizes and thicknesses in step), `ring_small` (combo dots), `ring_rip` (DoT rings), `ring_mana_half` (five-second rule: a ring's left half on a full-size canvas, for rotating, shaded like a tube: bright down the middle, 35% at the rims), `ring_glow`, `ring_bar` (swing), `ring_bar_half` (cast bar: `ring_bar`'s left half, for rotating), `mote` (stealth: a bright core in a soft halo, drawn additively).
 
 ## Debugging and testing
 

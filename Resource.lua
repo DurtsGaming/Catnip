@@ -9,7 +9,8 @@ local POWER_TEXTURES = {
     [Enum.PowerType.Rage] = ns.MEDIA .. "fill_rage",
     [Enum.PowerType.Mana] = ns.MEDIA .. "fill_mana",
 }
-local FLAT_TEXTURE = "Interface\\Buttons\\WHITE8X8"
+local STEALTH_TEXTURE = ns.MEDIA .. "fill_prowl" -- energy while stealthed (Stealth.lua)
+local FLAT_TEXTURE ="Interface\\Buttons\\WHITE8X8"
 local DEFAULT_COLOR = { 0.7, 0.7, 0.7 }
 local SMOOTH = Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
 
@@ -78,10 +79,15 @@ local function PowerText(powerType, power)
     return power
 end
 
+local stealthed = false
+
 local function Update()
     local powerType = UnitPowerType("player")
     local knownType = not ns.IsSecret(powerType)
     local file = knownType and POWER_TEXTURES[powerType]
+    if stealthed and file == POWER_TEXTURES[Enum.PowerType.Energy] then
+        file = STEALTH_TEXTURE
+    end
     if file then
         SetFill(file, 1, 1, 1)
     else
@@ -93,6 +99,12 @@ local function Update()
     bar:SetMinMaxValues(0, UnitPowerMax("player", powerType))
     bar:SetValue(power, SMOOTH)
     text:SetText(knownType and PowerText(powerType, power) or power)
+end
+
+-- Stealth.lua: energy takes the Prowl colours while stealthed.
+function ns.SetResourceStealthed(value)
+    stealthed = value
+    Update()
 end
 
 ns.OnLoad(function()

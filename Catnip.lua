@@ -3,6 +3,7 @@ local addonName, ns = ...
 ns.MEDIA = "Interface\\AddOns\\" .. addonName .. "\\media\\"
 ns.RESOURCE_SIZE = 100
 ns.SWING_RING_SIZE = 134 -- band starts ~3px outside the resource circle's border
+ns.HUD_ALPHA = 0.85 -- the whole HUD's alpha (Stealth.lua fades it from here)
 
 -- In combat, Midnight hands addons "secret" values we can display but not compare or do math on.
 function ns.IsSecret(value)
@@ -40,7 +41,7 @@ end
 
 local hud = CreateFrame("Frame", "CatnipHUD", UIParent)
 hud:SetSize(240, 240) -- positioned and scaled by Layout.lua
-hud:SetAlpha(0.85) -- every element inherits this, AuraContainers included
+hud:SetAlpha(ns.HUD_ALPHA) -- every element inherits this, AuraContainers included
 ns.hud = hud
 
 -- Saved settings (CatnipDB). Modules add their defaults to ns.defaults and
@@ -72,7 +73,7 @@ SlashCmdList.CATNIP = function(msg)
     if handler then
         handler(arg)
     else
-        ns.Print("commands: /catnip (settings), /catnip lock, /catnip unlock, /catnip scale <0.5-2.5>, /catnip reset, /catnip debug, /catnip cdm")
+        ns.Print("commands: /catnip (settings), /catnip lock, /catnip unlock, /catnip scale <0.5-2.5>, /catnip reset, /catnip stealth (preview), /catnip debug, /catnip cdm")
     end
 end
 
@@ -91,6 +92,7 @@ frame:SetScript("OnEvent", function(self, event, name)
     CatnipDB = CatnipDB or {}
     ns.db = CatnipDB
     ns.db.log = nil -- left over from a removed debug log
+    ns.db.stealthFade = nil -- renamed stealthAlpha, with a new default
     for key, value in pairs(ns.defaults) do
         if ns.db[key] == nil then
             ns.db[key] = value
