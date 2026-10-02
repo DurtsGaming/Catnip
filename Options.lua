@@ -834,10 +834,9 @@ Section("Icons")
 AnchorGrid("Alignment", function() return ns.db.cdAlign end, ns.Cooldowns.SetAlignment)
 Hint("Where the shown icons gather in the box: a corner, the middle of a side, or the centre.")
 
--- Blizzard draws the countdown numbers, and only while this game option is on.
-Checkbox("Show cooldown numbers (WoW option)",
-    function() return GetCVarBool("countdownForCooldowns") end,
-    function(show) SetCVar("countdownForCooldowns", show and "1" or "0") end)
+-- No checkbox for the countdownForCooldowns CVar: SetCVar from our code was the likely source of a
+-- taint error in Blizzard's chat (2026-10-02; see docs/api-research.md). Players change it in WoW's options.
+Hint("Countdown numbers follow WoW's own setting: Options > Action Bars > Show Numbers for Cooldowns.")
 
 EndTab(layout)
 
