@@ -20,6 +20,7 @@ How the code is organised, so a new session can start a feature without reading 
 | `DotRings.lua` | DoT timer rings: Rake around combo dot 4, Rip around dot 5 (one AuraContainer each) |
 | `Enrage.lua` | Bear Form: a red disc behind the rage fill while Enrage is up (AuraContainer), so the empty part of the circle reads red |
 | `Cooldowns.lua` | `ns.Cooldowns`: the cooldown widget, a separate box (not in `ns.hud`) of square icons for abilities the player picks, in priority order. Grey icon + Blizzard countdown while on cooldown (`isActive`/`isOnGCD` + duration object); two AuraContainers per ability (our buff on the player, our debuff on the target) show the aura's coloured icon with dashes running around its square border while its buff is up (buff IDs that differ from the ability's are learned from out-of-combat casts into `cdBuffs`). Moves/resizes with the HUD's unlock mode (drag; corner grips via `StartSizing`). Also lists spellbook spells with a cooldown for the settings (one per name, as base spells via `C_Spell.GetBaseSpell`, with the current form's version from `C_Spell.GetOverrideSpell` used at runtime; `/catnip spells` explains each entry), and follows new ranks by name |
+| `CooldownItems.lua` | `ns.CooldownItems`: item entries for the cooldown widget (`"item:<id>"`, and one shared `"potion"` entry for the shared potion cooldown). Reads item cooldowns (`C_Container.GetItemCooldown`), finds potions in the bags, remembers the last potion used, maps items to their use spells for the active state. `/catnip item <id>` |
 | `Options.lua` | Settings window (plain `/catnip`), in tabs (General, Cooldowns): custom-drawn section/button/checkbox/slider helpers, plus the Cooldowns tab's drag-to-reorder list; loads last so every module's `ns.*` functions exist |
 
 New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses another's `ns.*` (e.g. `DotRings.lua` needs `ComboPoints.lua` and `AuraContainer.lua` first).
@@ -38,7 +39,7 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 
 **Features**
 - `ns.CreateAuraContainer{ label, unit, filter, spellIDs, width, height, x, y, relativeTo, level, parent, initialize }` and `ns.HideAuraButtonArt(button)` (AuraContainer.lua). `ns.HAS_AURA_CONTAINER`. Position and level are relative to `relativeTo` (default the HUD). Containers made after login are created immediately (out of combat). Returns a handle whose `SetSpellIDs(list)` changes the matched auras later.
-- `ns.Cooldowns.Candidates()`, `.IsTracked(id)`, `.SetTracked(id, bool)`, `.Move(from, to)`, `.ResetLayout()` (Cooldowns.lua). Tracked IDs live in `ns.db.cdTracked` (priority order); box layout in `cdX`, `cdY`, `cdWidth`, `cdHeight`; learned buffs in `cdBuffs` (ability name → buff spell ID).
+- `ns.Cooldowns.Candidates()`, `.IsTracked(id)`, `.SetTracked(id, bool)`, `.Move(from, to)`, `.ResetLayout()` (Cooldowns.lua). Tracked entries live in `ns.db.cdTracked` (priority order: spell IDs, or item entry strings); `ns.Cooldowns.AddItem(itemID)` handles the drop box. Special-case potions in `cdPotionItems`, the last potion used in `cdLastPotion`; box layout in `cdX`, `cdY`, `cdWidth`, `cdHeight`; learned buffs in `cdBuffs` (ability name → buff spell ID).
 - `ns.comboGroup`, `ns.COMBO_DOT_SIZE`, `ns.ComboDotOffset(i)` (ComboPoints.lua): for things placed around combo dots.
 - `ns.swingRing` (Swing.lua): the swing Cooldown. Cast.lua sets its alpha to 0 while casting, so it keeps timing underneath.- `ns.IsClearcasting()` (Proc.lua): true/false, or nil if unknown (in combat without Omen of Clarity tracked in the Cooldown Manager).
 - `ns.CDM.IsActive(spellID)`, `ns.CDM.OnChange(fn)` (CooldownManager.lua).
@@ -84,6 +85,7 @@ The user tests in-game; Claude can't run the game. Each change ends with exact s
 - `/catnip debug` toggles grey debug lines (saved). Modules print startup facts, e.g. which detection method is active.
 - `/catnip cdm` lists what the Cooldown Manager is tracking and what's readable.
 - `/catnip spells` lists every spellbook entry and why the Cooldowns tab offers it or not.
+- `/catnip item <id or shift-clicked link>` shows an item's class/subclass, use spell, whether it counts as a potion, and its raw cooldown.
 - Errors: BugSack is **not** installed in the Forever client (checked 2026-09-27); ask the user for the full error text.
 - `/reload` picks up code, `.toc` file lists and textures, but **not a new `## SavedVariables` name** (probably needs a restart); keep new saved data inside `CatnipDB`.
 - To verify an unknown API, add debug output that prints what the game actually returns (with `ns.Describe`, which shows `<secret>`), test in and out of combat, then record the result in api-research.md.

@@ -18,5 +18,6 @@ Gcd.lua
 Proc.lua
 DotRings.lua
 Enrage.lua
+CooldownItems.lua
 Cooldowns.lua
 Options.lua

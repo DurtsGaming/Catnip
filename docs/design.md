@@ -56,6 +56,8 @@ A separate box, apart from the HUD, for non-rotational cooldowns (requested 2026
   - Active (our buff on us, or our debuff on the current target, e.g. Growl's taunt or Faerie Fire): the aura's icon in colour (e.g. Elemental Blessing for Skysight), with thin yellow dashes running clockwise around its square border, and the buff's time left. (Yellow dots were tried first; the owner wanted thin lines.)
 - **Look:** square icons (round was tried first; the owner preferred squares), sized so every tracked ability fits in the box at once.
 - **List:** one entry per spell name (the spellbook can list several ranks; the highest wins). `/catnip spells` shows why any spellbook entry is or isn't offered.
+- **Items:** drag an item onto the drop box under the list (Cooldowns tab). Anything with a Use: effect (Hearthstone, trinkets) gets its own icon, in the same priority list. Unticking an item removes it.
+- **Potions:** all potions share one cooldown, so they share one **Potions** icon, which follows whichever potion was used. Dropping a specific potion (Mighty Rage Potion) is a special case: its buff shows as the Potions icon being active. Unticking Potions forgets the special cases.
 - **Form versions:** a spell that changes with your form (Feral Charge becomes Feral Charge (Cat) or (Bear)) is one entry, saved as the base spell. The icon and cooldown follow the version your current form uses, so after a shift it shows that form's charge.
 - **Buffs with a different ID:** some abilities give a buff with another name and ID (Skysight, the Skyborne racial, gives Elemental Blessing). Catnip learns these: when a tracked ability is cast out of combat, it looks for a buff of yours that started at that moment and remembers it by ability name. Until then, that ability never shows as active.
 - **Moving/resizing:** unlocks with the HUD. Drag the box to move it; drag any corner to resize it.
@@ -89,6 +91,7 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Move/resize (unlock mode) | Verified |
 | Settings window (`/catnip`): lock/unlock, reset, scale, position (X/Y from screen centre), slider values typeable, hide Blizzard cast bar, debug | Built, **untested** in-game |
 | Settings tabs (General, Cooldowns) | Built, **untested** in-game |
+| Cooldown widget items (drop box, per-item icons, shared Potions icon with special-case potion buffs) | Built, **untested** in-game |
 | Cooldown widget (tracked list with drag-to-reorder, grey icon + timer on cooldown, coloured buff icon + running dashed border + timer, learns buffs with a different ID while the buff is up, move/resize) | Built, **untested** in-game |
 
 Next candidates: fix combo points on target switch; items from "Later".

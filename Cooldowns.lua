@@ -16,6 +16,9 @@
 --   * Buff IDs: usually the ability's own, but not always (Skysight gives Elemental Blessing). When a
 --     tracked ability is cast out of combat, we look for a buff or debuff of ours that started then
 --     and remember it (CatnipDB.cdBuffs, by ability name).
+--
+-- Tracked entries (CatnipDB.cdTracked, in priority order) are spell IDs (numbers) or item entries
+-- (strings: "potion", "item:<id>"), which CooldownItems.lua handles.
 local addonName, ns = ...
 
 local SLOT = 64 -- icons are built at this size, then scaled to fit the box
@@ -48,7 +51,8 @@ elseif widget.SetMinResize then
     widget:SetMinResize(MIN_SIZE, MIN_SIZE)
 end
 
-local slots = {} -- by spell ID; kept when untracked, so their AuraContainers are reused
+local Items = ns.CooldownItems
+local slots = {} -- by entry; kept when untracked, so their AuraContainers are reused
 local unlocked = false
 
 -- Icons -------------------------------------------------------------------------------------------
@@ -133,13 +137,54 @@ local function BuffIDs(spellID)
     return ids
 end
 
-local function CreateSlot(spellID)
+-- Entries -----------------------------------------------------------------------------------------
+
+local function EntryName(entry)
+    if Items.IsItemEntry(entry) then
+        return Items.Name(entry)
+    end
+    return C_Spell.GetSpellName(entry) or ("spell " .. tostring(entry))
+end
+
+local function EntryIcon(entry)
+    if Items.IsItemEntry(entry) then
+        return Items.Icon(entry)
+    end
+    return C_Spell.GetSpellTexture(CurrentSpell(entry))
+end
+
+-- Aura IDs that make the entry "active": for items, the auras of their use effects. Never empty:
+-- an AuraContainer with no IDs to match might match everything, so a placeholder stands in.
+local function EntryAuraIDs(entry)
+    local spells = Items.IsItemEntry(entry) and Items.UseSpells(entry) or { entry }
+    local ids = {}
+    for _, spellID in ipairs(spells) do
+        for _, id in ipairs(BuffIDs(spellID)) do
+            ids[#ids + 1] = id
+        end
+    end
+    if #ids == 0 then
+        ids[1] = 1 -- spell 1 is never an aura
+    end
+    return ids
+end
+
+-- Re-points every icon's AuraContainers, after an aura is learned or a potion is added.
+local function RefreshAuraFilters()
+    for entry, slot in pairs(slots) do
+        for _, auras in ipairs(slot.auras) do
+            auras.SetSpellIDs(EntryAuraIDs(entry))
+        end
+    end
+end
+
+local function CreateSlot(entry)
     local slot = CreateFrame("Frame", nil, widget)
     slot:SetSize(SLOT, SLOT)
     slot:SetFrameLevel(widget:GetFrameLevel() + 1)
     slot:Hide()
 
-    slot.icon = CreateIcon(slot) -- texture set on every update: it follows the form (CurrentSpell)
+    slot.icon = CreateIcon(slot) -- texture set on every update: it follows the form (CurrentSpell), or the last potion
     slot.icon:SetDesaturated(true)
 
     slot.timer = CreateTimer(slot)
@@ -154,10 +199,10 @@ local function CreateSlot(spellID)
     if ns.HAS_AURA_CONTAINER then
         for _, watch in ipairs({ { unit = "player", filter = "HELPFUL" }, { unit = "target", filter = "HARMFUL" } }) do
             slot.auras[#slot.auras + 1] = ns.CreateAuraContainer({
-                label = "Cooldown " .. tostring(C_Spell.GetSpellName(spellID)) .. " (" .. watch.unit .. ")",
+                label = "Cooldown " .. EntryName(entry) .. " (" .. watch.unit .. ")",
                 unit = watch.unit,
                 filter = watch.filter,
-                spellIDs = BuffIDs(spellID),
+                spellIDs = EntryAuraIDs(entry),
                 width = SLOT,
                 height = SLOT,
                 parent = slot, -- moves, scales and hides with the slot
@@ -167,7 +212,7 @@ local function CreateSlot(spellID)
             })
         end
     end
-    slots[spellID] = slot
+    slots[entry] = slot
     return slot
 end
 
@@ -242,8 +287,8 @@ local function StartTimer(timer, spellID)
 end
 
 -- Out of combat we can see the buff ourselves; in combat only the AuraContainer can.
-local function BuffSeenUp(spellID)
-    for _, buffID in ipairs(BuffIDs(spellID)) do
+local function BuffSeenUp(entry)
+    for _, buffID in ipairs(EntryAuraIDs(entry)) do
         local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, buffID)
         if ok and aura ~= nil and not ns.IsSecret(aura) then
             return true
@@ -290,10 +335,7 @@ local function LearnBuff(spellID, castTime)
     if ns.db.cdBuffs[name] ~= best then
         ns.db.cdBuffs[name] = best
         ns.Debug("Cooldowns:", name, "gives aura", C_Spell.GetSpellName(best), best)
-        local slot = slots[spellID]
-        for _, auras in ipairs(slot and slot.auras or {}) do
-            auras.SetSpellIDs(BuffIDs(spellID))
-        end
+        RefreshAuraFilters()
         RequestUpdate()
     end
 end
@@ -320,8 +362,8 @@ local function Arrange()
     local cell, columns = CellSize(math.max(#tracked, 1), widget:GetWidth(), widget:GetHeight())
     local scale = math.max(cell / OUTLINE, 1) / SLOT
     local position = 0
-    for _, spellID in ipairs(tracked) do
-        local slot = slots[spellID]
+    for _, entry in ipairs(tracked) do
+        local slot = slots[entry]
         if slot and slot:IsShown() then
             local column, row = position % columns, math.floor(position / columns)
             slot:SetScale(scale)
@@ -337,29 +379,41 @@ local function Update()
     for _, slot in pairs(slots) do
         slot.wanted = false
     end
-    for _, spellID in ipairs(ns.db.cdTracked) do
-        local slot = slots[spellID] or CreateSlot(spellID)
+    for _, entry in ipairs(ns.db.cdTracked) do
+        local slot = slots[entry] or CreateSlot(entry)
         slot.wanted = true
-        local current = CurrentSpell(spellID)
-        slot.icon:SetTexture(C_Spell.GetSpellTexture(current))
-        local onCooldown, sure = CooldownState(current, slot.onCooldown)
-        onCooldown = onCooldown and true or false
-        if not sure then
-            RecheckAfterGcd()
+        slot.icon:SetTexture(EntryIcon(entry))
+        local isItem = Items.IsItemEntry(entry)
+        local current = not isItem and CurrentSpell(entry)
+        local onCooldown, sure, start, duration
+        if isItem then
+            onCooldown, sure, start, duration = Items.CooldownState(entry, slot.onCooldown)
+        else
+            onCooldown, sure = CooldownState(current, slot.onCooldown)
+            if not sure then
+                RecheckAfterGcd()
+            end
         end
+        onCooldown = onCooldown and true or false
         if onCooldown ~= (slot.onCooldown or false) then
-            local info = C_Spell.GetSpellCooldown(current)
-            ns.Debug("Cooldowns:", C_Spell.GetSpellName(current), onCooldown and "on cooldown" or "ready",
+            local info = current and C_Spell.GetSpellCooldown(current)
+            ns.Debug("Cooldowns:", EntryName(entry), onCooldown and "on cooldown" or "ready",
                 "| sure:", sure, "isActive:", info and info.isActive, "isOnGCD:", info and info.isOnGCD,
                 "GCD running:", GcdRunning(), "in combat:", InCombatLockdown())
         end
         if onCooldown and sure then
-            StartTimer(slot.timer, current)
+            if not isItem then
+                StartTimer(slot.timer, current)
+            elseif start then
+                slot.timer:SetCooldown(start, duration)
+            else
+                slot.timer:Clear() -- waiting for combat to end before it starts
+            end
         elseif not onCooldown and slot.onCooldown then
             slot.timer:Clear()
         end
         slot.onCooldown = onCooldown
-        slot:SetShown(unlocked or onCooldown or BuffSeenUp(spellID))
+        slot:SetShown(unlocked or onCooldown or BuffSeenUp(entry))
     end
     for _, slot in pairs(slots) do
         if not slot.wanted then
@@ -543,7 +597,7 @@ end
 local function FollowRanks(known)
     local tracked = ns.db.cdTracked
     for i = #tracked, 1, -1 do
-        local base = BaseSpell(tracked[i])
+        local base = type(tracked[i]) == "number" and BaseSpell(tracked[i]) or tracked[i]
         if base ~= tracked[i] then
             ns.Debug("Cooldowns: tracking base spell", C_Spell.GetSpellName(base), "instead of", tracked[i])
             table.remove(tracked, i)
@@ -558,7 +612,7 @@ local function FollowRanks(known)
         byName[C_Spell.GetSpellName(spellID) or ""] = spellID
     end
     for i, spellID in ipairs(tracked) do
-        local newRank = byName[C_Spell.GetSpellName(spellID) or ""]
+        local newRank = type(spellID) == "number" and byName[C_Spell.GetSpellName(spellID) or ""]
         if newRank and newRank ~= spellID and not Cooldowns.IsTracked(newRank) then
             ns.Debug("Cooldowns: following new rank of", C_Spell.GetSpellName(spellID), spellID, "->", newRank)
             tracked[i] = newRank
@@ -567,23 +621,18 @@ local function FollowRanks(known)
     end
 end
 
--- Abilities to offer: tracked ones first in priority order, then the rest alphabetically.
--- Each is { spellID, name, icon, tracked }.
+-- What to list: tracked entries first in priority order (items included), then the untracked
+-- abilities alphabetically. Each is { entry, name, icon, tracked }.
 function Cooldowns.Candidates()
     local known = KnownCooldownSpells()
     FollowRanks(known) -- so a tracked old rank and its new rank don't both show
     local list, listed = {}, {}
-    local function Add(spellID, tracked)
-        listed[spellID] = true
-        list[#list + 1] = {
-            spellID = spellID,
-            name = C_Spell.GetSpellName(spellID) or ("spell " .. spellID),
-            icon = C_Spell.GetSpellTexture(spellID),
-            tracked = tracked,
-        }
+    local function Add(entry, tracked)
+        listed[entry] = true
+        list[#list + 1] = { entry = entry, name = EntryName(entry), icon = EntryIcon(entry), tracked = tracked }
     end
-    for _, spellID in ipairs(ns.db.cdTracked) do
-        Add(spellID, true)
+    for _, entry in ipairs(ns.db.cdTracked) do
+        Add(entry, true)
     end
     local untracked = {}
     for _, spellID in ipairs(known) do
@@ -601,26 +650,44 @@ function Cooldowns.Candidates()
     return list
 end
 
-function Cooldowns.IsTracked(spellID)
+function Cooldowns.IsTracked(entry)
     for _, tracked in ipairs(ns.db.cdTracked) do
-        if tracked == spellID then
+        if tracked == entry then
             return true
         end
     end
     return false
 end
 
--- Newly tracked abilities go last (lowest priority).
-function Cooldowns.SetTracked(spellID, track)
+-- Newly tracked entries go last (lowest priority). Untracked items drop off the list entirely.
+function Cooldowns.SetTracked(entry, track)
     local tracked = ns.db.cdTracked
     for i = #tracked, 1, -1 do
-        if tracked[i] == spellID then
+        if tracked[i] == entry then
             table.remove(tracked, i)
         end
     end
     if track then
-        tracked[#tracked + 1] = spellID
+        tracked[#tracked + 1] = entry
+    else
+        Items.Forget(entry)
     end
+    RefreshAuraFilters()
+    Update()
+    ns.SettingsChanged()
+end
+
+-- An item dropped on the Cooldowns tab's drop box.
+function Cooldowns.AddItem(itemID)
+    local entry, problem = Items.Add(itemID)
+    if not entry then
+        ns.Print(problem)
+        return
+    end
+    if not Cooldowns.IsTracked(entry) then
+        ns.db.cdTracked[#ns.db.cdTracked + 1] = entry
+    end
+    RefreshAuraFilters() -- a new special-case potion adds its buff to Potions
     Update()
     ns.SettingsChanged()
 end
@@ -648,14 +715,39 @@ events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterUnitEvent("UNIT_AURA", "player")
 events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 ns.TryRegisterEvent(events, "UPDATE_SHAPESHIFT_FORM") -- form versions of a spell (CurrentSpell)
+events:RegisterEvent("BAG_UPDATE_COOLDOWN")
+events:RegisterEvent("BAG_UPDATE_DELAYED")
+
+-- Is spellID the use effect of a tracked item (or special-case potion)?
+local function IsTrackedItemSpell(spellID)
+    for _, entry in ipairs(ns.db.cdTracked) do
+        if Items.IsItemEntry(entry) then
+            for _, useSpell in ipairs(Items.UseSpells(entry)) do
+                if useSpell == spellID then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
 events:SetScript("OnEvent", function(_, event, _, _, spellID)
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
-        spellID = spellID and not ns.IsSecret(spellID) and BaseSpell(spellID)
-        if spellID and Cooldowns.IsTracked(spellID) and not InCombatLockdown() then
+        if not spellID or ns.IsSecret(spellID) then
+            return
+        end
+        Items.OnCast(spellID)
+        local base = BaseSpell(spellID)
+        local learnAs = (Cooldowns.IsTracked(base) and base) or (IsTrackedItemSpell(spellID) and spellID)
+        if learnAs and not InCombatLockdown() then
             local castTime = GetTime()
-            C_Timer.After(LEARN_DELAY, function() LearnBuff(spellID, castTime) end)
+            C_Timer.After(LEARN_DELAY, function() LearnBuff(learnAs, castTime) end)
         end
         return
+    end
+    if event == "BAG_UPDATE_DELAYED" or event == "PLAYER_ENTERING_WORLD" then
+        Items.ScanBags()
     end
     if event == "SPELL_UPDATE_COOLDOWN" then
         Update() -- right away: isOnGCD is most trustworthy inside this event

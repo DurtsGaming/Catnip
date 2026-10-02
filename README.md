@@ -30,7 +30,7 @@ You should see "Catnip loaded" in chat when you log in.
 
 Catnip hides Blizzard's own cast bar by default, since the HUD shows your casts. Your settings are saved between sessions.
 
-**Cooldowns.** In `/catnip` → **Cooldowns**, tick the abilities you want to watch (Barkskin, Tiger's Fury, and so on) and drag them into priority order. They show in a separate box, only while they're on cooldown (greyed out) or their buff on you or debuff on your target is up, like Growl's taunt (in colour, with thin yellow dashes running around its border), each with its time left. If an ability's buff has a different name (Skysight gives Elemental Blessing), use it once out of combat so Catnip can learn which buff it gives. The numbers come from WoW's "Show numbers for cooldowns" option; the Cooldowns tab has a checkbox for it.
+**Cooldowns.** In `/catnip` → **Cooldowns**, tick the abilities you want to watch (Barkskin, Tiger's Fury, and so on) and drag them into priority order. They show in a separate box, only while they're on cooldown (greyed out) or their buff on you or debuff on your target is up, like Growl's taunt (in colour, with thin yellow dashes running around its border), each with its time left. If an ability's buff has a different name (Skysight gives Elemental Blessing), use it once out of combat so Catnip can learn which buff it gives. To track an item, drag it from your bags onto the box under the list: Hearthstone and trinkets get their own icon, and all potions share one Potions icon (drop a specific potion, like Mighty Rage Potion, to have its buff show as active). The numbers come from WoW's "Show numbers for cooldowns" option; the Cooldowns tab has a checkbox for it.
 
 ## Updating
 

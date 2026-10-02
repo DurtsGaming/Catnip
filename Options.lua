@@ -383,7 +383,7 @@ Checkbox("Show cooldown numbers (WoW option)",
 
 Section("Abilities")
 
-Hint("Tick the abilities to show. Drag ticked ones up or down to set their priority: the top one shows first.")
+Hint("Tick the abilities to show. Drag ticked ones up or down to set their priority: the top one shows first. Unticked items drop off the list.")
 
 -- The list: one row per ability with a cooldown, in a scrolling area. Rows are pooled and rebuilt
 -- on every refresh from ns.Cooldowns.Candidates() (tracked first, in priority order).
@@ -497,7 +497,7 @@ local function CreateRow()
         if self.dragged then
             return
         end
-        ns.Cooldowns.SetTracked(self.spellID, not self.tracked)
+        ns.Cooldowns.SetTracked(self.entry, not self.tracked)
     end)
     row:SetScript("OnDragStart", function(self)
         if not self.tracked or trackedCount < 2 then
@@ -532,21 +532,21 @@ function RefreshList()
     end
     local candidates = ns.Cooldowns.Candidates()
     trackedCount = 0
-    for i, spell in ipairs(candidates) do
+    for i, candidate in ipairs(candidates) do
         local row = rows[i] or CreateRow()
         rows[i] = row
-        row.index, row.spellID, row.tracked = i, spell.spellID, spell.tracked
-        row.icon:SetTexture(spell.icon)
-        row.name:SetText(spell.tracked and (i .. ".  " .. spell.name) or spell.name)
-        row.name:SetTextColor(unpack(spell.tracked and { 1, 1, 1 } or MUTED))
-        row.icon:SetDesaturated(not spell.tracked)
-        row.setChecked(spell.tracked)
-        row.grip:SetShown(spell.tracked)
+        row.index, row.entry, row.tracked = i, candidate.entry, candidate.tracked
+        row.icon:SetTexture(candidate.icon)
+        row.name:SetText(candidate.tracked and (i .. ".  " .. candidate.name) or candidate.name)
+        row.name:SetTextColor(unpack(candidate.tracked and { 1, 1, 1 } or MUTED))
+        row.icon:SetDesaturated(not candidate.tracked)
+        row.setChecked(candidate.tracked)
+        row.grip:SetShown(candidate.tracked)
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, RowTop(i))
         row:SetFrameLevel(content:GetFrameLevel() + 1)
         row:Show()
-        if spell.tracked then
+        if candidate.tracked then
             trackedCount = i
         end
     end
@@ -557,6 +557,45 @@ function RefreshList()
     empty:SetShown(#candidates == 0)
 end
 refreshers[#refreshers + 1] = RefreshList
+
+-- Drop box: drag an item from the bags (or a worn trinket) onto it to track it.
+local DROP_HEIGHT = 40
+local drop = CreateFrame("Button", nil, page)
+drop:SetSize(INNER, DROP_HEIGHT)
+local dropBorder = Box(drop, CONTROL, EDGE)
+local dropText = drop:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+dropText:SetPoint("CENTER")
+dropText:SetText("Drop an item here to track it")
+dropText:SetTextColor(unpack(MUTED))
+
+local function CursorItem()
+    local kind, itemID = GetCursorInfo()
+    return kind == "item" and itemID or nil
+end
+
+local function ReceiveItem()
+    local itemID = CursorItem()
+    if itemID then
+        ClearCursor()
+        ns.Cooldowns.AddItem(itemID)
+    end
+end
+
+drop:SetScript("OnReceiveDrag", ReceiveItem)
+drop:SetScript("OnMouseUp", ReceiveItem) -- picked up with a click instead of a drag
+drop:SetScript("OnEnter", function()
+    if CursorItem() then -- only light up while actually holding an item
+        dropBorder:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+        dropText:SetTextColor(unpack(ACCENT))
+    end
+end)
+drop:SetScript("OnLeave", function()
+    dropBorder:SetColorTexture(unpack(EDGE))
+    dropText:SetTextColor(unpack(MUTED))
+end)
+y = y - 4
+Place(drop, DROP_HEIGHT)
+Hint("Items with a Use: effect (Hearthstone, trinkets) get their own icon. Every potion shares one Potions icon; a dropped potion's buff (e.g. Mighty Rage Potion) shows as Potions being active.")
 
 EndTab(cooldowns)
 
