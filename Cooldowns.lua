@@ -355,23 +355,30 @@ local function CellSize(count, width, height)
     return best, bestColumns
 end
 
--- Packs the shown icons into the box in priority order, left to right, then top to bottom. Sized
--- so every tracked ability fits at once, so icons don't change size as they come and go.
+-- Packs the shown icons into the box in priority order, left to right, then top to bottom, from the
+-- top of the box, with each row's icons centred across its width. Sized so every tracked ability
+-- fits at once, so icons don't change size as they come and go.
 local function Arrange()
     local tracked = ns.db.cdTracked
-    local cell, columns = CellSize(math.max(#tracked, 1), widget:GetWidth(), widget:GetHeight())
+    local width, height = widget:GetWidth(), widget:GetHeight()
+    local cell, columns = CellSize(math.max(#tracked, 1), width, height)
     local scale = math.max(cell / OUTLINE, 1) / SLOT
-    local position = 0
+    local shown = {}
     for _, entry in ipairs(tracked) do
         local slot = slots[entry]
         if slot and slot:IsShown() then
-            local column, row = position % columns, math.floor(position / columns)
-            slot:SetScale(scale)
-            slot:ClearAllPoints()
-            -- Offsets are in the slot's own (scaled) units.
-            slot:SetPoint("CENTER", widget, "TOPLEFT", (column + 0.5) * cell / scale, -(row + 0.5) * cell / scale)
-            position = position + 1
+            shown[#shown + 1] = slot
         end
+    end
+    for i, slot in ipairs(shown) do
+        local row, column = math.floor((i - 1) / columns), (i - 1) % columns
+        local inRow = math.min(columns, #shown - row * columns)
+        local x = width / 2 + (column - (inRow - 1) / 2) * cell
+        local y = (row + 0.5) * cell
+        slot:SetScale(scale)
+        slot:ClearAllPoints()
+        -- Offsets are in the slot's own (scaled) units.
+        slot:SetPoint("CENTER", widget, "TOPLEFT", x / scale, -y / scale)
     end
 end
 

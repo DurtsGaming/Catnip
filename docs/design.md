@@ -51,7 +51,7 @@ We need to make these (with transparency):
 A separate box, apart from the HUD, for non-rotational cooldowns (requested 2026-10-01).
 
 - **Choosing:** settings window, Cooldowns tab. Lists every spellbook spell with a cooldown of its own; tick to track. Tracked ones sit at the top and are dragged up or down to set priority. New ones go last.
-- **Showing:** an icon appears only while its ability is on cooldown (not just the GCD) or its buff is up. Visible icons pack together in priority order, left to right, then top to bottom.
+- **Showing:** an icon appears only while its ability is on cooldown (not just the GCD) or its buff is up. Visible icons pack together in priority order, left to right, then top to bottom, starting at the top of the box, each row centred across it.
   - On cooldown: greyed-out icon with the time left.
   - Active (our buff on us, or our debuff on the current target, e.g. Growl's taunt or Faerie Fire): the aura's icon in colour (e.g. Elemental Blessing for Skysight), with thin yellow dashes running clockwise around its square border, and the buff's time left. (Yellow dots were tried first; the owner wanted thin lines.)
 - **Look:** square icons (round was tried first; the owner preferred squares), sized so every tracked ability fits in the box at once.
