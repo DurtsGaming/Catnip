@@ -29,7 +29,7 @@ local LEARN_DELAY = 0.3 -- after a cast, when to look for the buff it gave
 local LEARN_WINDOW = 0.5 -- how close to the cast the buff must have started, in seconds
 local ICON_CROP = 0.08 -- trims the border baked into spell icons
 local MIN_SIZE = 24
-local DEFAULTS = { cdX = 0, cdY = -330, cdWidth = 220, cdHeight = 48 }
+local DEFAULTS = { cdX = 0, cdY = -330, cdWidth = 220, cdHeight = 48, cdAlign = "TOP" }
 
 for key, value in pairs(DEFAULTS) do
     ns.defaults[key] = value
@@ -155,7 +155,14 @@ end
 
 -- Aura IDs that make the entry "active": for items, the auras of their use effects. Never empty:
 -- an AuraContainer with no IDs to match might match everything, so a placeholder stands in.
+-- Abilities shown for their cooldown only, never as active: Faerie Fire's debuff (~40s) would keep
+-- its icon lit long after the 6s Cat/Bear cooldown that matters.
+local COOLDOWN_ONLY_NAMES = { ["Faerie Fire"] = true }
+
 local function EntryAuraIDs(entry)
+    if not Items.IsItemEntry(entry) and COOLDOWN_ONLY_NAMES[C_Spell.GetSpellName(entry) or ""] then
+        return { 1 } -- spell 1 is never an aura: nothing counts as active
+    end
     local spells = Items.IsItemEntry(entry) and Items.UseSpells(entry) or { entry }
     local ids = {}
     for _, spellID in ipairs(spells) do
@@ -355,9 +362,10 @@ local function CellSize(count, width, height)
     return best, bestColumns
 end
 
--- Packs the shown icons into the box in priority order, left to right, then top to bottom, from the
--- top of the box, with each row's icons centred across its width. Sized so every tracked ability
--- fits at once, so icons don't change size as they come and go.
+-- Packs the shown icons into the box in priority order, left to right, then top to bottom, gathered
+-- at the alignment point (CatnipDB.cdAlign: one of the nine anchor points, e.g. "TOP" = across the
+-- top, each row centred). Sized so every tracked ability fits at once, so icons don't change size
+-- as they come and go.
 local function Arrange()
     local tracked = ns.db.cdTracked
     local width, height = widget:GetWidth(), widget:GetHeight()
@@ -370,11 +378,28 @@ local function Arrange()
             shown[#shown + 1] = slot
         end
     end
+    local align = ns.db.cdAlign or DEFAULTS.cdAlign
+    local horizontal = align:find("LEFT") and "LEFT" or align:find("RIGHT") and "RIGHT" or "CENTER"
+    local vertical = align:find("TOP") and "TOP" or align:find("BOTTOM") and "BOTTOM" or "MIDDLE"
+    local rows = math.ceil(#shown / columns)
     for i, slot in ipairs(shown) do
         local row, column = math.floor((i - 1) / columns), (i - 1) % columns
         local inRow = math.min(columns, #shown - row * columns)
-        local x = width / 2 + (column - (inRow - 1) / 2) * cell
-        local y = (row + 0.5) * cell
+        local x, y
+        if horizontal == "LEFT" then
+            x = (column + 0.5) * cell
+        elseif horizontal == "RIGHT" then
+            x = width - (inRow - column - 0.5) * cell
+        else
+            x = width / 2 + (column - (inRow - 1) / 2) * cell
+        end
+        if vertical == "TOP" then
+            y = (row + 0.5) * cell
+        elseif vertical == "BOTTOM" then
+            y = height - (rows - row - 0.5) * cell
+        else
+            y = height / 2 + (row - (rows - 1) / 2) * cell
+        end
         slot:SetScale(scale)
         slot:ClearAllPoints()
         -- Offsets are in the slot's own (scaled) units.
@@ -460,6 +485,24 @@ local function SaveLayout()
     db.cdX, db.cdY = math.floor(cx - ux + 0.5), math.floor(cy - uy + 0.5)
     db.cdWidth, db.cdHeight = math.floor(widget:GetWidth() + 0.5), math.floor(widget:GetHeight() + 0.5)
     ApplyLayout()
+    ns.SettingsChanged()
+end
+
+-- Box centre's offset from the screen centre, and its size (from the settings sliders).
+function Cooldowns.SetLayout(x, y, width, height)
+    local db = ns.db
+    db.cdX, db.cdY = x, y
+    db.cdWidth, db.cdHeight = math.max(MIN_SIZE, width), math.max(MIN_SIZE, height)
+    ApplyLayout()
+    ns.SettingsChanged()
+end
+Cooldowns.MIN_SIZE = MIN_SIZE
+
+-- Where the shown icons gather: "TOPLEFT", "TOP", "TOPRIGHT", "LEFT", "CENTER", "RIGHT", "BOTTOMLEFT",
+-- "BOTTOM" or "BOTTOMRIGHT".
+function Cooldowns.SetAlignment(point)
+    ns.db.cdAlign = point
+    Arrange()
     ns.SettingsChanged()
 end
 
@@ -550,6 +593,33 @@ local function WalkSpellbook(visit)
 end
 
 -- Why a spellbook entry isn't offered, or nil if it is.
+-- Spells whose cooldown only exists in some forms, offered even when we haven't seen it yet:
+-- Faerie Fire becomes Faerie Fire (Feral), which has a cooldown, in Cat and Bear Form.
+local FORM_COOLDOWN_NAMES = { ["Faerie Fire"] = true }
+
+-- Does the spell have a cooldown of its own (not just the GCD), in any form? Checks the spellbook
+-- entry, its base spell and the current form's version; a form version seen with a cooldown is
+-- remembered (CatnipDB.cdFormCooldowns), so the spell stays listed in forms where it has none.
+local function HasCooldown(spellID)
+    local base = BaseSpell(spellID)
+    if ns.db.cdFormCooldowns[base] or FORM_COOLDOWN_NAMES[C_Spell.GetSpellName(base) or ""] then
+        return true
+    end
+    if not GetSpellBaseCooldown then
+        return true -- can't tell, so offer it
+    end
+    for _, id in ipairs({ spellID, base, CurrentSpell(spellID) }) do
+        local cooldown = GetSpellBaseCooldown(id)
+        if cooldown == nil or cooldown > 0 then
+            if id ~= base then
+                ns.db.cdFormCooldowns[base] = true
+            end
+            return true
+        end
+    end
+    return false
+end
+
 local function SkipReason(line, itemType, spellID)
     if line.shouldHide then
         return "hidden line"
@@ -560,8 +630,7 @@ local function SkipReason(line, itemType, spellID)
     elseif C_Spell.IsSpellPassive and C_Spell.IsSpellPassive(spellID) then
         return "passive"
     end
-    local baseCooldown = GetSpellBaseCooldown and GetSpellBaseCooldown(spellID)
-    if baseCooldown ~= nil and baseCooldown <= 0 then
+    if not HasCooldown(spellID) then
         return "no cooldown"
     end
 end
@@ -770,6 +839,7 @@ end)
 ns.OnLoad(function()
     ns.db.cdTracked = ns.db.cdTracked or {}
     ns.db.cdBuffs = ns.db.cdBuffs or {} -- ability name -> buff spell ID, when they differ
+    ns.db.cdFormCooldowns = ns.db.cdFormCooldowns or {} -- base spell ID -> true: has a cooldown in some form
     ApplyLayout()
     ns.Debug("Cooldowns: tracking", #ns.db.cdTracked, "| countdownForCooldowns CVar:", GetCVar("countdownForCooldowns"))
 end)

@@ -50,18 +50,20 @@ We need to make these (with transparency):
 
 A separate box, apart from the HUD, for non-rotational cooldowns (requested 2026-10-01).
 
-- **Choosing:** settings window, Cooldowns tab. Lists every spellbook spell with a cooldown of its own; tick to track. Tracked ones sit at the top and are dragged up or down to set priority. New ones go last.
-- **Showing:** an icon appears only while its ability is on cooldown (not just the GCD) or its buff is up. Visible icons pack together in priority order, left to right, then top to bottom, starting at the top of the box, each row centred across it.
+- **Choosing:** settings window, Cooldowns → Abilities sub-tab. Lists every spellbook spell with a cooldown of its own; tick to track. Tracked ones sit at the top and are dragged up or down to set priority. New ones go last.
+- **Showing:** an icon appears only while its ability is on cooldown (not just the GCD) or its buff is up. Visible icons pack together in priority order, left to right, then top to bottom, gathered at the chosen alignment point (Layout sub-tab: a 3x3 grid of the box's corners, side middles and centre; default top centre). Rows stay in reading order; e.g. top centre fills across the top with each row centred, bottom right keeps the group flush to the bottom-right corner.
   - On cooldown: greyed-out icon with the time left.
   - Active (our buff on us, or our debuff on the current target, e.g. Growl's taunt or Faerie Fire): the aura's icon in colour (e.g. Elemental Blessing for Skysight), with thin yellow dashes running clockwise around its square border, and the buff's time left. (Yellow dots were tried first; the owner wanted thin lines.)
 - **Look:** square icons (round was tried first; the owner preferred squares), sized so every tracked ability fits in the box at once.
 - **List:** one entry per spell name (the spellbook can list several ranks; the highest wins). `/catnip spells` shows why any spellbook entry is or isn't offered.
-- **Items:** drag an item onto the drop box under the list (Cooldowns tab). Anything with a Use: effect (Hearthstone, trinkets) gets its own icon, in the same priority list. Unticking an item removes it.
+- **Items:** drag an item onto the drop box under the list (Cooldowns → Abilities). Anything with a Use: effect (Hearthstone, trinkets) gets its own icon, in the same priority list. Unticking an item removes it.
 - **Potions:** all potions share one cooldown, so they share one **Potions** icon, which follows whichever potion was used. Dropping a specific potion (Mighty Rage Potion) is a special case: its buff shows as the Potions icon being active. Unticking Potions forgets the special cases.
+- **Cooldown only in some forms:** Faerie Fire has none in caster form but its Cat/Bear version (Faerie Fire (Feral)) does. A spell is listed if any version has a cooldown: the one your form uses now, one seen earlier (remembered in `cdFormCooldowns`), or a known name (Faerie Fire).
 - **Form versions:** a spell that changes with your form (Feral Charge becomes Feral Charge (Cat) or (Bear)) is one entry, saved as the base spell. The icon and cooldown follow the version your current form uses, so after a shift it shows that form's charge.
 - **Buffs with a different ID:** some abilities give a buff with another name and ID (Skysight, the Skyborne racial, gives Elemental Blessing). Catnip learns these: when a tracked ability is cast out of combat, it looks for a buff of yours that started at that moment and remembers it by ability name. Until then, that ability never shows as active.
-- **Moving/resizing:** unlocks with the HUD. Drag the box to move it; drag any corner to resize it.
-- **Limits:** in combat, an ability whose buff is up but which isn't on cooldown can't show (we can't see the buff, only the AuraContainer can). Target debuffs follow the current target only. Countdown numbers are Blizzard's and follow WoW's "Show numbers for cooldowns" option (a checkbox in the Cooldowns tab).
+- **Moving/resizing:** unlocks with the HUD. Drag the box to move it; drag any corner to resize it. Or set exact values in the Cooldowns → Layout sub-tab: width, height, and horizontal/vertical position (offset from the screen centre), each a slider with a typeable box.
+- **Cooldown only:** Faerie Fire never shows as active, only its cooldown: its ~40s debuff would keep the icon lit long after the 6s Cat/Bear cooldown that matters (`COOLDOWN_ONLY_NAMES` in `Cooldowns.lua`).
+- **Limits:** in combat, an ability whose buff is up but which isn't on cooldown can't show (we can't see the buff, only the AuraContainer can). Target debuffs follow the current target only. Countdown numbers are Blizzard's and follow WoW's "Show numbers for cooldowns" option (a checkbox in Cooldowns → Layout).
 
 ## Out of scope
 
@@ -90,7 +92,7 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Gradient fill textures (resource circle per power, combo points) | Built, **untested** in-game |
 | Move/resize (unlock mode) | Verified |
 | Settings window (`/catnip`): lock/unlock, reset, scale, position (X/Y from screen centre), slider values typeable, hide Blizzard cast bar, debug | Built, **untested** in-game |
-| Settings tabs (General, Cooldowns) | Built, **untested** in-game |
+| Settings tabs (General, Cooldowns → Abilities / Layout), scrolling, resizable window | Built, **untested** in-game |
 | Cooldown widget items (drop box, per-item icons, shared Potions icon with special-case potion buffs) | Built, **untested** in-game |
 | Cooldown widget (tracked list with drag-to-reorder, grey icon + timer on cooldown, coloured buff icon + running dashed border + timer, learns buffs with a different ID while the buff is up, move/resize) | Built, **untested** in-game |
 
