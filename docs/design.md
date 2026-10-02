@@ -61,7 +61,7 @@ A separate box, apart from the HUD, for non-rotational cooldowns (requested 2026
 - **Cooldown only in some forms:** Faerie Fire has none in caster form but its Cat/Bear version (Faerie Fire (Feral)) does. A spell is listed if any version has a cooldown: the one your form uses now, one seen earlier (remembered in `cdFormCooldowns`), or a known name (Faerie Fire).
 - **Form versions:** a spell that changes with your form (Feral Charge becomes Feral Charge (Cat) or (Bear)) is one entry, saved as the base spell. The icon and cooldown follow the version your current form uses, so after a shift it shows that form's charge.
 - **Buffs with a different ID:** some abilities give a buff with another name and ID (Skysight, the Skyborne racial, gives Elemental Blessing). Catnip learns these: when a tracked ability is cast out of combat, it looks for a buff of yours that started at that moment and remembers it by ability name. Until then, that ability never shows as active.
-- **Moving/resizing:** unlocks with the HUD. Drag the box to move it; drag any corner to resize it. Or set exact values in the Cooldowns → Layout sub-tab: width, height, and horizontal/vertical position (offset from the screen centre), each a slider with a typeable box.
+- **Moving/resizing:** unlocks with the HUD (Catnip Edit Mode). Drag the box to move it; drag any corner to resize it. Or set exact values in the Cooldowns → Layout sub-tab: width, height, and horizontal/vertical position (offset from the screen centre), each a slider with a typeable box.
 - **Cooldown only:** Faerie Fire never shows as active, only its cooldown: its ~40s debuff would keep the icon lit long after the 6s Cat/Bear cooldown that matters (`COOLDOWN_ONLY_NAMES` in `Cooldowns.lua`).
 - **Limits:** in combat, an ability whose buff is up but which isn't on cooldown can't show (we can't see the buff, only the AuraContainer can). Target debuffs follow the current target only. Countdown numbers are Blizzard's and follow WoW's "Show numbers for cooldowns" option, changed in WoW's own settings (Catnip's checkbox for it was removed: setting a CVar from addon code tainted Blizzard's chat).
 
@@ -90,8 +90,9 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Rake ring around combo dot 4 | Built, needs in-game check (Rake not yet unlocked in the beta) |
 | Enrage tint (Bear: resource background turns red while Enrage is up) | Verified |
 | Gradient fill textures (resource circle per power, combo points) | Built, **untested** in-game |
-| Move/resize (unlock mode) | Verified |
-| Settings window (`/catnip`): lock/unlock, reset, scale, position (X/Y from screen centre), slider values typeable, hide Blizzard cast bar, debug | Built, **untested** in-game |
+| Move/resize (unlock mode) | Verified. Edit Mode look verified 2026-10-02 (blue nine-slice, brighter on hover). Hover "Click To Edit" + name tag, click opens the widget's settings, and no more scroll-to-resize (scale is in settings): built, **untested** |
+| Catnip Edit Mode: **Edit Mode** button atop `/catnip` (replaces the per-tab Lock / Reset position buttons) opens a panel like Blizzard's HUD Edit Mode, with Rotation Frame / Cooldown Frame on-off checkboxes, Reset Positions and Done | Built, **untested** |
+| Settings window (`/catnip`): scale, position (X/Y from screen centre), slider values typeable, hide Blizzard cast bar, debug | Built, **untested** in-game |
 | Settings tabs (General, Cooldowns → Abilities / Layout), scrolling, resizable window | Built, **untested** in-game |
 | Cooldown widget items (drop box, per-item icons, shared Potions icon with special-case potion buffs) | Built, **untested** in-game |
 | Cooldown widget (tracked list with drag-to-reorder, grey icon + timer on cooldown, coloured buff icon + running dashed border + timer, learns buffs with a different ID while the buff is up, move/resize) | Built, **untested** in-game |

@@ -29,7 +29,7 @@ local LEARN_DELAY = 0.3 -- after a cast, when to look for the buff it gave
 local LEARN_WINDOW = 0.5 -- how close to the cast the buff must have started, in seconds
 local ICON_CROP = 0.08 -- trims the border baked into spell icons
 local MIN_SIZE = 24
-local DEFAULTS = { cdX = 0, cdY = -330, cdWidth = 220, cdHeight = 48, cdAlign = "TOP" }
+local DEFAULTS = { cdX = 0, cdY = -330, cdWidth = 220, cdHeight = 48, cdAlign = "TOP", cdEnabled = true }
 
 for key, value in pairs(DEFAULTS) do
     ns.defaults[key] = value
@@ -473,6 +473,7 @@ end
 -- Position is the box centre's offset from the screen centre, like the HUD's.
 local function ApplyLayout()
     local db = ns.db
+    widget:SetShown(db.cdEnabled)
     widget:SetSize(db.cdWidth, db.cdHeight)
     widget:ClearAllPoints()
     widget:SetPoint("CENTER", UIParent, "CENTER", db.cdX, db.cdY)
@@ -506,6 +507,13 @@ function Cooldowns.SetAlignment(point)
     ns.SettingsChanged()
 end
 
+-- Turns the whole Cooldown Frame on or off (Edit Mode's checkbox).
+function Cooldowns.SetEnabled(enabled)
+    ns.db.cdEnabled = enabled
+    ApplyLayout()
+    ns.SettingsChanged()
+end
+
 function Cooldowns.ResetLayout()
     local db = ns.db
     db.cdX, db.cdY, db.cdWidth, db.cdHeight = DEFAULTS.cdX, DEFAULTS.cdY, DEFAULTS.cdWidth, DEFAULTS.cdHeight
@@ -513,20 +521,8 @@ function Cooldowns.ResetLayout()
     ns.SettingsChanged()
 end
 
--- Shown while the HUD is unlocked: catches the mouse only then.
-local overlay = CreateFrame("Frame", nil, widget)
-overlay:SetAllPoints()
-overlay:SetFrameLevel(widget:GetFrameLevel() + 20)
-overlay:EnableMouse(true)
-overlay:RegisterForDrag("LeftButton")
-overlay:Hide()
-
-local tint = overlay:CreateTexture(nil, "BACKGROUND")
-tint:SetAllPoints()
-tint:SetColorTexture(0.2, 0.6, 1, 0.25)
-
-local label = overlay:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-label:SetPoint("BOTTOM", overlay, "TOP", 0, 4)
+-- Shown while the HUD is unlocked: catches the mouse only then. Clicking it opens Cooldowns → Layout.
+local overlay = ns.CreateUnlockOverlay(widget, "Cooldown Frame", function() ns.OpenSettings("cooldowns") end)
 
 overlay:SetScript("OnDragStart", function()
     widget:StartMoving()
@@ -536,15 +532,13 @@ overlay:SetScript("OnDragStop", function()
     SaveLayout()
 end)
 
+-- Invisible grips over the overlay's corner art, which marks where to grab.
 for _, corner in ipairs({ "TOPLEFT", "TOPRIGHT", "BOTTOMLEFT", "BOTTOMRIGHT" }) do
     local grip = CreateFrame("Frame", nil, overlay)
-    grip:SetSize(10, 10)
+    grip:SetSize(16, 16)
     grip:SetPoint(corner)
     grip:SetFrameLevel(overlay:GetFrameLevel() + 1)
     grip:EnableMouse(true)
-    local square = grip:CreateTexture(nil, "OVERLAY")
-    square:SetAllPoints()
-    square:SetColorTexture(1, 1, 1, 0.8)
     grip:SetScript("OnMouseDown", function()
         widget:StartSizing(corner)
     end)
@@ -567,8 +561,6 @@ ns.OnSettingsChanged(function()
     end
     unlocked = ns.IsHudUnlocked()
     overlay:SetShown(unlocked)
-    label:SetText(#ns.db.cdTracked > 0 and "Cooldowns: drag to move, drag a corner to resize"
-        or "Cooldowns: pick abilities in /catnip")
     Update()
 end)
 

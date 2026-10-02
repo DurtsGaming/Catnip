@@ -1,7 +1,7 @@
 -- Settings window (/catnip). Our own frames and textures rather than Blizzard's widget templates,
 -- for a Catnip look and to avoid relying on templates that may differ in Forever. Each control
 -- reads and writes ns.db through the owning module's functions, and every control refreshes
--- whenever ns.SettingsChanged() fires (so slash commands and mouse-wheel scaling stay in sync).
+-- whenever ns.SettingsChanged() fires (so slash commands and dragging in Edit Mode stay in sync).
 --
 -- Controls are grouped into tabs (and a tab can have sub-tabs); each tab is a page laid out top to
 -- bottom. Pages sit in a scroll area, so the window can be resized smaller than its content: drag
@@ -350,18 +350,6 @@ local function Button(parent, getText, onClick)
     return button
 end
 
--- Two buttons side by side, each half the row.
-local function ButtonRow(leftText, leftClick, rightText, rightClick)
-    local row = CreateFrame("Frame", nil, page)
-    local left = Button(row, leftText, leftClick)
-    left:SetPoint("TOPLEFT")
-    left:SetPoint("BOTTOMRIGHT", row, "BOTTOM", -4, 0)
-    local right = Button(row, rightText, rightClick)
-    right:SetPoint("TOPLEFT", row, "TOP", 4, 0)
-    right:SetPoint("BOTTOMRIGHT")
-    Place(row, 22)
-end
-
 -- A 16px checkbox; returns the box and a function to show the tick or not.
 local function CheckboxBox(parent, hoverFrame)
     local box = CreateFrame("Frame", nil, parent)
@@ -512,13 +500,11 @@ local function AnchorGrid(label, get, set)
     Place(holder, GRID_SIZE)
 end
 
-local function UnlockText()
-    return ns.IsHudUnlocked() and "Lock" or "Unlock"
-end
-
-local function ToggleUnlock()
-    ns.SetHudUnlocked(not ns.IsHudUnlocked())
-end
+-- Edit Mode button, on the title row above the tabs: unlocks the widgets and shows the Edit Mode
+-- panel (EditMode.lua). The settings window stays open alongside it.
+local editMode = Button(window, function() return "Edit Mode" end, ns.OpenEditMode)
+editMode:SetSize(90, 22)
+editMode:SetPoint("TOPRIGHT", -34, -12)
 
 local function HalfWidth() return math.floor(UIParent:GetWidth() / 2) end
 local function HalfHeight() return math.floor(UIParent:GetHeight() / 2) end
@@ -531,8 +517,7 @@ local general = topTabs.Add("General")
 
 Section("HUD")
 
-ButtonRow(UnlockText, ToggleUnlock, function() return "Reset position" end, ns.ResetHudLayout)
-Hint("While unlocked, drag the HUD to move it and scroll over it to resize.")
+Hint("In Edit Mode (top of this window), drag the HUD to move it, or click it to come back here.")
 
 -- In percent, so the steps are whole numbers.
 Slider("Scale", ns.MIN_SCALE * 100, ns.MAX_SCALE * 100, ns.SCALE_STEP * 100, "%.0f%%",
@@ -805,8 +790,7 @@ local layout = cooldowns.subs.Add("Layout")
 
 Section("Position")
 
-ButtonRow(UnlockText, ToggleUnlock, function() return "Reset position" end, ns.Cooldowns.ResetLayout)
-Hint("While unlocked, drag the box to move it and drag its corners to resize it.")
+Hint("In Edit Mode (top of this window), drag the box to move it, drag its corners to resize it, or click it to come back here.")
 
 -- Size up to the whole screen; position as an offset from the screen centre, like the HUD's.
 local function ScreenWidth() return math.floor(UIParent:GetWidth()) end
@@ -868,4 +852,22 @@ end)
 
 ns.commands[""] = function()
     window:SetShown(not window:IsShown())
+end
+
+-- /catnip edit: the settings window and Catnip Edit Mode together.
+ns.commands.edit = function()
+    window:Show()
+    ns.OpenEditMode()
+end
+
+-- Opens the settings at a widget's position and size controls: "hud" (General) or "cooldowns"
+-- (Cooldowns → Layout). Used by clicking a widget in unlock mode.
+function ns.OpenSettings(where)
+    if where == "cooldowns" then
+        topTabs.Select(cooldowns)
+        cooldowns.subs.Select(layout)
+    else
+        topTabs.Select(general)
+    end
+    window:Show()
 end

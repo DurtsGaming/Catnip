@@ -6,6 +6,7 @@
 ## SavedVariables: CatnipDB
 
 Catnip.lua
+UnlockOverlay.lua
 Layout.lua
 CooldownManager.lua
 AuraContainer.lua
@@ -20,4 +21,5 @@ DotRings.lua
 Enrage.lua
 CooldownItems.lua
 Cooldowns.lua
+EditMode.lua
 Options.lua

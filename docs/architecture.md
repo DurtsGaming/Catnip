@@ -7,7 +7,9 @@ How the code is organised, so a new session can start a feature without reading 
 | File | Owns |
 |------|------|
 | `Catnip.lua` | Core: the HUD frame (`ns.hud`, 240×240, alpha 0.85 for everything), shared sizes, saved settings, slash commands, debug helpers |
-| `Layout.lua` | Moving/resizing the HUD: unlock mode (drag, mouse wheel), `/catnip lock`/`unlock`/`scale`/`reset`; `ns.SetHudScale`, `ns.SetHudPosition`, `ns.SetHudUnlocked`, `ns.IsHudUnlocked`, `ns.ResetHudLayout` |
+| `UnlockOverlay.lua` | `ns.CreateUnlockOverlay(parent, name, onClick)`: the unlock-mode overlay for the HUD and the cooldown box, styled like Blizzard's Edit Mode (`editmode-actionbar-highlight` nine-slice via `NineSliceUtil.ApplyLayout`, flat blue tint if the atlas is missing). On hover an additive copy of the art brightens it (`HOVER_GLOW`), "Click To Edit" shows in the middle, and a gold name tag (`name`: "Rotation Frame", "Cooldown Frame") pokes out of the right edge. A click that isn't a drag (cursor moved ≤ 4px) calls `onClick` |
+| `Layout.lua` | Moving/resizing the HUD: unlock mode (drag; click opens its settings); `ns.SetHudScale`, `ns.SetHudPosition`, `ns.SetHudUnlocked`, `ns.IsHudUnlocked`, `ns.ResetHudLayout`, `ns.SetHudEnabled` (`hudEnabled`) |
+| `EditMode.lua` | Catnip Edit Mode panel, styled like Blizzard's "HUD Edit Mode" dialog with stock textures/templates (dialog border, `UI-CheckBox-*`, `UIPanelButtonTemplate`, `UIPanelCloseButton`). Shown exactly while unlocked (`ns.IsHudUnlocked`); closing it locks. Checkboxes turn the Rotation Frame (`hudEnabled`) and Cooldown Frame (`cdEnabled`) on/off; Reset Positions; `ns.OpenEditMode()` |
 | `CooldownManager.lua` | `ns.CDM`: reads Blizzard's Cooldown Manager frames. Now only the Clearcasting fallback uses it; also `/catnip cdm` |
 | `AuraContainer.lua` | `ns.CreateAuraContainer`: shared setup for Blizzard's AuraContainer (how we show auras in combat) |
 | `Resource.lua` | Big centre circle: energy/rage/mana fill + number (mana as %) |
@@ -21,7 +23,7 @@ How the code is organised, so a new session can start a feature without reading 
 | `Enrage.lua` | Bear Form: a red disc behind the rage fill while Enrage is up (AuraContainer), so the empty part of the circle reads red |
 | `Cooldowns.lua` | `ns.Cooldowns`: the cooldown widget, a separate box (not in `ns.hud`) of square icons for abilities the player picks, in priority order. Grey icon + Blizzard countdown while on cooldown (`isActive`/`isOnGCD` + duration object); two AuraContainers per ability (our buff on the player, our debuff on the target) show the aura's coloured icon with dashes running around its square border while its buff is up (buff IDs that differ from the ability's are learned from out-of-combat casts into `cdBuffs`). Moves/resizes with the HUD's unlock mode (drag; corner grips via `StartSizing`). Also lists spellbook spells with a cooldown for the settings (one per name, as base spells via `C_Spell.GetBaseSpell`, with the current form's version from `C_Spell.GetOverrideSpell` used at runtime; `/catnip spells` explains each entry), and follows new ranks by name |
 | `CooldownItems.lua` | `ns.CooldownItems`: item entries for the cooldown widget (`"item:<id>"`, and one shared `"potion"` entry for the shared potion cooldown). Reads item cooldowns (`C_Container.GetItemCooldown`), finds potions in the bags, remembers the last potion used, maps items to their use spells for the active state. `/catnip item <id>` |
-| `Options.lua` | Settings window (plain `/catnip`): tabs (General, Cooldowns) with sub-tabs (Cooldowns → Abilities, Layout), in a scroll area with a thin scrollbar; resizable from the bottom-right grip (size saved in `optionsWidth`/`optionsHeight`). Custom-drawn section/button/checkbox/slider/anchor-grid helpers that stretch with the window, plus the Abilities drag-to-reorder list and item drop box. Loads last so every module's `ns.*` functions exist |
+| `Options.lua` | Settings window (plain `/catnip`): tabs (General, Cooldowns) with sub-tabs (Cooldowns → Abilities, Layout), in a scroll area with a thin scrollbar; resizable from the bottom-right grip (size saved in `optionsWidth`/`optionsHeight`). Custom-drawn section/button/checkbox/slider/anchor-grid helpers that stretch with the window, plus the Abilities drag-to-reorder list and item drop box. Loads last so every module's `ns.*` functions exist. `ns.OpenSettings("hud" | "cooldowns")` opens it at a widget's layout controls |
 
 New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses another's `ns.*` (e.g. `DotRings.lua` needs `ComboPoints.lua` and `AuraContainer.lua` first).
 
@@ -56,7 +58,7 @@ New `.lua` files must be added to `Catnip.toc`. Order matters where a file uses 
 | +5 | DoT ring AuraContainers (Rake, Rip) |
 | bar +5 (+7) | Resource number (above the GCD shading) |
 | +10 | Clearcasting AuraContainer (crescent) |
-| +20 | Unlock overlay (Layout.lua) |
+| +20 | Unlock overlay (Layout.lua, via UnlockOverlay.lua) |
 
 Gotcha: `CooldownFrameTemplate` pins its frame to fill the parent; call `ClearAllPoints()` before sizing it (see `Gcd.lua`).
 

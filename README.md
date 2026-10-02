@@ -24,9 +24,7 @@ You should see "Catnip loaded" in chat when you log in.
 | Command | What it does |
 |---------|--------------|
 | `/catnip` | Open the settings window: move (by dragging or exact position) and resize the HUD, choose whether to hide Blizzard's cast bar, and (Cooldowns tab) pick the cooldowns to track and lay out their box. Drag the window's bottom-right corner to resize it. |
-| `/catnip unlock` | Unlock the HUD and the cooldown box: drag to move, scroll over the HUD to resize it, drag the box's corners to resize it. `/catnip lock` when done. |
-| `/catnip scale 1.2` | Set an exact size (0.5 to 2.5). |
-| `/catnip reset` | Put the HUD back in its default spot and size. |
+| `/catnip edit` | Open the settings window and Catnip Edit Mode together (Edit Mode is also the **Edit Mode** button in `/catnip`). In Edit Mode, drag the Rotation Frame and Cooldown Frame to move them, drag the Cooldown Frame's corners to resize it, and click either one to open its position and size settings. The Edit Mode panel turns each frame on or off and resets positions. Close it when done. |
 
 Catnip hides Blizzard's own cast bar by default, since the HUD shows your casts. Your settings are saved between sessions.
 
