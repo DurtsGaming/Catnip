@@ -11,6 +11,7 @@
 local addonName, ns = ...
 
 local REFERENCE_SPELL = 29515 -- Forever's GCD spell
+ns.GCD_SPELL = REFERENCE_SPELL -- Cooldowns.lua tells real cooldowns from the GCD with it
 local SHADE = { 1, 1, 1, 0.3 }
 
 local ball = CreateFrame("Cooldown", nil, ns.hud, "CooldownFrameTemplate")

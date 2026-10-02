@@ -46,9 +46,24 @@ We need to make these (with transparency):
 - Short cooldowns tracked like DoTs: Tiger's Fury, Primal Bite, Faerie Fire.
 - Buffs: Berserk, Frenzied Regeneration, potions/procs; a summed "proc power" fill (like the old WotLK WA) for timing Berserk.
 
+## Cooldown widget
+
+A separate box, apart from the HUD, for non-rotational cooldowns (requested 2026-10-01).
+
+- **Choosing:** settings window, Cooldowns tab. Lists every spellbook spell with a cooldown of its own; tick to track. Tracked ones sit at the top and are dragged up or down to set priority. New ones go last.
+- **Showing:** an icon appears only while its ability is on cooldown (not just the GCD) or its buff is up. Visible icons pack together in priority order, left to right, then top to bottom.
+  - On cooldown: greyed-out icon with the time left.
+  - Active (our buff on us, or our debuff on the current target, e.g. Growl's taunt or Faerie Fire): the aura's icon in colour (e.g. Elemental Blessing for Skysight), with thin yellow dashes running clockwise around its square border, and the buff's time left. (Yellow dots were tried first; the owner wanted thin lines.)
+- **Look:** square icons (round was tried first; the owner preferred squares), sized so every tracked ability fits in the box at once.
+- **List:** one entry per spell name (the spellbook can list several ranks; the highest wins). `/catnip spells` shows why any spellbook entry is or isn't offered.
+- **Form versions:** a spell that changes with your form (Feral Charge becomes Feral Charge (Cat) or (Bear)) is one entry, saved as the base spell. The icon and cooldown follow the version your current form uses, so after a shift it shows that form's charge.
+- **Buffs with a different ID:** some abilities give a buff with another name and ID (Skysight, the Skyborne racial, gives Elemental Blessing). Catnip learns these: when a tracked ability is cast out of combat, it looks for a buff of yours that started at that moment and remembers it by ability name. Until then, that ability never shows as active.
+- **Moving/resizing:** unlocks with the HUD. Drag the box to move it; drag any corner to resize it.
+- **Limits:** in combat, an ability whose buff is up but which isn't on cooldown can't show (we can't see the buff, only the AuraContainer can). Target debuffs follow the current target only. Countdown numbers are Blizzard's and follow WoW's "Show numbers for cooldowns" option (a checkbox in the Cooldowns tab).
+
 ## Out of scope
 
-- Utility/movement: Dash, Leap, Charge, Bash, War Stomp.
+- Utility/movement on the HUD: Dash, Leap, Charge, Bash, War Stomp. (They can go in the cooldown widget.)
 - Cooldowns of 1 min or longer: Berserk, potions, Enrage, Nature's Grasp.
 - Internal cooldowns: Omen, weapon procs.
 
@@ -73,5 +88,7 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Gradient fill textures (resource circle per power, combo points) | Built, **untested** in-game |
 | Move/resize (unlock mode) | Verified |
 | Settings window (`/catnip`): lock/unlock, reset, scale, position (X/Y from screen centre), slider values typeable, hide Blizzard cast bar, debug | Built, **untested** in-game |
+| Settings tabs (General, Cooldowns) | Built, **untested** in-game |
+| Cooldown widget (tracked list with drag-to-reorder, grey icon + timer on cooldown, coloured buff icon + running dashed border + timer, learns buffs with a different ID while the buff is up, move/resize) | Built, **untested** in-game |
 
 Next candidates: fix combo points on target switch; items from "Later".

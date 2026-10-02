@@ -65,15 +65,10 @@ local function CreateCrescentFrame(parent)
         AddGlowLayer(frame, "crescent_bloom", 0.68, 0.9),
         AddGlowLayer(frame, "crescent_line", 0.95, 1.8),
     }
-    local function Play()
-        for _, pulse in ipairs(pulses) do pulse:Play() end
-    end
-    frame:SetScript("OnShow", Play)
-    frame:SetScript("OnHide", function()
-        for _, pulse in ipairs(pulses) do pulse:Stop() end
-    end)
-    if frame:IsVisible() then
-        Play()
+    -- Started once and left looping: on an AuraContainer button, frames can't take OnShow/OnHide
+    -- handlers ("blocked by secret aspects", seen 2026-10-01 in Cooldowns.lua).
+    for _, pulse in ipairs(pulses) do
+        pulse:Play()
     end
 end
 

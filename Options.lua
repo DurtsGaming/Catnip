@@ -2,11 +2,13 @@
 -- for a Catnip look and to avoid relying on templates that may differ in Forever. Each control
 -- reads and writes ns.db through the owning module's functions, and every control refreshes
 -- whenever ns.SettingsChanged() fires (so slash commands and mouse-wheel scaling stay in sync).
+-- Controls are grouped into tabs; each tab is a page frame laid out top to bottom.
 local addonName, ns = ...
 
 local WIDTH = 300
 local PAD = 16
 local INNER = WIDTH - 2 * PAD
+local PAGE_TOP = 72 -- below the title and the tab row
 local ACCENT = { 0.2, 1, 0.6 } -- the chat prefix colour
 local BACKGROUND = { 0.06, 0.06, 0.07, 0.95 }
 local EDGE = { 0.25, 0.25, 0.28, 1 }
@@ -38,7 +40,7 @@ local function AddHover(frame, border)
 end
 
 local window = CreateFrame("Frame", "CatnipOptions", UIParent)
-window:SetWidth(WIDTH) -- height set once the controls are laid out
+window:SetWidth(WIDTH) -- height set by the shown tab
 window:SetPoint("CENTER")
 window:SetFrameStrata("DIALOG")
 window:SetClampedToScreen(true)
@@ -92,23 +94,80 @@ close:SetScript("OnClick", function()
     window:Hide()
 end)
 
--- Vertical layout: each Place puts a control under the previous one.
-local y = -48
+-- Tabs: a row of labels under the title; the selected one is underlined in the accent colour.
+local tabs = {}
+local selectedTab
+
+local function SelectTab(tab)
+    selectedTab = tab
+    for _, other in ipairs(tabs) do
+        local selected = other == tab
+        other.page:SetShown(selected)
+        other.underline:SetShown(selected)
+        other.text:SetTextColor(unpack(selected and ACCENT or MUTED))
+    end
+    window:SetHeight(PAGE_TOP + tab.height + PAD)
+end
+
+-- Vertical layout: each Place puts a control under the previous one on the page being built.
+local page, y
+
+local function Tab(name)
+    local tab = CreateFrame("Button", nil, window)
+    tab:SetSize(80, 20)
+    tab:SetPoint("TOPLEFT", PAD + #tabs * 88, -44)
+    tab.text = tab:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    tab.text:SetPoint("LEFT")
+    tab.text:SetText(name)
+    tab.underline = tab:CreateTexture(nil, "ARTWORK")
+    tab.underline:SetHeight(2)
+    tab.underline:SetPoint("BOTTOMLEFT", tab.text, "BOTTOMLEFT", 0, -4)
+    tab.underline:SetPoint("BOTTOMRIGHT", tab.text, "BOTTOMRIGHT", 0, -4)
+    tab.underline:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+    tab:SetScript("OnClick", function() SelectTab(tab) end)
+    tab:SetScript("OnEnter", function() tab.text:SetTextColor(unpack(ACCENT)) end)
+    tab:SetScript("OnLeave", function()
+        tab.text:SetTextColor(unpack(tab == selectedTab and ACCENT or MUTED))
+    end)
+
+    tab.page = CreateFrame("Frame", nil, window)
+    tab.page:SetPoint("TOPLEFT", 0, -PAGE_TOP)
+    tab.page:SetPoint("TOPRIGHT", 0, -PAGE_TOP)
+    tab.page:SetHeight(1)
+    tabs[#tabs + 1] = tab
+    page, y = tab.page, 0
+    return tab
+end
+
+local function EndTab(tab)
+    tab.height = -y - 8
+    tab.page:SetHeight(tab.height)
+end
+
 local function Place(widget, height, gap)
-    widget:SetPoint("TOPLEFT", PAD, y)
+    widget:SetPoint("TOPLEFT", page, "TOPLEFT", PAD, y)
     y = y - height - (gap or 8)
 end
 
 local function Section(text)
     y = y - 6
-    local label = window:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    local label = page:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     label:SetText(text:upper())
     label:SetTextColor(unpack(ACCENT))
     Place(label, 12, 4)
-    local line = window:CreateTexture(nil, "ARTWORK")
+    local line = page:CreateTexture(nil, "ARTWORK")
     line:SetSize(INNER, 1)
     line:SetColorTexture(unpack(EDGE))
     Place(line, 1, 8)
+end
+
+local function Hint(text)
+    local hint = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    hint:SetWidth(INNER)
+    hint:SetJustifyH("LEFT")
+    hint:SetText(text)
+    hint:SetTextColor(unpack(MUTED))
+    Place(hint, math.max(12, hint:GetStringHeight()), 12) -- long hints wrap onto more lines
 end
 
 local function Button(parent, width, getText, onClick)
@@ -124,17 +183,35 @@ local function Button(parent, width, getText, onClick)
     return button
 end
 
-local function Checkbox(label, get, set)
-    local row = CreateFrame("Button", nil, window)
-    row:SetSize(INNER, 18)
-    local box = CreateFrame("Frame", nil, row)
+-- Two buttons side by side.
+local function ButtonRow(leftText, leftClick, rightText, rightClick)
+    local row = CreateFrame("Frame", nil, page)
+    row:SetSize(INNER, 22)
+    local half = (INNER - 8) / 2
+    Button(row, half, leftText, leftClick):SetPoint("LEFT")
+    Button(row, half, rightText, rightClick):SetPoint("RIGHT")
+    Place(row, 22)
+end
+
+-- A 16px checkbox; returns the box and a function to show the tick or not.
+local function CheckboxBox(parent, hoverFrame)
+    local box = CreateFrame("Frame", nil, parent)
     box:SetSize(16, 16)
-    box:SetPoint("LEFT")
-    AddHover(row, Box(box, CONTROL, EDGE))
+    AddHover(hoverFrame, Box(box, CONTROL, EDGE))
     local check = box:CreateTexture(nil, "ARTWORK")
     check:SetPoint("TOPLEFT", 4, -4)
     check:SetPoint("BOTTOMRIGHT", -4, 4)
     check:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+    return box, function(checked)
+        check:SetShown(checked and true or false)
+    end
+end
+
+local function Checkbox(label, get, set)
+    local row = CreateFrame("Button", nil, page)
+    row:SetSize(INNER, 18)
+    local box, setChecked = CheckboxBox(row, row)
+    box:SetPoint("LEFT")
     local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     text:SetPoint("LEFT", box, "RIGHT", 8, 0)
     text:SetText(label)
@@ -143,14 +220,14 @@ local function Checkbox(label, get, set)
         ns.SettingsChanged()
     end)
     refreshers[#refreshers + 1] = function()
-        check:SetShown(get() and true or false)
+        setChecked(get())
     end
     Place(row, 18)
 end
 
 -- min and max may be functions, re-read on every refresh (e.g. screen size for position).
 local function Slider(label, min, max, step, format, get, set)
-    local holder = CreateFrame("Frame", nil, window)
+    local holder = CreateFrame("Frame", nil, page)
     holder:SetSize(INNER, 34)
     local name = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     name:SetPoint("TOPLEFT")
@@ -238,31 +315,22 @@ local function Slider(label, min, max, step, format, get, set)
     Place(holder, 34)
 end
 
--- Controls ---------------------------------------------------------------------------------------
+local function UnlockText()
+    return ns.IsHudUnlocked() and "Lock" or "Unlock"
+end
+
+local function ToggleUnlock()
+    ns.SetHudUnlocked(not ns.IsHudUnlocked())
+end
+
+-- General tab ------------------------------------------------------------------------------------
+
+local general = Tab("General")
 
 Section("HUD")
 
-local row = CreateFrame("Frame", nil, window)
-row:SetSize(INNER, 22)
-local HALF = (INNER - 8) / 2
-local unlock = Button(row, HALF, function()
-    return ns.IsHudUnlocked() and "Lock HUD" or "Unlock HUD"
-end, function()
-    ns.SetHudUnlocked(not ns.IsHudUnlocked())
-end)
-unlock:SetPoint("LEFT")
-local reset = Button(row, HALF, function()
-    return "Reset position"
-end, ns.ResetHudLayout)
-reset:SetPoint("RIGHT")
-Place(row, 22)
-
-local hint = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-hint:SetWidth(INNER)
-hint:SetJustifyH("LEFT")
-hint:SetText("While unlocked, drag the HUD to move it and scroll over it to resize.")
-hint:SetTextColor(unpack(MUTED))
-Place(hint, 12, 12)
+ButtonRow(UnlockText, ToggleUnlock, function() return "Reset position" end, ns.ResetHudLayout)
+Hint("While unlocked, drag the HUD to move it and scroll over it to resize.")
 
 -- In percent, so the steps are whole numbers.
 Slider("Scale", ns.MIN_SCALE * 100, ns.MAX_SCALE * 100, ns.SCALE_STEP * 100, "%.0f%%",
@@ -297,7 +365,200 @@ Checkbox("Debug messages in chat",
     function() return ns.db.debug end,
     function(debug) ns.db.debug = debug end)
 
-window:SetHeight(-y + PAD - 8)
+EndTab(general)
+
+-- Cooldowns tab ----------------------------------------------------------------------------------
+
+local cooldowns = Tab("Cooldowns")
+
+Section("Cooldown widget")
+
+ButtonRow(UnlockText, ToggleUnlock, function() return "Reset position" end, ns.Cooldowns.ResetLayout)
+Hint("While unlocked, drag the box to move it and drag its corners to resize it.")
+
+-- Blizzard draws the countdown numbers, and only while this game option is on.
+Checkbox("Show cooldown numbers (WoW option)",
+    function() return GetCVarBool("countdownForCooldowns") end,
+    function(show) SetCVar("countdownForCooldowns", show and "1" or "0") end)
+
+Section("Abilities")
+
+Hint("Tick the abilities to show. Drag ticked ones up or down to set their priority: the top one shows first.")
+
+-- The list: one row per ability with a cooldown, in a scrolling area. Rows are pooled and rebuilt
+-- on every refresh from ns.Cooldowns.Candidates() (tracked first, in priority order).
+local ROW_HEIGHT = 24
+local LIST_ROWS = 10
+
+local list = CreateFrame("ScrollFrame", nil, page)
+list:SetSize(INNER, ROW_HEIGHT * LIST_ROWS)
+Box(list, CONTROL, EDGE)
+local content = CreateFrame("Frame", nil, list)
+content:SetSize(INNER, 1)
+list:SetScrollChild(content)
+list:EnableMouseWheel(true)
+list:SetScript("OnMouseWheel", function(self, delta)
+    local maxScroll = math.max(0, content:GetHeight() - self:GetHeight())
+    self:SetVerticalScroll(math.max(0, math.min(maxScroll, self:GetVerticalScroll() - delta * ROW_HEIGHT * 2)))
+end)
+Place(list, ROW_HEIGHT * LIST_ROWS)
+
+local empty = list:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+empty:SetPoint("CENTER")
+empty:SetTextColor(unpack(MUTED))
+empty:SetText("No abilities with a cooldown found.")
+
+-- Where a dragged row would land: a line between rows.
+local dropLine = content:CreateTexture(nil, "OVERLAY")
+dropLine:SetSize(INNER - 8, 2)
+dropLine:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+dropLine:Hide()
+
+local rows = {}
+local trackedCount = 0
+local dragging -- the row being dragged
+
+local function RowTop(index)
+    return -(index - 1) * ROW_HEIGHT
+end
+
+-- Tracked position the cursor is over (1 to trackedCount).
+local function DropIndex()
+    local _, cursorY = GetCursorPosition()
+    local offset = content:GetTop() - cursorY / content:GetEffectiveScale()
+    return math.max(1, math.min(trackedCount, math.floor(offset / ROW_HEIGHT) + 1))
+end
+
+local function FollowCursor(row)
+    local _, cursorY = GetCursorPosition()
+    local offset = content:GetTop() - cursorY / content:GetEffectiveScale()
+    row:ClearAllPoints()
+    row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -(offset - ROW_HEIGHT / 2))
+    local target = DropIndex()
+    -- Above the target row when moving up, below it when moving down.
+    local lineY = target <= row.index and RowTop(target) or RowTop(target + 1)
+    dropLine:ClearAllPoints()
+    dropLine:SetPoint("LEFT", content, "TOPLEFT", 4, lineY)
+    dropLine:Show()
+end
+
+local RefreshList -- defined below
+
+local function CreateRow()
+    local row = CreateFrame("Button", nil, content)
+    row:SetSize(INNER, ROW_HEIGHT)
+    row:RegisterForDrag("LeftButton")
+
+    local highlight = row:CreateTexture(nil, "BACKGROUND")
+    highlight:SetAllPoints()
+    highlight:SetColorTexture(1, 1, 1, 0.06)
+    highlight:Hide()
+
+    local box, setChecked = CheckboxBox(row, row)
+    box:SetPoint("LEFT", 6, 0)
+    row.setChecked = setChecked
+    local hoverEnter, hoverLeave = row:GetScript("OnEnter"), row:GetScript("OnLeave")
+    row:SetScript("OnEnter", function(self)
+        hoverEnter(self)
+        highlight:Show()
+    end)
+    row:SetScript("OnLeave", function(self)
+        hoverLeave(self)
+        highlight:Hide()
+    end)
+
+    row.icon = row:CreateTexture(nil, "ARTWORK")
+    row.icon:SetSize(18, 18)
+    row.icon:SetPoint("LEFT", box, "RIGHT", 8, 0)
+    row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- crop the icon's baked-in border
+
+    row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+    row.name:SetPoint("RIGHT", -28, 0)
+    row.name:SetJustifyH("LEFT")
+    row.name:SetWordWrap(false)
+
+    -- Drag grip: three short lines, on tracked rows only.
+    row.grip = CreateFrame("Frame", nil, row)
+    row.grip:SetSize(12, 10)
+    row.grip:SetPoint("RIGHT", -10, 0)
+    for i = 0, 2 do
+        local line = row.grip:CreateTexture(nil, "ARTWORK")
+        line:SetSize(12, 2)
+        line:SetPoint("TOP", 0, -i * 4)
+        line:SetColorTexture(unpack(MUTED))
+    end
+
+    -- A drag ends with a mouse-up over the row, which also counts as a click; don't toggle then.
+    row:SetScript("OnMouseDown", function(self)
+        self.dragged = false
+    end)
+    row:SetScript("OnClick", function(self)
+        if self.dragged then
+            return
+        end
+        ns.Cooldowns.SetTracked(self.spellID, not self.tracked)
+    end)
+    row:SetScript("OnDragStart", function(self)
+        if not self.tracked or trackedCount < 2 then
+            return
+        end
+        self.dragged = true
+        dragging = self
+        self:SetFrameLevel(content:GetFrameLevel() + 10)
+        self:SetScript("OnUpdate", FollowCursor)
+    end)
+    row:SetScript("OnDragStop", function(self)
+        if dragging ~= self then
+            return
+        end
+        self:SetScript("OnUpdate", nil)
+        self:SetFrameLevel(content:GetFrameLevel() + 1)
+        dropLine:Hide()
+        dragging = nil
+        local from, to = self.index, DropIndex()
+        if from == to then
+            RefreshList() -- put the row back in place
+        else
+            ns.Cooldowns.Move(from, to) -- refreshes via ns.SettingsChanged
+        end
+    end)
+    return row
+end
+
+function RefreshList()
+    if dragging then
+        return -- rebuilding now would pull the row out from under the cursor
+    end
+    local candidates = ns.Cooldowns.Candidates()
+    trackedCount = 0
+    for i, spell in ipairs(candidates) do
+        local row = rows[i] or CreateRow()
+        rows[i] = row
+        row.index, row.spellID, row.tracked = i, spell.spellID, spell.tracked
+        row.icon:SetTexture(spell.icon)
+        row.name:SetText(spell.tracked and (i .. ".  " .. spell.name) or spell.name)
+        row.name:SetTextColor(unpack(spell.tracked and { 1, 1, 1 } or MUTED))
+        row.icon:SetDesaturated(not spell.tracked)
+        row.setChecked(spell.tracked)
+        row.grip:SetShown(spell.tracked)
+        row:ClearAllPoints()
+        row:SetPoint("TOPLEFT", content, "TOPLEFT", 0, RowTop(i))
+        row:SetFrameLevel(content:GetFrameLevel() + 1)
+        row:Show()
+        if spell.tracked then
+            trackedCount = i
+        end
+    end
+    for i = #candidates + 1, #rows do
+        rows[i]:Hide()
+    end
+    content:SetHeight(math.max(1, #candidates * ROW_HEIGHT))
+    empty:SetShown(#candidates == 0)
+end
+refreshers[#refreshers + 1] = RefreshList
+
+EndTab(cooldowns)
 
 -- Wiring -----------------------------------------------------------------------------------------
 
@@ -307,6 +568,7 @@ local function Refresh()
     end
 end
 
+SelectTab(general)
 window:SetScript("OnShow", Refresh)
 ns.OnSettingsChanged(function()
     if window:IsShown() then

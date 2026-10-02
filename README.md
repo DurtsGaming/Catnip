@@ -23,12 +23,14 @@ You should see "Catnip loaded" in chat when you log in.
 
 | Command | What it does |
 |---------|--------------|
-| `/catnip` | Open the settings window: move (by dragging or exact position) and resize the HUD, and choose whether to hide Blizzard's cast bar. |
-| `/catnip unlock` | Unlock the HUD: drag to move, scroll to resize. `/catnip lock` when done. |
+| `/catnip` | Open the settings window: move (by dragging or exact position) and resize the HUD, choose whether to hide Blizzard's cast bar, and (Cooldowns tab) pick the cooldowns to track. |
+| `/catnip unlock` | Unlock the HUD and the cooldown box: drag to move, scroll over the HUD to resize it, drag the box's corners to resize it. `/catnip lock` when done. |
 | `/catnip scale 1.2` | Set an exact size (0.5 to 2.5). |
 | `/catnip reset` | Put the HUD back in its default spot and size. |
 
 Catnip hides Blizzard's own cast bar by default, since the HUD shows your casts. Your settings are saved between sessions.
+
+**Cooldowns.** In `/catnip` → **Cooldowns**, tick the abilities you want to watch (Barkskin, Tiger's Fury, and so on) and drag them into priority order. They show in a separate box, only while they're on cooldown (greyed out) or their buff on you or debuff on your target is up, like Growl's taunt (in colour, with thin yellow dashes running around its border), each with its time left. If an ability's buff has a different name (Skysight gives Elemental Blessing), use it once out of combat so Catnip can learn which buff it gives. The numbers come from WoW's "Show numbers for cooldowns" option; the Cooldowns tab has a checkbox for it.
 
 ## Updating
 
