@@ -234,9 +234,66 @@ TEXTURES = {
     "combo_fill": (128, combo_fill(128)),                   # 1, combo points
 }
 
+def write_tga_pixels(path, width, height, pixel):
+    """Like write_tga, for any canvas: pixel(x, y) returns alpha (white), x right and y down."""
+    header = struct.pack("<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, width, height, 32, 0x28)
+    pixels = bytearray()
+    for y in range(height):
+        for x in range(width):
+            pixels += bytes((255, 255, 255, round(clamp01(pixel(x, y)) * 255)))
+    with open(path, "wb") as f:
+        f.write(header + pixels)
+
+
+def square_dashed_flipbook(frame, grid, count, thickness, duty=0.5):
+    """A FlipBook: grid x grid frames, each a thin square border broken into `count` dashes (each
+    `duty` of its spacing long). Frame by frame the dashes move clockwise by 1/(grid*grid) of their
+    spacing, so looping the frames makes them run around the square. Returns (width, height, pixel)."""
+    inset = 1 + thickness / 2  # centre line of the border, from the frame edge
+    lo, hi = inset, frame - inset
+    side = hi - lo
+    spacing = 4 * side / count
+    dash = spacing * duty
+    frames = grid * grid
+
+    def nearest(px, py):
+        """(distance to the border's centre line, distance along it clockwise from the top-left)."""
+        cx, cy = min(max(px, lo), hi), min(max(py, lo), hi)
+        candidates = [
+            (math.hypot(px - cx, py - lo), cx - lo),               # top, left to right
+            (math.hypot(px - hi, py - cy), side + cy - lo),        # right, top to bottom
+            (math.hypot(px - cx, py - hi), 2 * side + hi - cx),    # bottom, right to left
+            (math.hypot(px - lo, py - cy), 3 * side + hi - cy),    # left, bottom to top
+        ]
+        return min(candidates)
+
+    def pixel(x, y):
+        k = (y // frame) * grid + x // frame
+        d, s = nearest(x % frame + 0.5, y % frame + 0.5)
+        u = (s - k * spacing / frames) % spacing  # position within this dash's period
+        across = thickness / 2 - d + 0.5
+        if u < dash:  # inside a dash: soft ends
+            along = min(u, dash - u) + 0.5
+        else:  # in a gap: fades to nothing half a pixel from either dash
+            along = 0.5 - min(u - dash, spacing - u)
+        return min(clamp01(across), clamp01(along))
+
+    return frame * grid, frame * grid, pixel
+
+
+# Canvases that aren't one centred shape: name -> (width, height, pixel).
+FLIPBOOKS = {
+    # cooldown widget: thin dashes running around an icon while its buff is up (4x4 frames of 64px)
+    "square_dashed": square_dashed_flipbook(64, 4, 12, 2),
+}
+
 if __name__ == "__main__":
     os.makedirs(OUT_DIR, exist_ok=True)
     for name, (size, shape) in TEXTURES.items():
         path = os.path.join(OUT_DIR, name + ".tga")
         write_tga(path, size, shape)
+        print("wrote", os.path.normpath(path))
+    for name, (width, height, pixel) in FLIPBOOKS.items():
+        path = os.path.join(OUT_DIR, name + ".tga")
+        write_tga_pixels(path, width, height, pixel)
         print("wrote", os.path.normpath(path))

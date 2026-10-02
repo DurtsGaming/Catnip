@@ -24,10 +24,12 @@ end
 --   unit        "player" or "target"
 --   filter      "HELPFUL" or "HARMFUL" (only auras we applied are matched)
 --   spellIDs    list of aura spell IDs to show (every rank, on Forever)
---   width, height, x, y   button size, and its centre's offset from the HUD centre
---   level       frame level above the HUD
+--   width, height, x, y   button size, and its centre's offset from relativeTo's centre
+--   relativeTo  frame to position and layer against (default the HUD)
+--   level       frame level above relativeTo
 --   parent      frame to live in (default the HUD); the container hides whenever it does
 --   initialize  function(button): adds our look; runs once per pooled button, out of combat
+-- Returns a handle: handle.SetSpellIDs(list) changes which auras it shows (any time, even in combat).
 function ns.CreateAuraContainer(options)
     local spellSet = {}
     for _, spellID in ipairs(options.spellIDs) do
@@ -54,10 +56,11 @@ function ns.CreateAuraContainer(options)
     end
 
     local function Create()
+        local relativeTo = options.relativeTo or ns.hud
         container = CreateFrame("AuraContainer", nil, options.parent or ns.hud, "CustomAuraContainerTemplate")
         container:SetSize(options.width, options.height)
-        container:SetPoint("CENTER", ns.hud, "CENTER", options.x or 0, options.y or 0)
-        container:SetFrameLevel(ns.hud:GetFrameLevel() + (options.level or 10))
+        container:SetPoint("CENTER", relativeTo, "CENTER", options.x or 0, options.y or 0)
+        container:SetFrameLevel(relativeTo:GetFrameLevel() + (options.level or 10))
         container:AddAuraGroup("main", options.filter, {
             initializeFrame = function(button)
                 local ok, err = pcall(InitializeButton, button)
@@ -90,4 +93,21 @@ function ns.CreateAuraContainer(options)
             Apply() -- as Blood in the Water does on every target change
         end
     end)
+    -- Containers added after login (e.g. a cooldown ticked in the settings) won't see another
+    -- PLAYER_ENTERING_WORLD, so create them now if we can.
+    if IsLoggedIn() and not InCombatLockdown() then
+        Create()
+    end
+
+    local handle = {}
+    function handle.SetSpellIDs(spellIDs)
+        spellSet = {}
+        for _, spellID in ipairs(spellIDs) do
+            spellSet[spellID] = true
+        end
+        if container then
+            Apply()
+        end
+    end
+    return handle
 end
