@@ -1,7 +1,8 @@
--- Settings window (/catnip). Our own frames and textures rather than Blizzard's widget templates,
--- for a Catnip look and to avoid relying on templates that may differ in Forever. Each control
--- reads and writes ns.db through the owning module's functions, and every control refreshes
--- whenever ns.SettingsChanged() fires (so slash commands and dragging in Edit Mode stay in sync).
+-- Settings window (/catnip), styled like WoW Forever's Professions frame: its frame, background
+-- and panels (OptionsArt.lua), gold headers, Blizzard-style arrow sliders, and the same stock
+-- checkboxes and red buttons as Catnip Edit Mode (EditMode.lua). Each control reads and writes
+-- ns.db through the owning module's functions, and every control refreshes whenever
+-- ns.SettingsChanged() fires (so slash commands and dragging in Edit Mode stay in sync).
 --
 -- Controls are grouped into tabs (and a tab can have sub-tabs); each tab is a page laid out top to
 -- bottom. Pages sit in a scroll area, so the window can be resized smaller than its content: drag
@@ -9,46 +10,73 @@
 -- the window's width.
 local addonName, ns = ...
 
-local WIDTH = 300 -- default and minimum width; long hints are measured at this width
-local DEFAULT_HEIGHT = 560
+local art = ns.OptionsArt
+
+local WIDTH = 320 -- default and minimum width; long hints are measured at this width
+local DEFAULT_HEIGHT = 580
 local MAX_WIDTH = 700
 local MIN_HEIGHT = 200
-local PAD = 16
-local INNER = WIDTH - 2 * PAD
-local PAGE_TOP = 72 -- below the title and the tab row
-local SUB_TOP = 30 -- below a sub-tab row
+local BORDER = 8 -- the frame's border
+local HEADER = 20 -- the tab row at the top of the scrolling contents, above the pages (it scrolls with them)
+local PAD = 6 -- frame to a panel, and between panels (as in the Professions frame)
+local PANEL_PAD = 12 -- panel edge to its controls
+local CONTENT = WIDTH - 2 * (BORDER + PAD + PANEL_PAD) -- a panel's control width at the minimum window width
+local TAB_HEIGHT, SUB_TAB_HEIGHT = 24, 22 -- bookmark tabs, above the panel edge they stand on
+-- A page with sub-tabs is one outer panel; its sub-tab pages sit inside it, SUB_INSET in from its
+-- sides and SUB_BOTTOM up from its bottom, under a row of sub-tabs standing on their first panel.
+local SUB_INSET = 8
+local SUB_BOTTOM = 8
+local SUB_TOP = 14 + SUB_TAB_HEIGHT -- page top to the sub-tab pages: clear of the main tab's foot, then the sub-tabs
 local SCROLL_STEP = 40
-local ACCENT = { 0.2, 1, 0.6 } -- the chat prefix colour
-local BACKGROUND = { 0.06, 0.06, 0.07, 0.95 }
-local EDGE = { 0.25, 0.25, 0.28, 1 }
-local CONTROL = { 0.14, 0.14, 0.16, 1 }
-local MUTED = { 0.6, 0.6, 0.6 }
+
+local function RGB(r, g, b, a) return { r / 255, g / 255, b / 255, a or 1 } end
+local WHITE = { 1, 1, 1, 1 }
+local GOLD = { 1, 0.82, 0, 1 } -- GameFontNormal
+local MUTED = RGB(163, 154, 138)
+local BRONZE = RGB(125, 102, 52)
+local BRONZE_HI = RGB(200, 163, 79)
+local BRONZE_DIM = RGB(74, 61, 38)
+local GROUND = art.GROUND
+local WELL = RGB(5, 4, 3)
+-- Sliders, sampled from Blizzard's own minimal slider in Forever's settings: muted, not shiny.
+local ARROW = RGB(100, 86, 72)
+local ARROW_HOVER = RGB(160, 136, 110)
+local TRACK = RGB(15, 16, 18)
+local TRACK_EDGE = RGB(62, 51, 42)
+local TRACK_HOVER = RGB(100, 86, 72)
+local THUMB = RGB(141, 98, 66)
+local THUMB_RIM = RGB(176, 128, 94) -- a lighter bevel just inside the outline
+local THUMB_EDGE = RGB(64, 47, 33)
+local CLEAR = { 0, 0, 0, 0 }
+local ACCENT = { 0.2, 1, 0.6, 1 } -- Catnip green, the chat prefix colour
 
 local refreshers = {}
 
+-- Nested flat rectangles, outermost first: one { inset, colour } per layer. Returns the textures.
+local function Bevel(frame, layers)
+    local textures = {}
+    for i, layer in ipairs(layers) do
+        local texture = frame:CreateTexture(nil, "BACKGROUND", nil, i - 1)
+        texture:SetPoint("TOPLEFT", layer[1], -layer[1])
+        texture:SetPoint("BOTTOMRIGHT", -layer[1], layer[1])
+        texture:SetColorTexture(unpack(layer[2]))
+        textures[i] = texture
+    end
+    return textures
+end
+
 -- Flat fill with a 1px border. Returns the border so hover effects can recolour it.
 local function Box(frame, fill, edge)
-    local border = frame:CreateTexture(nil, "BACKGROUND")
-    border:SetAllPoints()
-    border:SetColorTexture(unpack(edge))
-    local inside = frame:CreateTexture(nil, "BACKGROUND", nil, 1)
-    inside:SetPoint("TOPLEFT", 1, -1)
-    inside:SetPoint("BOTTOMRIGHT", -1, 1)
-    inside:SetColorTexture(unpack(fill))
-    return border
+    return Bevel(frame, { { 0, edge }, { 1, fill } })[1]
 end
 
--- Border lights up in the accent colour on hover.
-local function AddHover(frame, border)
-    frame:SetScript("OnEnter", function()
-        border:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
-    end)
-    frame:SetScript("OnLeave", function()
-        border:SetColorTexture(unpack(EDGE))
-    end)
+-- Border lights up bronze on hover, back to `edge` after.
+local function AddHover(frame, border, edge)
+    frame:SetScript("OnEnter", function() border:SetColorTexture(unpack(BRONZE_HI)) end)
+    frame:SetScript("OnLeave", function() border:SetColorTexture(unpack(edge)) end)
 end
 
-local window = CreateFrame("Frame", "CatnipOptions", UIParent)
+local window = art.CreateWindow("CatnipOptions", "Catnip")
 window:SetSize(WIDTH, DEFAULT_HEIGHT) -- the saved size is applied once settings load
 window:SetPoint("CENTER")
 window:SetFrameStrata("DIALOG")
@@ -62,71 +90,41 @@ if window.SetDontSavePosition then
     window:SetDontSavePosition(true)
 end
 window:Hide()
-Box(window, BACKGROUND, EDGE)
 table.insert(UISpecialFrames, "CatnipOptions") -- Esc closes it
 
-local title = window:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-title:SetPoint("TOPLEFT", PAD, -PAD)
-title:SetText("Catnip")
-title:SetTextColor(unpack(ACCENT))
+-- The area under the tab row, inside the frame, holding the scrolling pages.
+local inner = CreateFrame("Frame", nil, window)
+inner:SetPoint("TOPLEFT", BORDER, -window.contentTop)
+inner:SetPoint("BOTTOMRIGHT", -BORDER, BORDER)
 
-local GetMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
-local version = window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-version:SetPoint("BOTTOMLEFT", title, "BOTTOMRIGHT", 6, 1)
-version:SetText(GetMetadata and GetMetadata(addonName, "Version") or "")
-version:SetTextColor(unpack(MUTED))
-
--- Close button: an X from two rotated bars (no reliance on a font glyph).
-local close = CreateFrame("Button", nil, window)
-close:SetSize(20, 20)
-close:SetPoint("TOPRIGHT", -8, -8)
-local closeBars = {}
-for i, angle in ipairs({ math.pi / 4, -math.pi / 4 }) do
-    local bar = close:CreateTexture(nil, "ARTWORK")
-    bar:SetSize(14, 2)
-    bar:SetPoint("CENTER")
-    bar:SetColorTexture(unpack(MUTED))
-    bar:SetRotation(angle)
-    closeBars[i] = bar
+-- The frame's border, portrait, title and close button stay above the contents scrolling under them.
+for i, overlay in ipairs(window.overlays) do
+    overlay:SetFrameLevel(window:GetFrameLevel() + 100 + i)
 end
-close:SetScript("OnEnter", function()
-    for _, bar in ipairs(closeBars) do
-        bar:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
-    end
-end)
-close:SetScript("OnLeave", function()
-    for _, bar in ipairs(closeBars) do
-        bar:SetColorTexture(MUTED[1], MUTED[2], MUTED[3], 1)
-    end
-end)
-close:SetScript("OnClick", function()
-    window:Hide()
-end)
 
 -- Scroll area ------------------------------------------------------------------------------------
 
--- The pages live on `canvas`, scrolled inside `body`. A thin scrollbar in the right margin shows
--- while the page is taller than the window.
-local body = CreateFrame("ScrollFrame", nil, window)
-body:SetPoint("TOPLEFT", 0, -PAGE_TOP)
-body:SetPoint("BOTTOMRIGHT", 0, PAD)
+-- The pages live on `canvas`, scrolled inside `body`. A thin scrollbar in the gap between the
+-- panels and the frame's right edge shows while the page is taller than the window.
+local body = CreateFrame("ScrollFrame", nil, inner)
+body:SetAllPoints()
 local canvas = CreateFrame("Frame", nil, body)
 canvas:SetSize(WIDTH, 1)
 body:SetScrollChild(canvas)
 
-local scrollbar = CreateFrame("Slider", nil, window)
-scrollbar:SetPoint("TOPRIGHT", -5, -PAGE_TOP)
-scrollbar:SetPoint("BOTTOMRIGHT", -5, 22) -- clear of the resize grip
-scrollbar:SetWidth(6)
+local scrollbar = CreateFrame("Slider", nil, inner)
+scrollbar:SetPoint("TOPRIGHT", -1, -PAD)
+scrollbar:SetPoint("BOTTOMRIGHT", -1, 18) -- clear of the resize grip
+scrollbar:SetWidth(4)
 scrollbar:SetOrientation("VERTICAL")
 scrollbar:SetMinMaxValues(0, 0)
 scrollbar:SetValueStep(1)
 local scrollTrack = scrollbar:CreateTexture(nil, "BACKGROUND")
 scrollTrack:SetAllPoints()
-scrollTrack:SetColorTexture(unpack(CONTROL))
+scrollTrack:SetColorTexture(unpack(WELL))
 local scrollThumb = scrollbar:CreateTexture(nil, "OVERLAY")
-scrollThumb:SetSize(6, 40)
-scrollThumb:SetColorTexture(unpack(EDGE))
+scrollThumb:SetSize(4, 40)
+scrollThumb:SetColorTexture(unpack(BRONZE))
 scrollbar:SetThumbTexture(scrollThumb)
 -- The wheel glides to a target (gliding below); dragging the scrollbar moves straight there.
 -- Offsets are whole pixels, so text and boxes don't snap out of step.
@@ -137,8 +135,8 @@ scrollbar:SetScript("OnValueChanged", function(_, value)
         scrollTarget = value
     end
 end)
-scrollbar:SetScript("OnEnter", function() scrollThumb:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1) end)
-scrollbar:SetScript("OnLeave", function() scrollThumb:SetColorTexture(unpack(EDGE)) end)
+scrollbar:SetScript("OnEnter", function() scrollThumb:SetColorTexture(unpack(BRONZE_HI)) end)
+scrollbar:SetScript("OnLeave", function() scrollThumb:SetColorTexture(unpack(BRONZE)) end)
 
 local function MaxScroll()
     return math.max(0, canvas:GetHeight() - body:GetHeight())
@@ -192,6 +190,7 @@ end
 local grip = CreateFrame("Button", nil, window)
 grip:SetSize(16, 16)
 grip:SetPoint("BOTTOMRIGHT", -2, 2)
+grip:SetFrameLevel(inner:GetFrameLevel() + 5)
 grip:SetNormalTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up")
 grip:SetHighlightTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight")
 grip:SetPushedTexture("Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down")
@@ -232,10 +231,11 @@ local page, y
 
 local topTabs -- the General/Cooldowns row, set below
 
--- Height of what a tab shows: its page, or its sub-tab row plus the selected sub-tab's page.
+-- Height of what a tab shows: its page, or (with sub-tabs) the outer panel holding the sub-tab row
+-- and the selected sub-tab's page.
 local function VisibleHeight(tab)
     if tab.subs then
-        return SUB_TOP + VisibleHeight(tab.subs.selected)
+        return SUB_TOP + VisibleHeight(tab.subs.selected) + SUB_BOTTOM
     end
     return tab.height or 0
 end
@@ -246,13 +246,56 @@ local function UpdateCanvas()
     end
     local tab = topTabs.selected
     tab.page:SetHeight(math.max(1, VisibleHeight(tab)))
-    canvas:SetHeight(math.max(1, VisibleHeight(tab)))
+    canvas:SetHeight(HEADER + math.max(1, VisibleHeight(tab)))
     UpdateScroll()
 end
 
--- A row of tab labels (buttons on buttonParent at buttonTop), each with a page (on pageParent at
--- pageTop). The selected label is underlined in the accent colour.
-local function TabGroup(buttonParent, buttonTop, pageParent, pageTop)
+-- Text width for sizing a tab; a fallback in case the font hasn't measured yet.
+local function TextWidth(text)
+    local width = text:GetStringWidth()
+    return (width and width > 0) and width or 60
+end
+
+-- Bookmark tabs standing on a panel, drawn above it. The selected one reaches TAB_COVER past the
+-- panel's visible top edge, covering the edge lines and the shadow under them so tab and panel
+-- read as one; the others stop on the edge, darker, with the panel's edge line under them.
+-- Returns a makeTab for TabGroup: tabs in a row from `firstX`, their feet `edge` below the top of
+-- `anchor`, `height` tall above the edge, at frame level `level`. With `flushFirst`, firstX is the
+-- panel's visible left edge, and the first tab's left side runs on into it.
+local TAB_COVER = 10
+local function BookmarkTabs(anchor, firstX, edge, height, level, flushFirst)
+    return function(parent, name, previous)
+        local tab = CreateFrame("Button", nil, parent)
+        tab:SetFrameLevel(level)
+        tab.text = tab:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        tab.text:SetText(name)
+        tab:SetWidth(TextWidth(tab.text) + 28)
+        tab.x = previous and (previous.x + previous:GetWidth() + 2) or firstX
+        local flush = flushFirst and not previous
+        local setArt = art.Tab(tab)
+        function tab.SetSelected(selected)
+            local cover = selected and TAB_COVER or 0
+            tab:ClearAllPoints()
+            tab:SetPoint("BOTTOMLEFT", anchor, "TOPLEFT", tab.x, -(edge + cover))
+            tab:SetHeight(height + cover)
+            tab.text:ClearAllPoints()
+            tab.text:SetPoint("CENTER", 0, cover / 2 + 1) -- centred on the part above the edge
+            setArt(selected, cover, flush)
+            tab.text:SetTextColor(unpack(selected and WHITE or GOLD))
+        end
+        tab:SetScript("OnEnter", function() tab.text:SetTextColor(unpack(WHITE)) end)
+        tab:SetScript("OnLeave", function() tab.SetSelected(tab.selected) end)
+        return tab
+    end
+end
+
+local ClosePanel -- defined with the controls
+
+local pageInset -- extra side inset of the page being built (sub-tab pages sit inside an outer panel)
+
+-- A row of tabs (made by makeTab on buttonParent), each with a page (on pageParent at pageTop,
+-- its panels `inset` further in from the sides).
+local function TabGroup(makeTab, buttonParent, pageParent, pageTop, inset)
     local group = { tabs = {} }
 
     function group.Select(tab)
@@ -260,8 +303,8 @@ local function TabGroup(buttonParent, buttonTop, pageParent, pageTop)
         for _, other in ipairs(group.tabs) do
             local selected = other == tab
             other.page:SetShown(selected)
-            other.underline:SetShown(selected)
-            other.text:SetTextColor(unpack(selected and ACCENT or MUTED))
+            other.selected = selected
+            other.SetSelected(selected)
         end
         scrollbar:SetValue(0)
         UpdateCanvas()
@@ -269,30 +312,15 @@ local function TabGroup(buttonParent, buttonTop, pageParent, pageTop)
 
     -- Adds a tab and starts laying out its page (Place calls go to it until the next Add).
     function group.Add(name)
-        local tab = CreateFrame("Button", nil, buttonParent)
-        tab:SetSize(80, 20)
-        tab:SetPoint("TOPLEFT", PAD + #group.tabs * 88, buttonTop)
-        tab.text = tab:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-        tab.text:SetPoint("LEFT")
-        tab.text:SetText(name)
-        tab.underline = tab:CreateTexture(nil, "ARTWORK")
-        tab.underline:SetHeight(2)
-        tab.underline:SetPoint("BOTTOMLEFT", tab.text, "BOTTOMLEFT", 0, -4)
-        tab.underline:SetPoint("BOTTOMRIGHT", tab.text, "BOTTOMRIGHT", 0, -4)
-        tab.underline:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+        local tab = makeTab(buttonParent, name, group.tabs[#group.tabs])
         tab:SetScript("OnClick", function() group.Select(tab) end)
-        tab:SetScript("OnEnter", function() tab.text:SetTextColor(unpack(ACCENT)) end)
-        tab:SetScript("OnLeave", function()
-            tab.text:SetTextColor(unpack(tab == group.selected and ACCENT or MUTED))
-        end)
-
         tab.page = CreateFrame("Frame", nil, pageParent)
         tab.page:SetPoint("TOPLEFT", pageParent, "TOPLEFT", 0, pageTop)
         tab.page:SetPoint("TOPRIGHT", pageParent, "TOPRIGHT", 0, pageTop)
         tab.page:SetHeight(1)
         tab.page:Hide()
         group.tabs[#group.tabs + 1] = tab
-        page, y = tab.page, 0
+        page, y, pageInset = tab.page, -PAD, inset or 0
         return tab
     end
 
@@ -300,76 +328,98 @@ local function TabGroup(buttonParent, buttonTop, pageParent, pageTop)
 end
 
 local function EndTab(tab)
-    tab.height = -y - 8
+    ClosePanel()
+    tab.height = -y
     tab.page:SetHeight(tab.height)
 end
 
 -- Controls ---------------------------------------------------------------------------------------
 
--- Pinned to both sides of the page, so it stretches with the window.
+-- The panel being filled (nil between panels), and the y it started at.
+local panel, panelTop
+
+-- What new controls are parented to: the open panel, so they draw above its background.
+local function Host()
+    return panel or page
+end
+
+-- Pinned to both sides of the page (inset further inside a panel), so it stretches with the window.
 local function Place(widget, height, gap)
-    widget:SetPoint("TOPLEFT", page, "TOPLEFT", PAD, y)
-    widget:SetPoint("TOPRIGHT", page, "TOPRIGHT", -PAD, y)
+    local inset = pageInset + (panel and PAD + PANEL_PAD or PAD)
+    widget:SetPoint("TOPLEFT", page, "TOPLEFT", inset, y)
+    widget:SetPoint("TOPRIGHT", page, "TOPRIGHT", -inset, y)
     widget:SetHeight(height)
     y = y - height - (gap or 8)
 end
 
+function ClosePanel()
+    if not panel then
+        return
+    end
+    y = y + 8 - PANEL_PAD - art.EDGE_INSET -- the last control's gap becomes the panel's bottom padding
+    panel:SetHeight(panelTop - y)
+    y = y - PAD -- between panels
+    panel = nil
+end
+
+-- Starts a panel (art.Panel), with a gold header if `text` is given. Controls go inside it until
+-- the next Section or the end of the tab. The first control sits clear of a selected tab's foot.
 local function Section(text)
-    y = y - 6
-    local label = page:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    label:SetJustifyH("LEFT")
-    label:SetText(text:upper())
-    label:SetTextColor(unpack(ACCENT))
-    Place(label, 12, 4)
-    local line = page:CreateTexture(nil, "ARTWORK")
-    line:SetColorTexture(unpack(EDGE))
-    Place(line, 1, 8)
+    ClosePanel()
+    panel = CreateFrame("Frame", nil, page)
+    panel:SetPoint("TOPLEFT", page, "TOPLEFT", pageInset + PAD, y)
+    panel:SetPoint("TOPRIGHT", page, "TOPRIGHT", -(pageInset + PAD), y)
+    art.Panel(panel)
+    panelTop = y
+    y = y - (art.EDGE_INSET + TAB_COVER + 2)
+    if text then
+        local header = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        header:SetJustifyH("LEFT")
+        header:SetText(text)
+        Place(header, 14, 8)
+    end
 end
 
 -- Measured at the minimum width, so it never needs more lines than it was given.
 local function Hint(text)
-    local hint = page:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    hint:SetWidth(INNER)
+    local hint = Host():CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    hint:SetWidth((panel and CONTENT or CONTENT + 2 * PANEL_PAD) - 2 * pageInset)
     hint:SetJustifyH("LEFT")
     hint:SetJustifyV("TOP")
     hint:SetText(text)
     hint:SetTextColor(unpack(MUTED))
-    Place(hint, math.max(12, hint:GetStringHeight()), 12)
+    Place(hint, math.max(12, hint:GetStringHeight()), 10)
 end
 
-local function Button(parent, getText, onClick)
-    local button = CreateFrame("Button", nil, parent)
-    button:SetHeight(22)
-    AddHover(button, Box(button, CONTROL, EDGE))
-    local text = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    text:SetPoint("CENTER")
-    button:SetScript("OnClick", onClick)
-    refreshers[#refreshers + 1] = function()
-        text:SetText(getText())
-    end
-    return button
-end
-
--- A 16px checkbox; returns the box and a function to show the tick or not.
+-- Blizzard's checkbox art (as in Catnip Edit Mode); returns the box and a function to show the
+-- tick or not. It glows while the mouse is over hoverFrame (the whole row).
 local function CheckboxBox(parent, hoverFrame)
     local box = CreateFrame("Frame", nil, parent)
-    box:SetSize(16, 16)
-    AddHover(hoverFrame, Box(box, CONTROL, EDGE))
-    local check = box:CreateTexture(nil, "ARTWORK")
-    check:SetPoint("TOPLEFT", 4, -4)
-    check:SetPoint("BOTTOMRIGHT", -4, 4)
-    check:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+    box:SetSize(24, 24)
+    local normal = box:CreateTexture(nil, "ARTWORK")
+    normal:SetAllPoints()
+    normal:SetTexture("Interface\\Buttons\\UI-CheckBox-Up")
+    local glow = box:CreateTexture(nil, "OVERLAY")
+    glow:SetAllPoints()
+    glow:SetTexture("Interface\\Buttons\\UI-CheckBox-Highlight")
+    glow:SetBlendMode("ADD")
+    glow:Hide()
+    local check = box:CreateTexture(nil, "OVERLAY", nil, 1)
+    check:SetAllPoints()
+    check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+    hoverFrame:SetScript("OnEnter", function() glow:Show() end)
+    hoverFrame:SetScript("OnLeave", function() glow:Hide() end)
     return box, function(checked)
         check:SetShown(checked and true or false)
     end
 end
 
 local function Checkbox(label, get, set)
-    local row = CreateFrame("Button", nil, page)
+    local row = CreateFrame("Button", nil, Host())
     local box, setChecked = CheckboxBox(row, row)
-    box:SetPoint("LEFT")
+    box:SetPoint("LEFT", -3, 0) -- the art has a little transparent margin
     local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    text:SetPoint("LEFT", box, "RIGHT", 8, 0)
+    text:SetPoint("LEFT", box, "RIGHT", 2, 0)
     text:SetText(label)
     row:SetScript("OnClick", function()
         set(not get())
@@ -378,48 +428,110 @@ local function Checkbox(label, get, set)
     refreshers[#refreshers + 1] = function()
         setChecked(get())
     end
-    Place(row, 18)
+    Place(row, 24, 4)
 end
 
+-- A < or > button for a slider (direction -1 or 1): two short bars meeting at a point, like the
+-- close X used to be (no reliance on a font glyph).
+local function Arrow(parent, direction)
+    local button = CreateFrame("Button", nil, parent)
+    button:SetSize(14, 20)
+    local bars = {}
+    for i, side in ipairs({ 1, -1 }) do -- upper arm, lower arm
+        local bar = button:CreateTexture(nil, "ARTWORK")
+        bar:SetSize(8, 2)
+        bar:SetPoint("CENTER", -direction * 1.4, side * 2.8)
+        bar:SetColorTexture(unpack(ARROW))
+        bar:SetRotation(-direction * side * math.pi / 4)
+        bars[i] = bar
+    end
+    local function Colour(colour)
+        for _, bar in ipairs(bars) do
+            bar:SetColorTexture(unpack(colour))
+        end
+    end
+    button:SetScript("OnEnter", function() Colour(ARROW_HOVER) end)
+    button:SetScript("OnLeave", function() Colour(ARROW) end)
+    return button
+end
+
+-- Blizzard's minimal slider look: the label above; under it < arrow, a thin groove with a diamond
+-- thumb, > arrow, and the value in gold. The value can be clicked and typed into; its box only
+-- shows while hovered or typing in.
 -- min and max may be functions, re-read on every refresh (e.g. screen size for position).
 -- No mouse wheel: it would fight with scrolling the page.
 local function Slider(label, min, max, step, format, get, set)
-    local holder = CreateFrame("Frame", nil, page)
+    local holder = CreateFrame("Frame", nil, Host())
     local name = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     name:SetPoint("TOPLEFT")
     name:SetText(label)
 
-    -- The value, as a box you can click and type into. Enter applies, Esc cancels.
-    local input = CreateFrame("EditBox", nil, holder)
-    input:SetSize(56, 18)
-    input:SetPoint("TOPRIGHT")
-    input:SetAutoFocus(false)
-    input:SetFontObject("GameFontHighlight")
-    input:SetJustifyH("RIGHT")
-    input:SetTextInsets(4, 4, 0, 0)
-    input:SetMaxLetters(6)
-    AddHover(input, Box(input, CONTROL, EDGE))
-
-    local slider = CreateFrame("Slider", nil, holder)
-    slider:SetPoint("BOTTOMLEFT")
-    slider:SetPoint("BOTTOMRIGHT")
-    slider:SetHeight(16)
-    slider:SetOrientation("HORIZONTAL")
     local function Range()
         return type(min) == "function" and min() or min, type(max) == "function" and max() or max
     end
+    local function Clamp(value)
+        local low, high = Range()
+        return math.min(high, math.max(low, value))
+    end
+
+    -- The value: Enter applies, Esc cancels.
+    local input = CreateFrame("EditBox", nil, holder)
+    input:SetSize(52, 20)
+    input:SetPoint("BOTTOMRIGHT")
+    input:SetAutoFocus(false)
+    input:SetFontObject("GameFontNormal")
+    input:SetJustifyH("CENTER")
+    input:SetTextInsets(2, 2, 0, 0)
+    input:SetMaxLetters(6)
+    local inputBorder, inputFill = unpack(Bevel(input, { { 0, CLEAR }, { 1, CLEAR } }))
+    local function ShowBox(shown)
+        inputBorder:SetColorTexture(unpack(shown and BRONZE_DIM or CLEAR))
+        inputFill:SetColorTexture(unpack(shown and WELL or CLEAR))
+    end
+    input:SetScript("OnEnter", function() ShowBox(true) end)
+    input:SetScript("OnLeave", function(self) ShowBox(self:HasFocus()) end)
+
+    local less = Arrow(holder, -1)
+    less:SetPoint("BOTTOMLEFT")
+    local more = Arrow(holder, 1)
+    more:SetPoint("RIGHT", input, "LEFT", -4, 0)
+
+    local slider = CreateFrame("Slider", nil, holder)
+    slider:SetPoint("LEFT", less, "RIGHT", 2, 0)
+    slider:SetPoint("RIGHT", more, "LEFT", -2, 0)
+    slider:SetHeight(20)
+    slider:SetOrientation("HORIZONTAL")
     slider:SetMinMaxValues(Range())
     slider:SetValueStep(step)
     slider:SetObeyStepOnDrag(true)
-    local track = slider:CreateTexture(nil, "BACKGROUND")
-    track:SetPoint("LEFT")
-    track:SetPoint("RIGHT")
-    track:SetHeight(4)
-    track:SetColorTexture(unpack(EDGE))
-    local thumb = slider:CreateTexture(nil, "OVERLAY")
-    thumb:SetSize(8, 16)
-    thumb:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+
+    -- The groove: near black, with a dull brown edge that lightens on hover.
+    local trackEdge = slider:CreateTexture(nil, "BACKGROUND")
+    trackEdge:SetPoint("LEFT")
+    trackEdge:SetPoint("RIGHT")
+    trackEdge:SetHeight(12)
+    trackEdge:SetColorTexture(unpack(TRACK_EDGE))
+    local track = slider:CreateTexture(nil, "BACKGROUND", nil, 1)
+    track:SetPoint("TOPLEFT", trackEdge, "TOPLEFT", 1, -1)
+    track:SetPoint("BOTTOMRIGHT", trackEdge, "BOTTOMRIGHT", -1, 1)
+    track:SetColorTexture(unpack(TRACK))
+    slider:SetScript("OnEnter", function() trackEdge:SetColorTexture(unpack(TRACK_HOVER)) end)
+    slider:SetScript("OnLeave", function() trackEdge:SetColorTexture(unpack(TRACK_EDGE)) end)
+
+    -- The thumb: squares turned 45 degrees, a matte brown-orange diamond with a dark outline and a
+    -- lighter bevelled rim.
+    local thumb = slider:CreateTexture(nil, "OVERLAY", nil, 2)
+    thumb:SetSize(9, 9)
+    thumb:SetColorTexture(unpack(THUMB))
+    thumb:SetRotation(math.pi / 4)
     slider:SetThumbTexture(thumb)
+    for _, part in ipairs({ { 14, THUMB_EDGE, 0 }, { 12, THUMB_RIM, 1 } }) do
+        local texture = slider:CreateTexture(nil, "OVERLAY", nil, part[3])
+        texture:SetSize(part[1], part[1])
+        texture:SetPoint("CENTER", thumb)
+        texture:SetColorTexture(unpack(part[2]))
+        texture:SetRotation(math.pi / 4)
+    end
 
     local refreshing = false -- our own SetValue also fires OnValueChanged
     slider:SetScript("OnValueChanged", function(_, raw)
@@ -429,6 +541,13 @@ local function Slider(label, min, max, step, format, get, set)
         set(math.floor(raw / step + 0.5) * step)
     end)
 
+    -- Arrows move one step from the current value (rounded to the step first).
+    local function Nudge(direction)
+        set(Clamp(math.floor(get() / step + 0.5) * step + direction * step))
+    end
+    less:SetScript("OnClick", function() Nudge(-1) end)
+    more:SetScript("OnClick", function() Nudge(1) end)
+
     local function ShowValue()
         input:SetText(string.format(format, get()))
     end
@@ -437,8 +556,7 @@ local function Slider(label, min, max, step, format, get, set)
         local typed = tonumber((self:GetText():gsub("[%%%s]", "")))
         self:ClearFocus()
         if typed then
-            local low, high = Range()
-            set(math.floor(math.min(high, math.max(low, typed)) + 0.5))
+            set(math.floor(Clamp(typed) + 0.5))
         end
         ShowValue() -- also covers invalid input, and values the setter clamped
     end)
@@ -449,9 +567,11 @@ local function Slider(label, min, max, step, format, get, set)
     input:SetScript("OnHide", input.ClearFocus) -- never keep the keyboard once the window closes
     input:SetScript("OnEditFocusGained", function(self)
         self:HighlightText()
+        ShowBox(true)
     end)
     input:SetScript("OnEditFocusLost", function(self)
         self:HighlightText(0, 0)
+        ShowBox(self:IsMouseOver())
         ShowValue()
     end)
 
@@ -464,34 +584,34 @@ local function Slider(label, min, max, step, format, get, set)
             ShowValue()
         end
     end
-    Place(holder, 34)
+    Place(holder, 38, 10)
 end
 
 -- A label with a 3x3 grid of buttons, one per anchor point (corners, middle of each side, centre);
 -- the selected one is filled in.
 local ANCHOR_POINTS = { "TOPLEFT", "TOP", "TOPRIGHT", "LEFT", "CENTER", "RIGHT", "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT" }
-local GRID_CELL, GRID_GAP = 18, 5
+local GRID_CELL, GRID_GAP = 18, 4
 local GRID_SIZE = 3 * GRID_CELL + 4 * GRID_GAP
 
 local function AnchorGrid(label, get, set)
-    local holder = CreateFrame("Frame", nil, page)
+    local holder = CreateFrame("Frame", nil, Host())
     local name = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    name:SetPoint("TOPLEFT")
+    name:SetPoint("LEFT")
     name:SetText(label)
     local grid = CreateFrame("Frame", nil, holder)
     grid:SetSize(GRID_SIZE, GRID_SIZE)
     grid:SetPoint("TOPRIGHT")
-    Box(grid, CONTROL, EDGE)
+    Box(grid, WELL, TRACK_EDGE)
     for index, point in ipairs(ANCHOR_POINTS) do
         local row, column = math.floor((index - 1) / 3), (index - 1) % 3
         local cell = CreateFrame("Button", nil, grid)
         cell:SetSize(GRID_CELL, GRID_CELL)
         cell:SetPoint("TOPLEFT", GRID_GAP + column * (GRID_CELL + GRID_GAP), -(GRID_GAP + row * (GRID_CELL + GRID_GAP)))
-        AddHover(cell, Box(cell, BACKGROUND, EDGE))
+        AddHover(cell, Box(cell, GROUND, BRONZE_DIM), BRONZE_DIM)
         local fill = cell:CreateTexture(nil, "ARTWORK")
         fill:SetPoint("TOPLEFT", 3, -3)
         fill:SetPoint("BOTTOMRIGHT", -3, 3)
-        fill:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+        fill:SetColorTexture(unpack(ACCENT))
         cell:SetScript("OnClick", function() set(point) end)
         refreshers[#refreshers + 1] = function()
             fill:SetShown(get() == point)
@@ -500,16 +620,21 @@ local function AnchorGrid(label, get, set)
     Place(holder, GRID_SIZE)
 end
 
--- Edit Mode button, on the title row above the tabs: unlocks the widgets and shows the Edit Mode
--- panel (EditMode.lua). The settings window stays open alongside it.
-local editMode = Button(window, function() return "Edit Mode" end, ns.OpenEditMode)
-editMode:SetSize(90, 22)
-editMode:SetPoint("TOPRIGHT", -34, -12)
+-- Edit Mode button (Blizzard's red button), right of the tabs: unlocks the widgets and shows the
+-- Edit Mode panel (EditMode.lua). The settings window stays open alongside it.
+local editMode = CreateFrame("Button", nil, canvas, "UIPanelButtonTemplate") -- scrolls with the tabs
+editMode:SetSize(96, 22)
+editMode:SetPoint("BOTTOMRIGHT", canvas, "TOPRIGHT", -PAD, -(HEADER + PAD + art.EDGE_INSET - 2)) -- level with the tabs
+editMode:SetText("Edit Mode")
+editMode:SetScript("OnClick", ns.OpenEditMode)
 
 local function HalfWidth() return math.floor(UIParent:GetWidth() / 2) end
 local function HalfHeight() return math.floor(UIParent:GetHeight() / 2) end
 
-topTabs = TabGroup(window, -44, canvas, 0)
+-- General / Cooldowns: in the scrolling contents (so they scroll away with the page), standing on
+-- each page's top panel, starting right of the portrait. Pages start under the tab row.
+topTabs = TabGroup(BookmarkTabs(canvas, art.PORTRAIT - 8, HEADER + PAD + art.EDGE_INSET, TAB_HEIGHT,
+    canvas:GetFrameLevel() + 30), canvas, canvas, -HEADER) -- above the panels (page, panel, controls)
 
 -- General tab ------------------------------------------------------------------------------------
 
@@ -573,23 +698,36 @@ EndTab(general)
 -- Cooldowns tab: Abilities and Layout sub-tabs ---------------------------------------------------
 
 local cooldowns = topTabs.Add("Cooldowns")
-cooldowns.subs = TabGroup(cooldowns.page, -4, cooldowns.page, -SUB_TOP)
+-- The whole page is one outer panel, which the Cooldowns tab stands on; it grows with the page.
+local outer = CreateFrame("Frame", nil, cooldowns.page)
+outer:SetPoint("TOPLEFT", PAD, -PAD)
+outer:SetPoint("BOTTOMRIGHT", -PAD, PAD)
+outer:SetFrameLevel(cooldowns.page:GetFrameLevel()) -- under the sub-tab pages
+art.Panel(outer)
+
+-- Abilities / Layout: smaller bookmarks inside it, standing on their page's first panel.
+-- The first starts in line with the panel's left edge, so its side runs on into the panel's.
+cooldowns.subs = TabGroup(BookmarkTabs(cooldowns.page, SUB_INSET + PAD + art.SIDE_INSET,
+    SUB_TOP + PAD + art.EDGE_INSET, SUB_TAB_HEIGHT, cooldowns.page:GetFrameLevel() + 10, true),
+    cooldowns.page, cooldowns.page, -SUB_TOP, SUB_INSET)
 
 -- Abilities ----------------------------------------------------------------------------------------
 
 local abilities = cooldowns.subs.Add("Abilities")
 
+Section()
+
 Hint("Tick the abilities to show. Drag ticked ones up or down to set their priority: the top one shows first. Unticked items drop off the list.")
 
 -- The list: one row per ability with a cooldown, in its own scrolling area. Rows are pooled and
 -- rebuilt on every refresh from ns.Cooldowns.Candidates() (tracked first, in priority order).
-local ROW_HEIGHT = 24
+local ROW_HEIGHT = 26
 local LIST_ROWS = 10
 
-local list = CreateFrame("ScrollFrame", nil, page)
-Box(list, CONTROL, EDGE)
+local list = CreateFrame("ScrollFrame", nil, Host())
+Box(list, WELL, BRONZE_DIM)
 local content = CreateFrame("Frame", nil, list)
-content:SetSize(INNER, 1)
+content:SetSize(CONTENT, 1)
 list:SetScrollChild(content)
 list:SetScript("OnSizeChanged", function(_, width)
     content:SetWidth(width)
@@ -609,7 +747,7 @@ empty:SetText("No abilities with a cooldown found.")
 -- Where a dragged row would land: a line between rows.
 local dropLine = content:CreateTexture(nil, "OVERLAY")
 dropLine:SetHeight(2)
-dropLine:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
+dropLine:SetColorTexture(unpack(GOLD))
 dropLine:Hide()
 
 local rows = {}
@@ -656,11 +794,11 @@ local function CreateRow()
 
     local highlight = row:CreateTexture(nil, "BACKGROUND")
     highlight:SetAllPoints()
-    highlight:SetColorTexture(1, 1, 1, 0.06)
+    highlight:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.07)
     highlight:Hide()
 
     local box, setChecked = CheckboxBox(row, row)
-    box:SetPoint("LEFT", 6, 0)
+    box:SetPoint("LEFT", 2, 0)
     row.setChecked = setChecked
     local hoverEnter, hoverLeave = row:GetScript("OnEnter"), row:GetScript("OnLeave")
     row:SetScript("OnEnter", function(self)
@@ -672,13 +810,18 @@ local function CreateRow()
         highlight:Hide()
     end)
 
-    row.icon = row:CreateTexture(nil, "ARTWORK")
-    row.icon:SetSize(18, 18)
-    row.icon:SetPoint("LEFT", box, "RIGHT", 8, 0)
+    -- The icon in a thin bronze frame.
+    local iconEdge = row:CreateTexture(nil, "ARTWORK")
+    iconEdge:SetSize(22, 22)
+    iconEdge:SetPoint("LEFT", box, "RIGHT", 4, 0)
+    iconEdge:SetColorTexture(unpack(BRONZE_DIM))
+    row.icon = row:CreateTexture(nil, "ARTWORK", nil, 1)
+    row.icon:SetSize(20, 20)
+    row.icon:SetPoint("CENTER", iconEdge)
     row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92) -- crop the icon's baked-in border
 
     row.name = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    row.name:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+    row.name:SetPoint("LEFT", iconEdge, "RIGHT", 6, 0)
     row.name:SetPoint("RIGHT", -28, 0)
     row.name:SetJustifyH("LEFT")
     row.name:SetWordWrap(false)
@@ -743,7 +886,7 @@ function RefreshList()
         row.index, row.entry, row.tracked = i, candidate.entry, candidate.tracked
         row.icon:SetTexture(candidate.icon)
         row.name:SetText(candidate.tracked and (i .. ".  " .. candidate.name) or candidate.name)
-        row.name:SetTextColor(unpack(candidate.tracked and { 1, 1, 1 } or MUTED))
+        row.name:SetTextColor(unpack(candidate.tracked and WHITE or MUTED))
         row.icon:SetDesaturated(not candidate.tracked)
         row.setChecked(candidate.tracked)
         row.grip:SetShown(candidate.tracked)
@@ -764,8 +907,8 @@ refreshers[#refreshers + 1] = RefreshList
 
 -- Drop box: drag an item from the bags (or a worn trinket) onto it to track it.
 local DROP_HEIGHT = 40
-local drop = CreateFrame("Button", nil, page)
-local dropBorder = Box(drop, CONTROL, EDGE)
+local drop = CreateFrame("Button", nil, Host())
+local dropBorder = Box(drop, WELL, BRONZE_DIM)
 local dropText = drop:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 dropText:SetPoint("CENTER")
 dropText:SetText("Drop an item here to track it")
@@ -788,12 +931,12 @@ drop:SetScript("OnReceiveDrag", ReceiveItem)
 drop:SetScript("OnMouseUp", ReceiveItem) -- picked up with a click instead of a drag
 drop:SetScript("OnEnter", function()
     if CursorItem() then -- only light up while actually holding an item
-        dropBorder:SetColorTexture(ACCENT[1], ACCENT[2], ACCENT[3], 1)
-        dropText:SetTextColor(unpack(ACCENT))
+        dropBorder:SetColorTexture(unpack(GOLD))
+        dropText:SetTextColor(unpack(GOLD))
     end
 end)
 drop:SetScript("OnLeave", function()
-    dropBorder:SetColorTexture(unpack(EDGE))
+    dropBorder:SetColorTexture(unpack(BRONZE_DIM))
     dropText:SetTextColor(unpack(MUTED))
 end)
 y = y - 4

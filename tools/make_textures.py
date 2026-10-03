@@ -287,6 +287,159 @@ FLIPBOOKS = {
     "square_dashed": square_dashed_flipbook(64, 4, 12, 2),
 }
 
+
+# Settings window art, coloured to match WoW Forever's Professions frame (colours sampled from a
+# screenshot, 0-255). The borders are nine-slice sources: Options.lua cuts them into corners and
+# stretched edges, so only the corners need drawing. Pixel functions return (alpha, (r, g, b)).
+
+def write_tga_rgba(path, width, height, pixel):
+    """Like write_tga_pixels, but coloured: pixel(x, y) returns (alpha 0-1, (r, g, b) 0-255)."""
+    header = struct.pack("<BBBHHBHHHHBB", 0, 0, 2, 0, 0, 0, 0, 0, width, height, 32, 0x28)
+    pixels = bytearray()
+    for y in range(height):
+        for x in range(width):
+            a, (r, g, b) = pixel(x, y)
+            pixels += bytes((round(b), round(g), round(r), round(clamp01(a) * 255)))
+    with open(path, "wb") as f:
+        f.write(header + pixels)
+
+
+def supersampled(sample, n=4):
+    """Antialias: average sample(px, py) -> (alpha, rgb) over n x n points in each pixel."""
+    def pixel(x, y):
+        a_sum, rgb_sum = 0.0, [0.0, 0.0, 0.0]
+        for i in range(n):
+            for j in range(n):
+                a, rgb = sample(x + (i + 0.5) / n, y + (j + 0.5) / n)
+                a_sum += a
+                for k in range(3):
+                    rgb_sum[k] += a * rgb[k]
+        if a_sum == 0:
+            return 0.0, (0, 0, 0)
+        return a_sum / (n * n), tuple(v / a_sum for v in rgb_sum)
+    return pixel
+
+
+def chamfer_depth(px, py, size, cut):
+    """How far (px, py) is inside a size x size square with its corners cut off at 45 degrees
+    (`cut` pixels along each side), and which edge is nearest: 0 left, 1 top, 2 right, 3 bottom,
+    4-7 the top-left, top-right, bottom-left, bottom-right cuts."""
+    rx, by = size - px, size - py
+    s = math.sqrt(2)
+    return min((d, i) for i, d in enumerate((
+        px, py, rx, by,
+        (px + py - cut) / s, (rx + py - cut) / s, (px + by - cut) / s, (rx + by - cut) / s)))
+
+
+# The window frame's bevel, outermost pixel first, then a black line before the ground.
+FRAME_BANDS = [(30, 22, 10), (110, 80, 40), (150, 112, 70), (112, 86, 55),
+               (48, 30, 9), (66, 41, 12), (38, 23, 7), (0, 0, 0)]
+
+
+def frame_border(size, cut):
+    """The window's edge: FRAME_BANDS following the cut corners; transparent outside and inside."""
+    def sample(px, py):
+        d, _ = chamfer_depth(px, py, size, cut)
+        if d < 0 or d >= len(FRAME_BANDS):
+            return 0.0, (0, 0, 0)
+        return 1.0, FRAME_BANDS[int(d)]
+    return supersampled(sample)
+
+
+GROUND = (12, 10, 8)  # behind the panels; Options.lua's GROUND must match
+PANEL_EDGE = (85, 63, 41)
+PANEL_LINE_TOP_LEFT = (35, 19, 10)
+PANEL_LINE_BOTTOM_RIGHT = (47, 29, 17)
+
+
+def panel_border(size, cut):
+    """A panel's edge: a light line, then a dark line (warmer on the bottom and right). The cut-off
+    corners are painted the ground colour (opaque) so they hide the panel fill drawn under them."""
+    mid = tuple((a + b) / 2 for a, b in zip(PANEL_LINE_TOP_LEFT, PANEL_LINE_BOTTOM_RIGHT))
+    line = {0: PANEL_LINE_TOP_LEFT, 1: PANEL_LINE_TOP_LEFT, 4: PANEL_LINE_TOP_LEFT,
+            2: PANEL_LINE_BOTTOM_RIGHT, 3: PANEL_LINE_BOTTOM_RIGHT, 7: PANEL_LINE_BOTTOM_RIGHT,
+            5: mid, 6: mid}
+
+    def sample(px, py):
+        d, edge = chamfer_depth(px, py, size, cut)
+        if d < 0:
+            return 1.0, GROUND
+        if d < 1:
+            return 1.0, PANEL_EDGE
+        if d < 2:
+            return 1.0, line[edge]
+        return 0.0, (0, 0, 0)
+    return supersampled(sample)
+
+
+# The title bar, top row first (28 rows): dark brown strip, a gold underline, then dark rows.
+TITLE_ROWS = [(19, 11, 6), (29, 17, 10), (33, 18, 11)] + [(37, 21, 12)] * 15 + [
+    (32, 19, 10), (22, 13, 7), (11, 7, 4), (103, 69, 30), (122, 90, 48),
+    (48, 26, 2), (37, 13, 0), (35, 20, 4), (13, 10, 8), (2, 1, 1)]
+
+
+def title_strip(x, y):
+    return (1.0, TITLE_ROWS[y]) if y < len(TITLE_ROWS) else (0.0, (0, 0, 0))
+
+
+def fade(height):
+    """White, opaque at the top fading linearly to clear at the bottom; tinted for gradients."""
+    return lambda x, y: (1 - y / (height - 1), (255, 255, 255))
+
+
+# The portrait's rim in screen pixels from the outside in, for a 72px portrait.
+PORTRAIT_SIZE = 72
+RING_BANDS = [(16, 13, 8), (166, 120, 75), (142, 102, 61), (104, 72, 39),
+              (67, 42, 18), (63, 42, 23), (55, 37, 23), (5, 2, 4)]
+
+
+def portrait_ring(size):
+    """A copper ring, bright outside and dark inside, for a round portrait; clear in the middle."""
+    scale = size / PORTRAIT_SIZE
+
+    def sample(px, py):
+        d = (size / 2 - math.hypot(px - size / 2, py - size / 2)) / scale  # screen px in from the rim
+        if d < 0 or d >= len(RING_BANDS):
+            return 0.0, (0, 0, 0)
+        return 1.0, RING_BANDS[int(d)]
+    return supersampled(sample)
+
+
+# A bookmark tab, sampled from the profession card's top edge where a tab joins it: three border
+# lines, outermost first, and a fill fading from a lighter top to the card's colour just inside its
+# edge, so a selected tab reaching over the card's edge blends into it.
+TAB_BANDS = [(93, 68, 45), (55, 35, 21), (35, 20, 10)]
+TAB_FILL_TOP = (38, 29, 21)
+TAB_FILL_BOTTOM = (27, 22, 17)
+
+
+def tab(size, radius):
+    """Rounded top corners, straight sides, no bottom edge (the panel below supplies it)."""
+    def sample(px, py):
+        cx = radius if px < radius else size - radius if px > size - radius else None
+        if cx is not None and py < radius:
+            d = radius - math.hypot(px - cx, py - radius)
+        else:
+            d = min(px, size - px, py)
+        if d < 0:
+            return 0.0, (0, 0, 0)
+        if d < len(TAB_BANDS):
+            return 1.0, TAB_BANDS[int(d)]
+        t = py / size
+        return 1.0, tuple(a + (b - a) * t for a, b in zip(TAB_FILL_TOP, TAB_FILL_BOTTOM))
+    return supersampled(sample)
+
+
+# name -> (width, height, pixel)
+UI_TEXTURES = {
+    "ui_tab": (64, 64, tab(64, 6)),                # bookmark tab, nine-slice with 8px corners
+    "ui_frame": (64, 64, frame_border(64, 6)),     # window edge, nine-slice with 16px corners
+    "ui_panel": (32, 32, panel_border(32, 5)),     # panel edge, nine-slice with 8px corners
+    "ui_title": (8, 32, title_strip),              # title bar, the top 28 rows used
+    "ui_fade": (8, 64, fade(64)),                  # vertical gradients and inner shadows
+    "ui_portrait_ring": (128, 128, portrait_ring(128)),
+}
+
 if __name__ == "__main__":
     os.makedirs(OUT_DIR, exist_ok=True)
     for name, (size, shape) in TEXTURES.items():
@@ -296,4 +449,8 @@ if __name__ == "__main__":
     for name, (width, height, pixel) in FLIPBOOKS.items():
         path = os.path.join(OUT_DIR, name + ".tga")
         write_tga_pixels(path, width, height, pixel)
+        print("wrote", os.path.normpath(path))
+    for name, (width, height, pixel) in UI_TEXTURES.items():
+        path = os.path.join(OUT_DIR, name + ".tga")
+        write_tga_rgba(path, width, height, pixel)
         print("wrote", os.path.normpath(path))

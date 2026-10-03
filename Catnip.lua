@@ -71,7 +71,7 @@ SlashCmdList.CATNIP = function(msg)
     if handler then
         handler(arg)
     else
-        ns.Print("commands: /catnip (settings), /catnip edit (settings + Edit Mode), /catnip debug, /catnip cdm, /catnip spells, /catnip item <id>")
+        ns.Print("commands: /catnip (settings), /catnip edit (settings + Edit Mode), /catnip debug, /catnip cdm, /catnip spells, /catnip item <id>, /catnip art (mouse over a window)")
     end
 end
 
@@ -79,6 +79,49 @@ ns.commands.debug = function()
     ns.db.debug = not ns.db.debug
     ns.Print("debug " .. (ns.db.debug and "on" or "off"))
     ns.SettingsChanged()
+end
+
+-- /catnip art: with the mouse over a Blizzard window, records every texture in it (debug name,
+-- layer, atlas or file, size, tex coords, colour) into CatnipDB.artDump[<window name>], so Claude
+-- can read Blizzard's art names from the SavedVariables file to reuse them. /reload afterwards
+-- writes the file.
+local function DescribeTexture(texture)
+    local width, height = texture:GetSize()
+    local r, g, b, a = texture:GetVertexColor()
+    local left, top, _, _, _, _, right, bottom = texture:GetTexCoord()
+    return string.format("%s | %s | atlas %s | file %s | %.0fx%.0f | coords %.3f,%.3f-%.3f,%.3f | colour %.2f,%.2f,%.2f,%.2f%s",
+        texture:GetDebugName(), (texture:GetDrawLayer()), tostring(texture:GetAtlas()), tostring(texture:GetTexture()),
+        width, height, left, top, right, bottom, r, g, b, a, texture:IsShown() and "" or " | hidden")
+end
+
+ns.commands.art = function()
+    local focus = GetMouseFoci and GetMouseFoci()[1] or (GetMouseFocus and GetMouseFocus())
+    if not focus or focus == WorldFrame or focus == UIParent then
+        ns.Print("put the mouse over a window, then press Enter on /catnip art")
+        return
+    end
+    while focus:GetParent() and focus:GetParent() ~= UIParent do -- up to the whole window
+        focus = focus:GetParent()
+    end
+    local lines = {}
+    local function Walk(frame, depth)
+        for _, region in ipairs({ frame:GetRegions() }) do
+            if region:IsObjectType("Texture") then
+                local ok, line = pcall(DescribeTexture, region)
+                lines[#lines + 1] = ok and line or ("error: " .. tostring(line))
+            end
+        end
+        if depth < 10 then
+            for _, child in ipairs({ frame:GetChildren() }) do
+                Walk(child, depth + 1)
+            end
+        end
+    end
+    Walk(focus, 0)
+    local name = focus:GetDebugName()
+    ns.db.artDump = ns.db.artDump or {}
+    ns.db.artDump[name] = lines
+    ns.Print(string.format("recorded %d textures from %s. /reload to save them to disk.", #lines, name))
 end
 
 local frame = CreateFrame("Frame")

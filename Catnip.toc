@@ -23,4 +23,5 @@ Enrage.lua
 CooldownItems.lua
 Cooldowns.lua
 EditMode.lua
+OptionsArt.lua
 Options.lua
