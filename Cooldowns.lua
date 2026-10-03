@@ -29,7 +29,7 @@ local LEARN_DELAY = 0.3 -- after a cast, when to look for the buff it gave
 local LEARN_WINDOW = 0.5 -- how close to the cast the buff must have started, in seconds
 local ICON_CROP = 0.08 -- trims the border baked into spell icons
 local MIN_SIZE = 24
-local DEFAULTS = { cdX = 0, cdY = -330, cdWidth = 220, cdHeight = 48, cdAlign = "TOP", cdEnabled = true }
+local DEFAULTS = { cdX = 0, cdY = -330, cdWidth = 220, cdHeight = 48, cdAlign = "TOP", cdAlpha = 1, cdEnabled = true }
 
 for key, value in pairs(DEFAULTS) do
     ns.defaults[key] = value
@@ -474,6 +474,7 @@ end
 local function ApplyLayout()
     local db = ns.db
     widget:SetShown(db.cdEnabled)
+    widget:SetAlpha(db.cdAlpha) -- icons and their AuraContainers inherit it; the unlock overlay doesn't
     widget:SetSize(db.cdWidth, db.cdHeight)
     widget:ClearAllPoints()
     widget:SetPoint("CENTER", UIParent, "CENTER", db.cdX, db.cdY)
@@ -504,6 +505,13 @@ Cooldowns.MIN_SIZE = MIN_SIZE
 function Cooldowns.SetAlignment(point)
     ns.db.cdAlign = point
     Arrange()
+    ns.SettingsChanged()
+end
+
+-- Opacity of the whole box, ns.MIN_ALPHA to 1.
+function Cooldowns.SetAlpha(alpha)
+    ns.db.cdAlpha = math.min(1, math.max(ns.MIN_ALPHA, alpha))
+    ApplyLayout()
     ns.SettingsChanged()
 end
 

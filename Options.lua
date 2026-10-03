@@ -523,6 +523,9 @@ Hint("In Edit Mode (top of this window), drag the HUD to move it, or click it to
 Slider("Scale", ns.MIN_SCALE * 100, ns.MAX_SCALE * 100, ns.SCALE_STEP * 100, "%.0f%%",
     function() return ns.db.scale * 100 end,
     function(percent) ns.SetHudScale(percent / 100) end)
+Slider("Opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
+    function() return ns.db.hudAlpha * 100 end,
+    function(percent) ns.SetHudAlpha(percent / 100) end)
 
 -- Position: offset from the screen centre, so 0 / 0 is dead centre. Range is half the screen.
 Slider("Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
@@ -829,6 +832,10 @@ Slider("Vertical position", function() return -HalfHeight() end, HalfHeight, 1, 
     function(y) SetCooldownBox({ y = y }) end)
 
 Section("Icons")
+
+Slider("Opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
+    function() return ns.db.cdAlpha * 100 end,
+    function(percent) ns.Cooldowns.SetAlpha(percent / 100) end)
 
 AnchorGrid("Alignment", function() return ns.db.cdAlign end, ns.Cooldowns.SetAlignment)
 Hint("Where the shown icons gather in the box: a corner, the middle of a side, or the centre.")

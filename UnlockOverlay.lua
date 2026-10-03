@@ -82,7 +82,7 @@ function ns.CreateUnlockOverlay(parent, name, onClick)
     overlay:SetAllPoints()
     overlay:SetFrameLevel(parent:GetFrameLevel() + 20)
     if overlay.SetIgnoreParentAlpha then
-        overlay:SetIgnoreParentAlpha(true) -- full strength even on the HUD, which is drawn at 85%
+        overlay:SetIgnoreParentAlpha(true) -- full strength whatever the widget's opacity setting
     end
     overlay:EnableMouse(true)
     overlay:RegisterForDrag("LeftButton")

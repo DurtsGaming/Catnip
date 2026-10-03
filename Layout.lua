@@ -1,9 +1,10 @@
 -- Moving and resizing the HUD. Unlock mode (Catnip Edit Mode): drag to move, click
--- to open its settings (scale is set there).
+-- to open its settings (scale and opacity are set there).
 local addonName, ns = ...
 
-local DEFAULTS = { x = 0, y = -180, scale = 1, hudEnabled = true }
+local DEFAULTS = { x = 0, y = -180, scale = 1, hudAlpha = 0.85, hudEnabled = true }
 local MIN_SCALE, MAX_SCALE, SCALE_STEP = 0.5, 2.5, 0.05
+local MIN_ALPHA = 0.1 -- never fully invisible: turning it off in Edit Mode is for that
 
 for key, value in pairs(DEFAULTS) do
     ns.defaults[key] = value
@@ -23,6 +24,7 @@ local function ApplyLayout()
     local db = ns.db
     hud:SetShown(db.hudEnabled)
     hud:SetScale(db.scale)
+    hud:SetAlpha(db.hudAlpha) -- every element inherits this, AuraContainers included
     hud:ClearAllPoints()
     hud:SetPoint("CENTER", UIParent, "CENTER", db.x / db.scale, db.y / db.scale)
 end
@@ -56,6 +58,15 @@ local function SetScale(scale)
     ns.SettingsChanged()
 end
 ns.SetHudScale = SetScale
+
+ns.MIN_ALPHA = MIN_ALPHA
+
+-- Opacity of the whole HUD, MIN_ALPHA to 1. The unlock overlay ignores it.
+function ns.SetHudAlpha(alpha)
+    ns.db.hudAlpha = math.min(1, math.max(MIN_ALPHA, alpha))
+    ApplyLayout()
+    ns.SettingsChanged()
+end
 
 -- Turns the whole Rotation Frame (the HUD) on or off (Edit Mode's checkbox).
 function ns.SetHudEnabled(enabled)
