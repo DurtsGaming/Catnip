@@ -14,6 +14,7 @@ Resource.lua
 ComboPoints.lua
 Swing.lua
 Cast.lua
+ActionBar.lua
 FiveSecondRule.lua
 Gcd.lua
 Proc.lua

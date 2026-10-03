@@ -91,6 +91,7 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Enrage tint (Bear: resource background turns red while Enrage is up) | Verified |
 | Gradient fill textures (resource circle per power, combo points) | Built, **untested** in-game |
 | Move/resize (unlock mode) | Verified. Edit Mode look verified 2026-10-02 (blue nine-slice, brighter on hover). Hover "Click To Edit" + name tag, click opens the widget's settings, and no more scroll-to-resize (scale is in settings): built, **untested** |
+| Hide Action Bar 1 / Hide Stance Bar (General → Blizzard UI; keybinds still work) | Built, **untested** |
 | Catnip Edit Mode: **Edit Mode** button atop `/catnip` (replaces the per-tab Lock / Reset position buttons) opens a panel like Blizzard's HUD Edit Mode, with Rotation Frame / Cooldown Frame on-off checkboxes, Reset Positions and Done | Built, **untested** |
 | Settings window (`/catnip`): scale, position (X/Y from screen centre), slider values typeable, hide Blizzard cast bar, debug | Built, **untested** in-game |
 | Settings tabs (General, Cooldowns → Abilities / Layout), scrolling, resizable window | Built, **untested** in-game |

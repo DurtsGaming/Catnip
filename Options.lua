@@ -544,6 +544,21 @@ Checkbox("Hide Blizzard's cast bar",
         ns.UpdateBlizzardCastBar()
     end)
 
+Checkbox("Hide Action Bar 1",
+    function() return ns.db.hideActionBar1 end,
+    function(hide)
+        ns.db.hideActionBar1 = hide
+        ns.UpdateBlizzardBars()
+    end)
+
+Checkbox("Hide Stance Bar",
+    function() return ns.db.hideStanceBar end,
+    function(hide)
+        ns.db.hideStanceBar = hide
+        ns.UpdateBlizzardBars()
+    end)
+Hint("Hidden bars' keybinds still work.")
+
 Section("Troubleshooting")
 
 Checkbox("Debug messages in chat",
