@@ -54,6 +54,7 @@ end
 local Items = ns.CooldownItems
 local slots = {} -- by entry; kept when untracked, so their AuraContainers are reused
 local unlocked = false
+local previewing = false -- Blizzard's Edit Mode is open (Cooldowns.SetPreview)
 
 -- Icons -------------------------------------------------------------------------------------------
 
@@ -445,7 +446,7 @@ local function Update()
             slot.timer:Clear()
         end
         slot.onCooldown = onCooldown
-        slot:SetShown(unlocked or onCooldown or BuffSeenUp(entry))
+        slot:SetShown(unlocked or previewing or onCooldown or BuffSeenUp(entry))
     end
     for _, slot in pairs(slots) do
         if not slot.wanted then
@@ -571,6 +572,17 @@ ns.OnSettingsChanged(function()
     overlay:SetShown(unlocked)
     Update()
 end)
+
+-- Shows every tracked icon while Blizzard's Edit Mode is open (BlizzardEditMode.lua), like unlock mode.
+function Cooldowns.SetPreview(on)
+    if previewing == on then
+        return
+    end
+    previewing = on
+    if ns.db then
+        Update()
+    end
+end
 
 -- Choosing abilities (used by the settings window) ------------------------------------------------
 

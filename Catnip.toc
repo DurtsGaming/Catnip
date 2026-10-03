@@ -5,6 +5,9 @@
 ## Version: 0.1.0-beta.7
 ## SavedVariables: CatnipDB
 
+libs\LibEditMode\namespaced.lua
+libs\LibEditMode\embed.xml
+
 Catnip.lua
 UnlockOverlay.lua
 Layout.lua
@@ -23,5 +26,8 @@ Enrage.lua
 CooldownItems.lua
 Cooldowns.lua
 EditMode.lua
+EditModeSnap.lua
+BlizzardEditMode.lua
+EditModeLayouts.lua
 OptionsArt.lua
 Options.lua

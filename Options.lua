@@ -1063,3 +1063,15 @@ function ns.OpenSettings(where)
     end
     window:Show()
 end
+
+-- While the settings window is open, turns it to `where` ("hud" or "cooldowns") unless it's already
+-- on that tab (so a Cooldown sub-tab stays put). Clicking a frame in Blizzard's Edit Mode calls this.
+function ns.FollowSettings(where)
+    if not window:IsShown() then
+        return
+    end
+    local tab = where == "cooldowns" and cooldowns or rotation
+    if topTabs.selected ~= tab then
+        ns.OpenSettings(where)
+    end
+end
