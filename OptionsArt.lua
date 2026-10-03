@@ -161,17 +161,14 @@ function art.Panel(frame, corner)
     return setSelected
 end
 
--- How far a panel's visible top edge, and its side edges, sit inside its frame: the card has a dark
--- margin around its painted border (6px above, 5px at the sides, measured in-game 2026-10-02); our
--- drawn panel's edge is at the frame.
+-- How far a panel's visible top edge sits inside its frame: the card has a dark margin around its
+-- painted border (6px above, 5px at the sides, measured in-game 2026-10-02); our drawn panel's edge
+-- is at the frame.
 art.EDGE_INSET = (card and cardFile) and 6 or 0
-art.SIDE_INSET = (card and cardFile) and 5 or 0
 
 -- A bookmark tab (ui_tab: rounded top, no bottom edge, colours sampled where a tab meets the card).
--- Returns SetSelected(selected, cover, flushLeft): unselected is darker; the bottom `cover` pixels
--- (the part reaching over a panel's edge) are plain fill, so the tab's side lines stop at the
--- panel's edge. With flushLeft (the tab's left side is in line with the panel's) the left line
--- carries on down through them instead, becoming the panel's own side line.
+-- Returns SetSelected(selected, cover): unselected is darker; the bottom `cover` pixels (the part
+-- reaching over a panel's edge) are plain fill, so the tab's side lines stop at the panel's edge.
 local TAB_FOOT = RGB(27, 22, 17) -- ui_tab's bottom fill; must match TAB_FILL_BOTTOM in tools/make_textures.py
 function art.Tab(frame)
     local textures = Slices(frame, ns.MEDIA .. "ui_tab", function(x0, x1, y0, y1)
@@ -182,17 +179,8 @@ function art.Tab(frame)
     foot:SetPoint("BOTTOMLEFT")
     foot:SetPoint("BOTTOMRIGHT")
     foot:SetColorTexture(unpack(TAB_FOOT))
-    -- For flushLeft: the tab's left side (ui_tab's left edge column) carried on down over the foot.
-    local leftRun = frame:CreateTexture(nil, "BACKGROUND")
-    leftRun:SetTexture(ns.MEDIA .. "ui_tab")
-    leftRun:SetTexCoord(0, 8 / 64, 8 / 64, 56 / 64)
-    leftRun:SetPoint("BOTTOMLEFT")
-    leftRun:SetWidth(8)
-    textures[#textures + 1] = leftRun
-    return function(selected, cover, flushLeft)
+    return function(selected, cover)
         cover = cover or 0
-        leftRun:SetHeight(math.max(cover, 1))
-        leftRun:SetShown(flushLeft and cover > 0)
         bottomLeft:ClearAllPoints()
         bottomLeft:SetPoint("BOTTOMLEFT", 0, cover) -- the edges and middle hang off the corners
         bottomRight:ClearAllPoints()
@@ -203,6 +191,72 @@ function art.Tab(frame)
         for _, texture in ipairs(textures) do
             texture:SetVertexColor(shade, shade, shade)
         end
+    end
+end
+
+-- Side tabs --------------------------------------------------------------------------------------
+
+-- Blizzard's side tabs (the Character and Professions windows' tabs down the right edge, found with
+-- /catnip art): a 55x60 bronze frame with cut corners, the icon masked to its shape, a yellow
+-- outline when selected and a white one on mouseover.
+art.SIDE_TAB_WIDTH, art.SIDE_TAB_HEIGHT = 55, 60
+local SIDE_TAB_ICON = 50
+local SIDE_TAB_FILL = RGB(27, 22, 17) -- a tab without an icon: the panels' colour
+
+-- Gives `button` (SIDE_TAB_WIDTH x SIDE_TAB_HEIGHT) a side tab's look, showing `iconFile`: a file
+-- ID or path, or a function returning one (called each time the tab shows until it does, for icons
+-- looked up from game data that may not be loaded yet, with `fallbackFile` shown meanwhile); nil
+-- for a plain fill. Returns SetSelected(bool).
+function art.SideTab(button, iconFile, fallbackFile)
+    local icon = button:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(SIDE_TAB_ICON, SIDE_TAB_ICON)
+    icon:SetPoint("CENTER")
+    icon:SetTexCoord(0.031, 0.969, 0.031, 0.969) -- as Blizzard's side tabs crop theirs
+    icon:SetColorTexture(unpack(SIDE_TAB_FILL))
+    local function ShowIcon()
+        local file = iconFile
+        if type(file) == "function" then
+            file = file()
+        end
+        if file then
+            icon:SetTexture(file)
+            button:SetScript("OnShow", nil)
+        elseif fallbackFile then
+            icon:SetTexture(fallbackFile)
+        end
+    end
+    if iconFile then
+        button:SetScript("OnShow", ShowIcon)
+        ShowIcon()
+    end
+    if AtlasInfo("common-sidetab") then
+        local background = button:CreateTexture(nil, "BACKGROUND")
+        background:SetAllPoints()
+        background:SetAtlas("common-sidetab")
+        if AtlasInfo("common-sidetab-mask") then
+            local mask = button:CreateMaskTexture()
+            mask:SetAllPoints()
+            mask:SetAtlas("common-sidetab-mask")
+            icon:AddMaskTexture(mask)
+        end
+        local highlight = button:CreateTexture(nil, "HIGHLIGHT") -- shown by the game on mouseover
+        highlight:SetAllPoints()
+        highlight:SetAtlas("common-sidetab-hover")
+        local selected = button:CreateTexture(nil, "OVERLAY")
+        selected:SetAllPoints()
+        selected:SetAtlas("common-sidetab-selected")
+        return function(isSelected)
+            selected:SetShown(isSelected)
+        end
+    end
+    -- Drawn stand-in: a bronze box, yellow when selected, white on mouseover.
+    local border = button:CreateTexture(nil, "BACKGROUND")
+    border:SetAllPoints()
+    local highlight = button:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetAllPoints()
+    highlight:SetColorTexture(1, 1, 1, 0.15)
+    return function(isSelected)
+        border:SetColorTexture(unpack(isSelected and { 1, 0.82, 0, 1 } or RGB(125, 102, 52)))
     end
 end
 

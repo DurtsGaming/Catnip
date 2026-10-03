@@ -529,7 +529,7 @@ function Cooldowns.ResetLayout()
     ns.SettingsChanged()
 end
 
--- Shown while the HUD is unlocked: catches the mouse only then. Clicking it opens Cooldowns → Layout.
+-- Shown while the HUD is unlocked: catches the mouse only then. Clicking it opens Cooldown → Layout.
 local overlay = ns.CreateUnlockOverlay(widget, "Cooldown Frame", function() ns.OpenSettings("cooldowns") end)
 
 overlay:SetScript("OnDragStart", function()

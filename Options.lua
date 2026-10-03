@@ -17,16 +17,20 @@ local DEFAULT_HEIGHT = 580
 local MAX_WIDTH = 700
 local MIN_HEIGHT = 200
 local BORDER = 8 -- the frame's border
-local HEADER = 20 -- the tab row at the top of the scrolling contents, above the pages (it scrolls with them)
+local HEADER = 20 -- room at the top of the scrolling contents, above the pages, for the Edit Mode
+-- button and a page's bookmark sub-tabs (it scrolls with them); also keeps panels clear of the portrait
 local PAD = 6 -- frame to a panel, and between panels (as in the Professions frame)
 local PANEL_PAD = 12 -- panel edge to its controls
 local CONTENT = WIDTH - 2 * (BORDER + PAD + PANEL_PAD) -- a panel's control width at the minimum window width
-local TAB_HEIGHT, SUB_TAB_HEIGHT = 24, 22 -- bookmark tabs, above the panel edge they stand on
--- A page with sub-tabs is one outer panel; its sub-tab pages sit inside it, SUB_INSET in from its
--- sides and SUB_BOTTOM up from its bottom, under a row of sub-tabs standing on their first panel.
-local SUB_INSET = 8
-local SUB_BOTTOM = 8
-local SUB_TOP = 14 + SUB_TAB_HEIGHT -- page top to the sub-tab pages: clear of the main tab's foot, then the sub-tabs
+local TAB_HEIGHT = 24 -- bookmark sub-tabs, above the panel edge they stand on
+-- Side tabs down the window's right edge, spaced as on Blizzard's Character window and starting as
+-- far down as on the Professions window (measured from screenshots side by side, in UI units; the
+-- tab art has clear space above and below, which neighbouring tabs overlap): the first
+-- SIDE_TAB_TOP below the window's top, one every SIDE_TAB_STEP, tucked SIDE_TAB_TUCK under the
+-- frame's right border.
+local SIDE_TAB_TOP = 58
+local SIDE_TAB_STEP = 57
+local SIDE_TAB_TUCK = 2
 local SCROLL_STEP = 40
 
 local function RGB(r, g, b, a) return { r / 255, g / 255, b / 255, a or 1 } end
@@ -229,13 +233,12 @@ end)
 -- Vertical layout: each Place puts a control under the previous one on the page being built.
 local page, y
 
-local topTabs -- the General/Cooldowns row, set below
+local topTabs -- the side tabs (General, Rotation, Cooldown), set below
 
--- Height of what a tab shows: its page, or (with sub-tabs) the outer panel holding the sub-tab row
--- and the selected sub-tab's page.
+-- Height of what a tab shows: its page, or (with sub-tabs) the selected sub-tab's page.
 local function VisibleHeight(tab)
     if tab.subs then
-        return SUB_TOP + VisibleHeight(tab.subs.selected) + SUB_BOTTOM
+        return VisibleHeight(tab.subs.selected)
     end
     return tab.height or 0
 end
@@ -260,10 +263,9 @@ end
 -- panel's visible top edge, covering the edge lines and the shadow under them so tab and panel
 -- read as one; the others stop on the edge, darker, with the panel's edge line under them.
 -- Returns a makeTab for TabGroup: tabs in a row from `firstX`, their feet `edge` below the top of
--- `anchor`, `height` tall above the edge, at frame level `level`. With `flushFirst`, firstX is the
--- panel's visible left edge, and the first tab's left side runs on into it.
+-- `anchor`, `height` tall above the edge, at frame level `level`.
 local TAB_COVER = 10
-local function BookmarkTabs(anchor, firstX, edge, height, level, flushFirst)
+local function BookmarkTabs(anchor, firstX, edge, height, level)
     return function(parent, name, previous)
         local tab = CreateFrame("Button", nil, parent)
         tab:SetFrameLevel(level)
@@ -271,7 +273,6 @@ local function BookmarkTabs(anchor, firstX, edge, height, level, flushFirst)
         tab.text:SetText(name)
         tab:SetWidth(TextWidth(tab.text) + 28)
         tab.x = previous and (previous.x + previous:GetWidth() + 2) or firstX
-        local flush = flushFirst and not previous
         local setArt = art.Tab(tab)
         function tab.SetSelected(selected)
             local cover = selected and TAB_COVER or 0
@@ -280,7 +281,7 @@ local function BookmarkTabs(anchor, firstX, edge, height, level, flushFirst)
             tab:SetHeight(height + cover)
             tab.text:ClearAllPoints()
             tab.text:SetPoint("CENTER", 0, cover / 2 + 1) -- centred on the part above the edge
-            setArt(selected, cover, flush)
+            setArt(selected, cover)
             tab.text:SetTextColor(unpack(selected and WHITE or GOLD))
         end
         tab:SetScript("OnEnter", function() tab.text:SetTextColor(unpack(WHITE)) end)
@@ -289,13 +290,42 @@ local function BookmarkTabs(anchor, firstX, edge, height, level, flushFirst)
     end
 end
 
+-- Side tab icons: classic WoW icons by path, and Shifting Power's (a blue spirit cat) looked up by
+-- spell name once spell data has loaded, with a cat's face (SIDE_TAB_FALLBACKS) until then or if
+-- it isn't found.
+local function ShiftingPowerIcon()
+    local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo("Shifting Power")
+    return info and info.iconID
+end
+
+local SIDE_TAB_FALLBACKS = { Rotation = "Interface\\Icons\\Ability_Hunter_Pet_Cat" }
+local SIDE_TAB_ICONS = {
+    General = "Interface\\Icons\\INV_Misc_Gear_01", -- a cog
+    Rotation = ShiftingPowerIcon,
+    Cooldown = "Interface\\Icons\\INV_Misc_PocketWatch_01", -- a pocket watch
+}
+
+-- A makeTab for TabGroup: side tabs down the window's right edge, as on Blizzard's Character
+-- window. They sit under the frame (its border stays whole), and show their name in a tooltip.
+local function SideTab(parent, name, previous)
+    local tab = CreateFrame("Button", nil, parent) -- below window.overlays: under the frame's border
+    tab:SetSize(art.SIDE_TAB_WIDTH, art.SIDE_TAB_HEIGHT)
+    tab.index = previous and previous.index + 1 or 0
+    tab:SetPoint("TOPLEFT", window, "TOPRIGHT", -SIDE_TAB_TUCK, -(SIDE_TAB_TOP + tab.index * SIDE_TAB_STEP))
+    tab.SetSelected = art.SideTab(tab, SIDE_TAB_ICONS[name], SIDE_TAB_FALLBACKS[name])
+    tab:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(name)
+        GameTooltip:Show()
+    end)
+    tab:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    return tab
+end
+
 local ClosePanel -- defined with the controls
 
-local pageInset -- extra side inset of the page being built (sub-tab pages sit inside an outer panel)
-
--- A row of tabs (made by makeTab on buttonParent), each with a page (on pageParent at pageTop,
--- its panels `inset` further in from the sides).
-local function TabGroup(makeTab, buttonParent, pageParent, pageTop, inset)
+-- A row of tabs (made by makeTab on buttonParent), each with a page (on pageParent at pageTop).
+local function TabGroup(makeTab, buttonParent, pageParent, pageTop)
     local group = { tabs = {} }
 
     function group.Select(tab)
@@ -320,7 +350,7 @@ local function TabGroup(makeTab, buttonParent, pageParent, pageTop, inset)
         tab.page:SetHeight(1)
         tab.page:Hide()
         group.tabs[#group.tabs + 1] = tab
-        page, y, pageInset = tab.page, -PAD, inset or 0
+        page, y = tab.page, -PAD
         return tab
     end
 
@@ -345,7 +375,7 @@ end
 
 -- Pinned to both sides of the page (inset further inside a panel), so it stretches with the window.
 local function Place(widget, height, gap)
-    local inset = pageInset + (panel and PAD + PANEL_PAD or PAD)
+    local inset = panel and PAD + PANEL_PAD or PAD
     widget:SetPoint("TOPLEFT", page, "TOPLEFT", inset, y)
     widget:SetPoint("TOPRIGHT", page, "TOPRIGHT", -inset, y)
     widget:SetHeight(height)
@@ -367,8 +397,8 @@ end
 local function Section(text)
     ClosePanel()
     panel = CreateFrame("Frame", nil, page)
-    panel:SetPoint("TOPLEFT", page, "TOPLEFT", pageInset + PAD, y)
-    panel:SetPoint("TOPRIGHT", page, "TOPRIGHT", -(pageInset + PAD), y)
+    panel:SetPoint("TOPLEFT", page, "TOPLEFT", PAD, y)
+    panel:SetPoint("TOPRIGHT", page, "TOPRIGHT", -PAD, y)
     art.Panel(panel)
     panelTop = y
     y = y - (art.EDGE_INSET + TAB_COVER + 2)
@@ -383,7 +413,7 @@ end
 -- Measured at the minimum width, so it never needs more lines than it was given.
 local function Hint(text)
     local hint = Host():CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    hint:SetWidth((panel and CONTENT or CONTENT + 2 * PANEL_PAD) - 2 * pageInset)
+    hint:SetWidth(panel and CONTENT or CONTENT + 2 * PANEL_PAD)
     hint:SetJustifyH("LEFT")
     hint:SetJustifyV("TOP")
     hint:SetText(text)
@@ -631,34 +661,12 @@ editMode:SetScript("OnClick", ns.OpenEditMode)
 local function HalfWidth() return math.floor(UIParent:GetWidth() / 2) end
 local function HalfHeight() return math.floor(UIParent:GetHeight() / 2) end
 
--- General / Cooldowns: in the scrolling contents (so they scroll away with the page), standing on
--- each page's top panel, starting right of the portrait. Pages start under the tab row.
-topTabs = TabGroup(BookmarkTabs(canvas, art.PORTRAIT - 8, HEADER + PAD + art.EDGE_INSET, TAB_HEIGHT,
-    canvas:GetFrameLevel() + 30), canvas, canvas, -HEADER) -- above the panels (page, panel, controls)
+-- General / Rotation / Cooldown: side tabs. Pages start under the header.
+topTabs = TabGroup(SideTab, window, canvas, -HEADER)
 
 -- General tab ------------------------------------------------------------------------------------
 
 local general = topTabs.Add("General")
-
-Section("HUD")
-
-Hint("In Edit Mode (top of this window), drag the HUD to move it, or click it to come back here.")
-
--- In percent, so the steps are whole numbers.
-Slider("Scale", ns.MIN_SCALE * 100, ns.MAX_SCALE * 100, ns.SCALE_STEP * 100, "%.0f%%",
-    function() return ns.db.scale * 100 end,
-    function(percent) ns.SetHudScale(percent / 100) end)
-Slider("Opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
-    function() return ns.db.hudAlpha * 100 end,
-    function(percent) ns.SetHudAlpha(percent / 100) end)
-
--- Position: offset from the screen centre, so 0 / 0 is dead centre. Range is half the screen.
-Slider("Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
-    function() return ns.db.x end,
-    function(x) ns.SetHudPosition(x, ns.db.y) end)
-Slider("Vertical position", function() return -HalfHeight() end, HalfHeight, 1, "%.0f",
-    function() return ns.db.y end,
-    function(y) ns.SetHudPosition(ns.db.x, y) end)
 
 Section("Blizzard UI")
 
@@ -695,21 +703,40 @@ Checkbox("Debug messages in chat",
 
 EndTab(general)
 
--- Cooldowns tab: Abilities and Layout sub-tabs ---------------------------------------------------
+-- Rotation tab: the HUD (the Rotation Frame) --------------------------------------------------------
 
-local cooldowns = topTabs.Add("Cooldowns")
--- The whole page is one outer panel, which the Cooldowns tab stands on; it grows with the page.
-local outer = CreateFrame("Frame", nil, cooldowns.page)
-outer:SetPoint("TOPLEFT", PAD, -PAD)
-outer:SetPoint("BOTTOMRIGHT", -PAD, PAD)
-outer:SetFrameLevel(cooldowns.page:GetFrameLevel()) -- under the sub-tab pages
-art.Panel(outer)
+local rotation = topTabs.Add("Rotation")
 
--- Abilities / Layout: smaller bookmarks inside it, standing on their page's first panel.
--- The first starts in line with the panel's left edge, so its side runs on into the panel's.
-cooldowns.subs = TabGroup(BookmarkTabs(cooldowns.page, SUB_INSET + PAD + art.SIDE_INSET,
-    SUB_TOP + PAD + art.EDGE_INSET, SUB_TAB_HEIGHT, cooldowns.page:GetFrameLevel() + 10, true),
-    cooldowns.page, cooldowns.page, -SUB_TOP, SUB_INSET)
+Section("HUD")
+
+Hint("In Edit Mode (top of this window), drag the HUD to move it, or click it to come back here.")
+
+-- In percent, so the steps are whole numbers.
+Slider("Scale", ns.MIN_SCALE * 100, ns.MAX_SCALE * 100, ns.SCALE_STEP * 100, "%.0f%%",
+    function() return ns.db.scale * 100 end,
+    function(percent) ns.SetHudScale(percent / 100) end)
+Slider("Opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
+    function() return ns.db.hudAlpha * 100 end,
+    function(percent) ns.SetHudAlpha(percent / 100) end)
+
+-- Position: offset from the screen centre, so 0 / 0 is dead centre. Range is half the screen.
+Slider("Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
+    function() return ns.db.x end,
+    function(x) ns.SetHudPosition(x, ns.db.y) end)
+Slider("Vertical position", function() return -HalfHeight() end, HalfHeight, 1, "%.0f",
+    function() return ns.db.y end,
+    function(y) ns.SetHudPosition(ns.db.x, y) end)
+
+EndTab(rotation)
+
+-- Cooldown tab: Abilities and Layout sub-tabs ----------------------------------------------------
+
+local cooldowns = topTabs.Add("Cooldown")
+
+-- Abilities / Layout: bookmarks standing on their page's first panel, right of the portrait, up in
+-- the header (so above the panels: page, panel, controls).
+cooldowns.subs = TabGroup(BookmarkTabs(cooldowns.page, art.PORTRAIT - 8, PAD + art.EDGE_INSET, TAB_HEIGHT,
+    cooldowns.page:GetFrameLevel() + 10), cooldowns.page, cooldowns.page, 0)
 
 -- Abilities ----------------------------------------------------------------------------------------
 
@@ -1025,14 +1052,14 @@ ns.commands.edit = function()
     ns.OpenEditMode()
 end
 
--- Opens the settings at a widget's position and size controls: "hud" (General) or "cooldowns"
--- (Cooldowns → Layout). Used by clicking a widget in unlock mode.
+-- Opens the settings at a widget's position and size controls: "hud" (Rotation) or "cooldowns"
+-- (Cooldown → Layout). Used by clicking a widget in unlock mode.
 function ns.OpenSettings(where)
     if where == "cooldowns" then
         topTabs.Select(cooldowns)
         cooldowns.subs.Select(layout)
     else
-        topTabs.Select(general)
+        topTabs.Select(rotation)
     end
     window:Show()
 end

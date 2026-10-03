@@ -71,7 +71,7 @@ SlashCmdList.CATNIP = function(msg)
     if handler then
         handler(arg)
     else
-        ns.Print("commands: /catnip (settings), /catnip edit (settings + Edit Mode), /catnip debug, /catnip cdm, /catnip spells, /catnip item <id>, /catnip art (mouse over a window)")
+        ns.Print("commands: /catnip (settings), /catnip edit (settings + Edit Mode), /catnip debug, /catnip cdm, /catnip spells, /catnip item <id>, /catnip art (mouse over a window), /catnip icon (mouse over an icon)")
     end
 end
 
@@ -92,6 +92,39 @@ local function DescribeTexture(texture)
     return string.format("%s | %s | atlas %s | file %s | %.0fx%.0f | coords %.3f,%.3f-%.3f,%.3f | colour %.2f,%.2f,%.2f,%.2f%s",
         texture:GetDebugName(), (texture:GetDrawLayer()), tostring(texture:GetAtlas()), tostring(texture:GetTexture()),
         width, height, left, top, right, bottom, r, g, b, a, texture:IsShown() and "" or " | hidden")
+end
+
+-- /catnip icon: with the mouse over an icon (a macro icon, an action button...), prints its file ID
+-- and keeps the last few in CatnipDB.iconPicks, to reuse the icon in Catnip.
+ns.commands.icon = function()
+    local focus = GetMouseFoci and GetMouseFoci()[1] or (GetMouseFocus and GetMouseFocus())
+    if not focus or focus == WorldFrame or focus == UIParent then
+        ns.Print("put the mouse over an icon, then press Enter on /catnip icon")
+        return
+    end
+    local found
+    local function Look(frame, depth)
+        for _, region in ipairs({ frame:GetRegions() }) do
+            local file = region:IsObjectType("Texture") and region:IsShown() and region:GetTexture()
+            if type(file) == "number" and (not found or region == frame.Icon or region == frame.icon) then
+                found = { file = file, name = region:GetDebugName() }
+            end
+        end
+        if not found and depth < 2 then
+            for _, child in ipairs({ frame:GetChildren() }) do
+                Look(child, depth + 1)
+            end
+        end
+    end
+    Look(focus, 0)
+    if not found then
+        ns.Print("no icon found under the mouse (" .. focus:GetDebugName() .. ")")
+        return
+    end
+    ns.db.iconPicks = ns.db.iconPicks or {}
+    table.insert(ns.db.iconPicks, 1, found.file .. " " .. found.name)
+    ns.db.iconPicks[11] = nil
+    ns.Print(string.format("icon |T%d:20|t file ID %d (%s)", found.file, found.file, found.name))
 end
 
 ns.commands.art = function()
