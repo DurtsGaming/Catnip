@@ -211,6 +211,101 @@ def combo_fill(size):
     return lambda d, dx, dy: (circle(d), fill(d, dx, dy)[1])
 
 
+# Shifting Power arc (ShiftingPower.lua): four segments on a circle under the swing ring, centred on
+# 6 o'clock. Measured in HUD units on a canvas SP_CANVAS units across, centred on the HUD's centre;
+# keep these in step with the constants in ShiftingPower.lua.
+SP_CANVAS = 164
+SP_RADIUS = 76            # centre line of the band
+SP_HALF_WIDTH = 3         # band is 6 units thick
+SP_SPAN = 180 / 4.2       # degrees either side of 6 o'clock
+SP_GAP = math.degrees(6.5 / SP_RADIUS)  # 6.5 units between segments (and trimmed off both outer ends)
+SP_OUTLINE = 1.5          # outline thickness, just outside each segment; leaves 3.5 units clear between outlines
+SP_YELLOW_FROM = 0.6      # where along the energy bar segment 4 starts (saturated yellow, not the dark end)
+
+
+def sp_colour(t):
+    """The arc's colour at t (0-1, left to right), segment by segment: blue (the Forever mana bar,
+    empty to full end), blue to white, white to yellow, yellow (the energy bar's bright end), so
+    segments 2 and 3 meet in white."""
+    def mix(a, b, f):
+        return tuple(p + (q - p) * f for p, q in zip(a, b))
+    white = (1.0, 1.0, 1.0)
+    i = min(3, int(t * 4))
+    local = clamp01(t * 4 - i)
+    if i == 0:
+        return forever_colour(local, FOREVER_MANA)
+    if i == 1:
+        return mix(forever_colour(1, FOREVER_MANA), white, local)
+    if i == 2:
+        return mix(white, forever_colour(SP_YELLOW_FROM, FOREVER_ENERGY), local)
+    return forever_colour(SP_YELLOW_FROM + (1 - SP_YELLOW_FROM) * local, FOREVER_ENERGY)
+
+
+def sp_arc_geometry(size):
+    """Shape of the arc: returns f(d, dx, dy) -> (alpha, t along the arc 0-1 left to right, u across
+    the band 0-1, px inside the nearest segment's edge (negative outside))."""
+    scale = size / SP_CANVAS
+    radius, half = SP_RADIUS * scale, SP_HALF_WIDTH * scale
+    start, end = 270 - SP_SPAN, 270 + SP_SPAN
+    seg = (end - start) / 4
+
+    def shape(d, dx, dy):
+        angle = math.degrees(math.atan2(-dy, dx)) % 360  # maths angle, y up; 270 is straight down
+        if not start - 10 < angle < end + 10 or d < 1:
+            return 0.0, 0.0, 0.0, -1e9
+        i = min(3, max(0, int((angle - start) // seg)))
+        s0, s1 = start + i * seg + SP_GAP / 2, start + (i + 1) * seg - SP_GAP / 2
+        along = math.radians(min(angle - s0, s1 - angle)) * d
+        across = half - abs(d - radius)
+        inside = min(along, across)
+        t = clamp01((angle - start) / (end - start))
+        u = clamp01((d - (radius - half)) / (2 * half))
+        return clamp01(inside + 0.5), t, u, inside
+    return shape
+
+
+def sp_arc_outline(size):
+    """A thin line around each segment, just outside its edge, in the segment's own colours; the
+    inside is clear."""
+    geometry = sp_arc_geometry(size)
+    width = SP_OUTLINE * size / SP_CANVAS
+    def colour(d, dx, dy):
+        _, t, _, inside = geometry(d, dx, dy)
+        return min(clamp01(inside + width + 0.5), clamp01(0.5 - inside)), sp_colour(t)
+    return colour
+
+
+def sp_arc(size):
+    """The arc in colour (sp_colour), with the resource fill's tube shading across the band."""
+    geometry = sp_arc_geometry(size)
+    def colour(d, dx, dy):
+        a, t, u, _ = geometry(d, dx, dy)
+        shade = soft_tube(u)
+        return a, tuple(ch * shade for ch in sp_colour(t))
+    return colour
+
+
+def half_plane(size):
+    """The canvas's left half, hard edge through the centre; rotated to sweep across an arc."""
+    return lambda d, dx, dy: -dx + 0.5
+
+
+def rim_glow(size):
+    """Light along the inside edge of a circle: rising from 74% of the radius to a peak at 95%,
+    easing to 70% at the rim, then cut off with circle_hard's edge."""
+    r = size / 2 - 1
+    def alpha(d, *_):
+        if d < 0.74 * r:
+            return 0.0
+        if d < 0.95 * r:
+            t = (d - 0.74 * r) / (0.21 * r)
+            a = t * t * (3 - 2 * t)
+        else:
+            a = 1 - 0.3 * clamp01((d - 0.95 * r) / (0.05 * r))
+        return a * clamp01(r - d + 0.5)
+    return alpha
+
+
 TEXTURES = {
     # name: (size, shape)  -- numbers match docs/design.md
     "circle_hard": (256, circle_hard(256)),                 # 1
@@ -227,7 +322,11 @@ TEXTURES = {
     "ring_glow": (256, ring_glow(256)),                     # 4
     "ring_bar": (256, ring_bar(256, 20)),                   # 7
     "ring_bar_half": (256, ring_bar_half(256, 20)),         # 7, cast bar: left half, rotated into view
+    "half_plane": (256, half_plane(256)),                  # Shifting Power: rotated mask, shows only the filled part of the arc
+    "rim_glow": (256, rim_glow(256)),                       # Shifting Power ready: light inside the resource circle's rim
     # Coloured, drawn untinted.
+    "sp_arc": (256, sp_arc(256)),                           # Shifting Power: the four segments, blue to white to yellow
+    "sp_arc_outline": (256, sp_arc_outline(256)),           # Shifting Power: line around each segment, in its colours
     "fill_energy": (128, power_fill(128, FOREVER_ENERGY)),  # 1, resource fill in Cat Form
     "fill_rage": (128, power_fill(128, FOREVER_RAGE)),      # 1, resource fill in Bear Form
     "fill_mana": (128, power_fill(128, FOREVER_MANA)),      # 1, resource fill otherwise

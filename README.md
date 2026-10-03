@@ -1,6 +1,6 @@
 # Catnip
 
-A compact circular HUD for Feral Druids in **World of Warcraft: Forever** (currently in beta). It shows your energy, rage or mana (as a %, with a five-second-rule ring), combo points, swing timer (which becomes a cast bar while you cast), global cooldown, Rip duration, Clearcasting procs and Enrage (in Bear Form) in one place. No setup needed beyond installing it.
+A compact circular HUD for Feral Druids in **World of Warcraft: Forever** (currently in beta). It shows your energy, rage or mana (as a %, with a five-second-rule ring), combo points, swing timer (which becomes a cast bar while you cast), global cooldown, Rip duration, Clearcasting procs, Enrage (in Bear Form) and the Shifting Power cooldown in one place. No setup needed beyond installing it.
 
 ## Installing
 

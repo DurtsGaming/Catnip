@@ -262,6 +262,7 @@ local function CooldownState(spellID, previous)
     end
     return previous, false
 end
+ns.CooldownState = CooldownState -- ShiftingPower.lua's ready flag
 
 -- While the GCD hides what's really on cooldown, look again once it's over (its end fires no event).
 local recheckPending = false

@@ -71,7 +71,7 @@ SlashCmdList.CATNIP = function(msg)
     if handler then
         handler(arg)
     else
-        ns.Print("commands: /catnip (settings), /catnip edit (settings + Edit Mode), /catnip debug, /catnip cdm, /catnip spells, /catnip item <id>, /catnip art (mouse over a window), /catnip icon (mouse over an icon)")
+        ns.Print("commands: /catnip (settings), /catnip edit (settings + Edit Mode), /catnip debug, /catnip cdm, /catnip spells, /catnip item <id>, /catnip sp [seconds] (Shifting Power preview), /catnip art (mouse over a window), /catnip icon (mouse over an icon)")
     end
 end
 

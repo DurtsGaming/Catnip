@@ -23,6 +23,7 @@ Gcd.lua
 Proc.lua
 DotRings.lua
 Enrage.lua
+ShiftingPower.lua
 CooldownItems.lua
 Cooldowns.lua
 EditMode.lua
