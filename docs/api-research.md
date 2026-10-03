@@ -23,6 +23,7 @@ What we know about Forever's addon API: Midnight's (12.x) rules with Forever-spe
 | Data | In combat |
 |------|-----------|
 | Energy, rage, mana (`UnitPower`, `UnitPowerMax`) | Secret; display via StatusBar/FontString |
+| Thresholds on secret power (step curves) | `C_CurveUtil.CreateCurve()` + `SetType(Enum.LuaCurveType.Step)` + `AddPoint(fractionOfMax, value)`, evaluated by `UnitPowerPercent(unit, powerType, false, curve)` C-side, so the secret never enters Lua; the result goes straight to `SetAlpha`. Blood in the Water (colour curve → `SetTextColor`) and EllesmereUI (alpha curves → `SetAlpha`; mana colour curve → `SetVertexColor`) do this on Forever. Calling `curve:Evaluate(secret)` from Lua errors in combat (Blood in the Water). Ours (`ShiftingPowerMana.lua`) untested |
 | Mana as a percentage | `UnitPowerPercent("player", powerType, false, CurveConstants.ScaleTo100)`: computed engine-side (0-100), then `string.format("%d%%", …)`. **Verified** 2026-09-27 |
 | Combo points (`UnitPower("player", Enum.PowerType.ComboPoints)`) | Readable (dots work in combat). **Open issue:** Blood in the Water says Forever combo points are per-target and `UnitPower` doesn't reset on target switch; it uses `GetComboPoints("player", "target")`. Unverified by us |
 | `UnitPowerType` | Readable |

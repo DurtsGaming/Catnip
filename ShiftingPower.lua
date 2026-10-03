@@ -21,7 +21,7 @@ local DEFAULT_LENGTH = 16
 local CANVAS = 164
 local SPAN = math.pi / 4.2 -- either side of 6 o'clock
 local LEFT_END = 1.5 * math.pi - SPAN -- maths angle (counter-clockwise from 3 o'clock)
-local RADIUS = 76 -- the band's centre line (make_textures.py SP_RADIUS)
+local RADIUS = 74 -- the band's centre line (make_textures.py SP_RADIUS)
 local SEGMENT_PULSE = 0.55 -- peak brightness of the small pulse as each segment fills
 local PULSE_COLOR = { 60 / 255, 150 / 255, 1 } -- the mana bar's blue, brightened
 local PULSE_ADD = 1 -- an additive copy on top, for a brighter core
@@ -374,6 +374,11 @@ local function Resolve()
         ns.Debug("Shifting Power: spell", id or "not known")
     end
     spellID = id
+end
+
+-- The spell's ID while it's known (talented), else nil. Used by ShiftingPowerMana.lua.
+function ns.ShiftingPowerSpell()
+    return spellID
 end
 
 local events = CreateFrame("Frame")

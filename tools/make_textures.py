@@ -215,7 +215,7 @@ def combo_fill(size):
 # 6 o'clock. Measured in HUD units on a canvas SP_CANVAS units across, centred on the HUD's centre;
 # keep these in step with the constants in ShiftingPower.lua.
 SP_CANVAS = 164
-SP_RADIUS = 76            # centre line of the band
+SP_RADIUS = 74            # centre line of the band: inner edge (with outline) ~2.5 outside the swing ring's band
 SP_HALF_WIDTH = 3         # band is 6 units thick
 SP_SPAN = 180 / 4.2       # degrees either side of 6 o'clock
 SP_GAP = math.degrees(6.5 / SP_RADIUS)  # 6.5 units between segments (and trimmed off both outer ends)
@@ -285,6 +285,21 @@ def sp_arc(size):
     return colour
 
 
+def sp_orb(size):
+    """Shifting Power mana counter orb: circle_hard's disc blending diagonally from the mana bar's
+    blue (top left) to the energy bar's yellow (bottom right), slightly darker toward the rim."""
+    disc = circle_hard(size)
+    r = size / 2 - 1
+    blue = forever_colour(1, FOREVER_MANA)
+    yellow = forever_colour(SP_YELLOW_FROM, FOREVER_ENERGY)
+    def colour(d, dx, dy):
+        t = clamp01(0.5 + (dx + dy) / (2.4 * r))  # dy grows downward: 0 top left, 1 bottom right
+        t = t * t * (3 - 2 * t)
+        shade = 1 - 0.25 * clamp01(d / r) ** 3
+        return disc(d), tuple((b + (y - b) * t) * shade for b, y in zip(blue, yellow))
+    return colour
+
+
 def half_plane(size):
     """The canvas's left half, hard edge through the centre; rotated to sweep across an arc."""
     return lambda d, dx, dy: -dx + 0.5
@@ -327,6 +342,7 @@ TEXTURES = {
     # Coloured, drawn untinted.
     "sp_arc": (256, sp_arc(256)),                           # Shifting Power: the four segments, blue to white to yellow
     "sp_arc_outline": (256, sp_arc_outline(256)),           # Shifting Power: line around each segment, in its colours
+    "sp_orb": (64, sp_orb(64)),                             # Shifting Power mana counter orb, blue to yellow
     "fill_energy": (128, power_fill(128, FOREVER_ENERGY)),  # 1, resource fill in Cat Form
     "fill_rage": (128, power_fill(128, FOREVER_RAGE)),      # 1, resource fill in Bear Form
     "fill_mana": (128, power_fill(128, FOREVER_MANA)),      # 1, resource fill otherwise

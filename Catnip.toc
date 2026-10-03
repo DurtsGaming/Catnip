@@ -24,6 +24,7 @@ Proc.lua
 DotRings.lua
 Enrage.lua
 ShiftingPower.lua
+ShiftingPowerMana.lua
 CooldownItems.lua
 Cooldowns.lua
 EditMode.lua
