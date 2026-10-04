@@ -17,6 +17,7 @@
 --   segments     how many; each must span under 180 degrees
 --   gap          radians cut out at each segment boundary (and both outer ends), default 0
 --   outline      optional texture file drawn under everything, always shown while the arc is
+--   outlineColor optional { r, g, b } tint for the outline ({ 0, 0, 0 } for a black rim)
 --   track        optional alpha for a dim copy of each segment, so empty ones still show
 --   drain        start full and empty instead: the front eats each segment from its start, and
 --                as each segment empties the next one pulses (not the last one left)
@@ -99,6 +100,9 @@ function ns.CreateSegmentedArc(options)
         local outline = frame:CreateTexture(nil, "BORDER")
         outline:SetTexture(ns.MEDIA .. options.outline)
         outline:SetAllPoints(frame)
+        if options.outlineColor then
+            outline:SetVertexColor(unpack(options.outlineColor))
+        end
     end
 
     -- half_plane shows its left half (maths angles 90-270 degrees); SetRotation turns it

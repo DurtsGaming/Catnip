@@ -218,8 +218,8 @@ SP_CANVAS = 164
 SP_RADIUS = 74            # centre line of the band: inner edge (with outline) ~2.5 outside the swing ring's band
 SP_HALF_WIDTH = 3         # band is 6 units thick
 SP_SPAN = 180 / 4.2       # degrees either side of 6 o'clock
-SP_GAP = math.degrees(6.5 / SP_RADIUS)  # 6.5 units between segments (and trimmed off both outer ends)
-SP_OUTLINE = 1.5          # outline thickness, just outside each segment; leaves 3.5 units clear between outlines
+SP_GAP = math.degrees(4 / SP_RADIUS)  # 4 units between segments (and trimmed off both outer ends)
+SP_OUTLINE = 1.5          # outline thickness, just outside each segment; leaves 1 unit clear between outlines
 SP_YELLOW_FROM = 0.6      # where along the energy bar segment 4 starts (saturated yellow, not the dark end)
 
 
