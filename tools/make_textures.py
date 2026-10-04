@@ -5,6 +5,7 @@ with SetVertexColor. Shape functions take (distance from centre, dx, dy) and ret
 or (alpha, brightness) for shaded textures. Run from the repo root:  py tools/make_textures.py
 """
 import math
+import random
 import os
 import struct
 
@@ -342,43 +343,103 @@ def coloured_ring(size, thickness, stops, segments=0):
     return colour
 
 
-# Stealth mode's shadow smoke (StealthSmoke.lua): soft rings where the swing timer's glow sits, some
-# broken into blurred dashes, tinted and rotated in-game. Measured in HUD units on a canvas
+# Stealth mode's shadow smoke (StealthSmoke.lua): a soft still ring where the swing timer's glow sits,
+# under two rings of irregular clouds, tinted and turned in-game. Measured in HUD units on a canvas
 # SMOKE_UNITS across, centred on the HUD's centre; keep it in step with SMOKE_SIZE in StealthSmoke.lua.
 SMOKE_UNITS = 160
 
 
-def smoke_ring(size, radius, width, blur, dashes=None):
-    """A band `width` wide centred on `radius`, blurred by `blur` (a Gaussian's sigma), all in HUD units.
-    `dashes` (on, off, on, off... lengths along the ring, like SVG's stroke-dasharray) breaks it up;
-    the pattern is stretched a little so a whole number of repeats fits the ring, leaving no seam."""
+def smoke_ring(size, radius, width, blur):
+    """A band `width` wide centred on `radius`, blurred by `blur` (a Gaussian's sigma), all in HUD units."""
     scale = size / SMOKE_UNITS  # px per unit
     k = math.sqrt(2) * blur
     inner, outer = radius - width / 2, radius + width / 2
-    spans, circumference = [], 2 * math.pi * radius
-    if dashes:
-        period = sum(dashes)
-        repeats = max(1, round(circumference / period))
-        stretch = circumference / (repeats * period)
-        start = 0.0
-        for _ in range(repeats):
-            for i, length in enumerate(dashes):
-                if i % 2 == 0:
-                    spans.append((start, start + length * stretch))
-                start += length * stretch
+    return lambda d, *_: 0.5 * (math.erf((d / scale - inner) / k) - math.erf((d / scale - outer) / k))
 
-    def alpha(d, dx, dy):
-        u = d / scale
-        a = 0.5 * (math.erf((u - inner) / k) - math.erf((u - outer) / k))
-        if not dashes or a < 0.002:
-            return a
-        s = (math.atan2(dy, dx) % (2 * math.pi)) * radius  # arc length, clockwise from 3 o'clock
-        along = 0.0
-        for lo, hi in spans:
-            for shift in (-circumference, 0.0, circumference):
-                along += 0.5 * (math.erf((s + shift - lo) / k) - math.erf((s + shift - hi) / k))
-        return a * min(1.0, along)
-    return alpha
+
+def perlin(seed):
+    """2D gradient noise (about -0.7 to 0.7) with its own shuffled table, like one channel of SVG's
+    feTurbulence."""
+    rng = random.Random(seed)
+    table = list(range(256))
+    rng.shuffle(table)
+    table += table
+    angles = [rng.uniform(0, 2 * math.pi) for _ in range(256)]
+    grads = [(math.cos(a), math.sin(a)) for a in angles]
+
+    def fade(t):
+        return t * t * t * (t * (t * 6 - 15) + 10)
+
+    def noise(x, y):
+        xi, yi = math.floor(x), math.floor(y)
+        xf, yf = x - xi, y - yi
+        xi, yi = xi & 255, yi & 255
+        def corner(cx, cy):
+            gx, gy = grads[table[table[xi + cx] + yi + cy]]
+            return gx * (xf - cx) + gy * (yf - cy)
+        u, v = fade(xf), fade(yf)
+        top = corner(0, 0) + u * (corner(1, 0) - corner(0, 0))
+        bottom = corner(0, 1) + u * (corner(1, 1) - corner(0, 1))
+        return top + v * (bottom - top)
+    return noise
+
+
+def fractal_noise(seed, freq, octaves):
+    """feTurbulence type="fractalNoise": octaves of gradient noise, each twice the frequency at half the
+    weight, mapped to 0-1 around 0.5. `freq` is per HUD unit."""
+    layers = [perlin(seed * 31 + i) for i in range(octaves)]
+    def sample(x, y):
+        total, f, w = 0.0, freq, 1.0
+        for layer in layers:
+            total += layer(x * f, y * f) * w
+            f, w = f * 2, w / 2
+        return (total + 1) / 2
+    return sample
+
+
+def cloud_ring(size, radius, width, freq, seed, contrast, offset, wisp, blur):
+    """A ring `width` wide on `radius`, broken into irregular clouds: kept where fractal noise is dense
+    (alpha = contrast * noise + offset), its edges pushed about by two more noise fields up to `wisp`
+    units for wispy shapes, then blurred by `blur` (a Gaussian's sigma). All in HUD units. The same
+    recipe as the SVG filter in the mockup (feTurbulence, feColorMatrix, feDisplacementMap,
+    feGaussianBlur). Returns a shape that looks up the finished canvas."""
+    scale = size / SMOKE_UNITS  # px per unit
+    density = fractal_noise(seed, freq, 4)
+    push_x, push_y = fractal_noise(seed + 101, freq, 4), fractal_noise(seed + 202, freq, 4)
+    c = (size - 1) / 2
+    reach = radius + width / 2 + wisp + 1  # beyond this, nothing to draw
+    grid = [[0.0] * size for _ in range(size)]
+    for y in range(size):
+        for x in range(size):
+            ux, uy = (x - c) / scale, (y - c) / scale
+            if abs(math.hypot(ux, uy) - radius) > width / 2 + wisp + 1:
+                continue
+            sx = ux + wisp * (push_x(ux, uy) - 0.5) * 2
+            sy = uy + wisp * (push_y(ux, uy) - 0.5) * 2
+            band = clamp01(width / 2 - abs(math.hypot(sx, sy) - radius) + 0.5 / scale)
+            if band > 0:
+                grid[y][x] = band * clamp01(contrast * density(sx, sy) + offset)
+    # Separable Gaussian blur
+    sigma = blur * scale
+    radius_px = int(math.ceil(sigma * 3))
+    kernel = [math.exp(-(i * i) / (2 * sigma * sigma)) for i in range(-radius_px, radius_px + 1)]
+    total = sum(kernel)
+    kernel = [v / total for v in kernel]
+    def blur_rows(src):
+        out = [[0.0] * size for _ in range(size)]
+        for y in range(size):
+            row, dst = src[y], out[y]
+            for x in range(size):
+                acc = 0.0
+                for i, w in enumerate(kernel):
+                    xx = x + i - radius_px
+                    if 0 <= xx < size:
+                        acc += row[xx] * w
+                dst[x] = acc
+        return out
+    grid = blur_rows(grid)
+    grid = [list(col) for col in zip(*blur_rows([list(col) for col in zip(*grid)]))]
+    return lambda d, dx, dy: grid[round(dy + c)][round(dx + c)]
 
 
 def half_plane(size):
@@ -436,9 +497,9 @@ TEXTURES = {
     "fill_energy_prowl": (128, power_fill(128, PROWL_PERIWINKLE)),  # 1, resource fill in Cat Form while stealthed
     "combo_fill_prowl": (128, combo_fill(128, PROWL_PERIWINKLE)),   # 1, combo points while stealthed
     # Stealth mode's shadow smoke: white, tinted and rotated in-game (StealthSmoke.lua)
-    "smoke_base": (256, smoke_ring(256, 61, 11, 4)),
-    "smoke_a": (256, smoke_ring(256, 61, 9, 3, [22, 8, 9, 15, 30, 10, 14, 12])),
-    "smoke_b": (256, smoke_ring(256, 59, 4, 2.5, [8, 20, 16, 26, 5, 30])),
+    "smoke_base": (256, smoke_ring(256, 61, 13, 4.2)),
+    "smoke_a": (256, cloud_ring(256, 61, 13, 0.035, 5, 3.2, -1.0, 3.2, 2.1)),
+    "smoke_b": (256, cloud_ring(256, 59, 8, 0.05, 11, 3.4, -1.2, 2.2, 1.7)),
 }
 
 def write_tga_pixels(path, width, height, pixel):
