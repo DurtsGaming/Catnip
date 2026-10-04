@@ -116,20 +116,42 @@ local canvas = CreateFrame("Frame", nil, body)
 canvas:SetSize(WIDTH, 1)
 body:SetScrollChild(canvas)
 
-local scrollbar = CreateFrame("Slider", nil, inner)
+-- A thin vertical scrollbar: a dark track with a bronze thumb that brightens on hover. The caller
+-- anchors it and handles OnValueChanged.
+local function ThinScrollbar(parent)
+    local bar = CreateFrame("Slider", nil, parent)
+    bar:SetWidth(4)
+    bar:SetOrientation("VERTICAL")
+    bar:SetMinMaxValues(0, 0)
+    bar:SetValueStep(1)
+    local track = bar:CreateTexture(nil, "BACKGROUND")
+    track:SetAllPoints()
+    track:SetColorTexture(unpack(WELL))
+    local thumb = bar:CreateTexture(nil, "OVERLAY")
+    thumb:SetSize(4, 40)
+    thumb:SetColorTexture(unpack(BRONZE))
+    bar:SetThumbTexture(thumb)
+    bar:SetScript("OnEnter", function() thumb:SetColorTexture(unpack(BRONZE_HI)) end)
+    bar:SetScript("OnLeave", function() thumb:SetColorTexture(unpack(BRONZE)) end)
+    return bar, thumb
+end
+
+-- Sizes `bar` and its thumb to a scroll frame showing `visible` of `total` pixels, hiding it when
+-- everything fits. Returns the furthest the frame can scroll.
+local function FitScrollbar(bar, thumb, visible, total)
+    local maxScroll = math.max(0, total - visible)
+    bar:SetMinMaxValues(0, maxScroll)
+    bar:SetValue(math.min(bar:GetValue(), maxScroll))
+    bar:SetShown(maxScroll > 0)
+    if total > 0 then
+        thumb:SetHeight(math.max(20, bar:GetHeight() * visible / total))
+    end
+    return maxScroll
+end
+
+local scrollbar, scrollThumb = ThinScrollbar(inner)
 scrollbar:SetPoint("TOPRIGHT", -1, -PAD)
 scrollbar:SetPoint("BOTTOMRIGHT", -1, 18) -- clear of the resize grip
-scrollbar:SetWidth(4)
-scrollbar:SetOrientation("VERTICAL")
-scrollbar:SetMinMaxValues(0, 0)
-scrollbar:SetValueStep(1)
-local scrollTrack = scrollbar:CreateTexture(nil, "BACKGROUND")
-scrollTrack:SetAllPoints()
-scrollTrack:SetColorTexture(unpack(WELL))
-local scrollThumb = scrollbar:CreateTexture(nil, "OVERLAY")
-scrollThumb:SetSize(4, 40)
-scrollThumb:SetColorTexture(unpack(BRONZE))
-scrollbar:SetThumbTexture(scrollThumb)
 -- The wheel glides to a target (gliding below); dragging the scrollbar moves straight there.
 -- Offsets are whole pixels, so text and boxes don't snap out of step.
 local scrollTarget, gliding = 0, false
@@ -139,23 +161,14 @@ scrollbar:SetScript("OnValueChanged", function(_, value)
         scrollTarget = value
     end
 end)
-scrollbar:SetScript("OnEnter", function() scrollThumb:SetColorTexture(unpack(BRONZE_HI)) end)
-scrollbar:SetScript("OnLeave", function() scrollThumb:SetColorTexture(unpack(BRONZE)) end)
 
 local function MaxScroll()
     return math.max(0, canvas:GetHeight() - body:GetHeight())
 end
 
 local function UpdateScroll()
-    local visible, total = body:GetHeight(), canvas:GetHeight()
-    local maxScroll = MaxScroll()
-    scrollbar:SetMinMaxValues(0, maxScroll)
+    local maxScroll = FitScrollbar(scrollbar, scrollThumb, body:GetHeight(), canvas:GetHeight())
     scrollTarget = math.min(scrollTarget, maxScroll)
-    scrollbar:SetValue(math.min(scrollbar:GetValue(), maxScroll))
-    scrollbar:SetShown(maxScroll > 0)
-    if total > 0 then
-        scrollThumb:SetHeight(math.max(20, scrollbar:GetHeight() * visible / total))
-    end
 end
 
 -- Eases the scroll position toward scrollTarget over a few frames.
@@ -756,13 +769,28 @@ Box(list, WELL, BRONZE_DIM)
 local content = CreateFrame("Frame", nil, list)
 content:SetSize(CONTENT, 1)
 list:SetScrollChild(content)
+
+-- Its own scrollbar, inside the box's right edge (right of the rows' drag grips), above the rows.
+local listBar, listThumb = ThinScrollbar(list)
+listBar:SetPoint("TOPRIGHT", -3, -3)
+listBar:SetPoint("BOTTOMRIGHT", -3, 3)
+listBar:SetFrameLevel(list:GetFrameLevel() + 20)
+listBar:SetScript("OnValueChanged", function(_, value)
+    list:SetVerticalScroll(math.floor(value + 0.5))
+end)
+
+local function UpdateListScroll()
+    FitScrollbar(listBar, listThumb, list:GetHeight(), content:GetHeight())
+end
+
 list:SetScript("OnSizeChanged", function(_, width)
     content:SetWidth(width)
+    UpdateListScroll()
 end)
 list:EnableMouseWheel(true)
-list:SetScript("OnMouseWheel", function(self, delta)
-    local maxScroll = math.max(0, content:GetHeight() - self:GetHeight())
-    self:SetVerticalScroll(math.max(0, math.min(maxScroll, self:GetVerticalScroll() - delta * ROW_HEIGHT * 2)))
+list:SetScript("OnMouseWheel", function(_, delta)
+    local _, maxScroll = listBar:GetMinMaxValues()
+    listBar:SetValue(math.max(0, math.min(maxScroll, listBar:GetValue() - delta * ROW_HEIGHT * 2)))
 end)
 Place(list, ROW_HEIGHT * LIST_ROWS)
 
@@ -928,6 +956,7 @@ function RefreshList()
         rows[i]:Hide()
     end
     content:SetHeight(math.max(1, #candidates * ROW_HEIGHT))
+    UpdateListScroll()
     empty:SetShown(#candidates == 0)
 end
 refreshers[#refreshers + 1] = RefreshList
