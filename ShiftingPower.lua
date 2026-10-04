@@ -333,11 +333,14 @@ arc:SetScript("OnUpdate", function()
     if state == "cooling" then
         state, holdSince = "holding", GetTime()
     end
-    local onCooldown, sure = true, false
+    -- Our clock is done: ready unless the game is sure it's still on cooldown. During the GCD it
+    -- can't tell, and waiting for a gap in the GCD made the flash come late (you could press the
+    -- spell before it showed).
+    local onCooldown = false
     if spellID and ns.CooldownState then
-        onCooldown, sure = ns.CooldownState(spellID, true)
+        onCooldown = ns.CooldownState(spellID, false) -- false when unsure
     end
-    if (sure and not onCooldown) or GetTime() - holdSince > HOLD_LIMIT then
+    if not onCooldown or GetTime() - holdSince > HOLD_LIMIT then
         BecomeReady(true)
     end
 end)
