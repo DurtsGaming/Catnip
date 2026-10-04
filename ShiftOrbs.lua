@@ -1,9 +1,10 @@
--- Shift orbs: a centred row of small orbs under the Shifting Power arc, one for each shapeshift your
+-- Shift orbs: a row of small orbs curved under the Shifting Power arc, one for each shapeshift your
 -- mana pays for: floor(mana / cost), up to 5. In every form, once a form is learned (Bear Form at
 -- 10, Cat Form at 20); before that there's no cost to divide by and nothing shows. Shifting Power
 -- costs the same as a shift, so the orbs count its casts too. COMBAT_ONLY (off for now) also hides
--- them out of combat. Hidden while casting or channelling (ns.IsCasting), since Cast.lua's text
--- (time and spell name) sits in the same spot.
+-- them out of combat. They sit on the combo points' circle (radius 93), mirroring them across the
+-- bottom, centred on 6 o'clock, just outside the arc. Cast.lua's text sits below them, so they stay
+-- up during casts (when the count matters: can I shift back after this heal?).
 --
 -- The orbs match the resource circle (Resource.lua): mana's gradient out of Cat and Bear Form, full
 -- rage in Bear Form, full energy in Cat Form, and stealth mode's periwinkle while stealthed (Prowl
@@ -28,8 +29,9 @@ local addonName, ns = ...
 local COMBAT_ONLY = false -- off for now: the orbs show in and out of combat
 local MAX_ORBS = 5
 local ORB_SIZE = 0.6 * ns.COMBO_DOT_SIZE -- 60% of a combo point
-local SPACING = ORB_SIZE * 1.25
-local Y = -95 -- centre, below the Shifting Power arc (its outer edge is ~78.5 below the HUD's centre)
+local SPACING = ORB_SIZE * 1.25 -- centre to centre, along the chord
+local RADIUS = 93 -- the combo points' ARC_RADIUS; inner edge ~81.6, clear of the arc's ~78.5 outer edge
+local STEP = 2 * math.asin(SPACING / 2 / RADIUS) -- angle between neighbouring orbs (~17.6 degrees)
 local STEALTH_ALPHA = 0.6 -- 30% was too much
 local MANA = Enum.PowerType.Mana
 local SHIFT_SPELLS = { "Cat Form", "Dire Bear Form", "Bear Form" } -- all cost the same
@@ -50,12 +52,12 @@ local SP_CAT_STEALTH_ART = "sp_orb_prowl" -- the same, stealthed: blue to periwi
 local hud = ns.hud
 
 local holder = CreateFrame("Frame", nil, hud)
-holder:SetSize(MAX_ORBS * SPACING, ORB_SIZE)
-holder:SetPoint("CENTER", hud, "CENTER", 0, Y)
+holder:SetSize(1, 1)
+holder:SetPoint("CENTER", hud, "CENTER")
 holder:SetFrameLevel(hud:GetFrameLevel() + 2)
 holder:Hide()
 
--- rows[n]: n orbs, centred. orbs: every orb texture across the rows, for swapping the art.
+-- rows[n]: n orbs, centred on 6 o'clock. orbs: every orb texture across the rows, for swapping the art.
 local rows, orbs = {}, {}
 local currentArt = MANA_ART
 for n = 1, MAX_ORBS do
@@ -63,11 +65,12 @@ for n = 1, MAX_ORBS do
     row:SetAllPoints()
     row:SetAlpha(0)
     for i = 1, n do
-        local x = (i - (n + 1) / 2) * SPACING
+        local angle = -math.pi / 2 + (i - (n + 1) / 2) * STEP
+        local x, y = RADIUS * math.cos(angle), RADIUS * math.sin(angle)
         local orb = row:CreateTexture(nil, "ARTWORK")
         orb:SetTexture(ns.MEDIA .. currentArt)
         orb:SetSize(ORB_SIZE, ORB_SIZE)
-        orb:SetPoint("CENTER", row, "CENTER", x, 0)
+        orb:SetPoint("CENTER", row, "CENTER", x, y)
         orbs[#orbs + 1] = orb
         local border = row:CreateTexture(nil, "OVERLAY") -- same black rim as the combo points
         border:SetTexture(ns.MEDIA .. "ring_small")
@@ -187,7 +190,6 @@ end
 local function Update()
     UpdatePulseGate()
     local show = CAN_COUNT and (inCombat or not COMBAT_ONLY) and cost ~= nil
-        and not ns.IsCasting() -- Cast.lua's text sits where the orbs are
     holder:SetShown(show and true or false)
     if not show then
         return
@@ -207,7 +209,6 @@ ns.OnStealthChanged(function(stealthed)
     holder:SetAlpha(stealthed and STEALTH_ALPHA or 1) -- the rows set their own alpha
     Update()
 end)
-ns.OnCastChanged(Update)
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_ENTERING_WORLD")

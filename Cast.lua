@@ -15,7 +15,9 @@
 local addonName, ns = ...
 
 local SIZE = ns.SWING_RING_SIZE
-local TEXT_OFFSET = SIZE * 1.18 / 2 + 2 -- just below the swing glow's outer edge (Swing.lua GLOW_SCALE)
+-- Below the shift orbs (ShiftOrbs.lua: centres 93 below the HUD's centre, 22.8 across, so their
+-- bottom is ~104.4). Was just below the swing glow (~81) before the orbs moved there.
+local TEXT_OFFSET = 108
 local CAST_COLOR = { 1, 0.7, 0 } -- Blizzard cast bar gold
 local CHANNEL_COLOR = { 0.3, 0.8, 1 }
 
