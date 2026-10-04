@@ -1,6 +1,6 @@
 -- ns.CreateSegmentedArc(options): an arc (or full ring) of segments that fills from one end to the
 -- other, each segment pulsing as it fills, then flashing and fading out. Visuals only; the timing is
--- SegmentedCooldown.lua's. Used by ShiftingPower.lua and FaerieFire.lua.
+-- SegmentedCooldown.lua's. Used by ShiftingPower.lua and CooldownRings.lua.
 --
 -- The art is a coloured ring texture that stays put (its colour is baked by angle). Each segment is
 -- a copy of it masked to a wedge by two half_plane masks, rotated so their edges sit at the

@@ -71,7 +71,7 @@ SlashCmdList.CATNIP = function(msg)
     if handler then
         handler(arg)
     else
-        ns.Print("commands: /catnip (settings), /catnip edit (settings + Edit Mode), /catnip debug, /catnip cdm, /catnip spells, /catnip item <id>, /catnip sp [seconds] (Shifting Power preview), /catnip ff [seconds] (Faerie Fire preview, in Cat or Bear Form), /catnip art (mouse over a window), /catnip icon (mouse over an icon)")
+        ns.Print("commands: /catnip (settings), /catnip edit (settings + Edit Mode), /catnip debug, /catnip cdm, /catnip spells, /catnip item <id>, /catnip sp [seconds] (Shifting Power preview), /catnip ff|growl|pb [seconds] (Faerie Fire, Growl, Primal Bite ring previews, in Cat or Bear Form), /catnip art (mouse over a window), /catnip icon (mouse over an icon)")
     end
 end
 

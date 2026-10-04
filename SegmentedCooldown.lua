@@ -1,5 +1,5 @@
 -- ns.CreateSegmentedCooldown(spec): runs a SegmentedArc.lua arc over a spell's cooldown. Used by
--- ShiftingPower.lua and FaerieFire.lua.
+-- ShiftingPower.lua and CooldownRings.lua.
 --
 -- Cooldown timing is secret in combat, so the arc runs on our own clock, like FiveSecondRule.lua:
 -- it starts when our cast of the spell succeeds (our casts' spell IDs are readable) and runs for the
@@ -14,6 +14,8 @@
 --   castAllowed    optional function(): false to ignore a cast (e.g. a form without the cooldown)
 --   defaultLength  seconds, until the real length is learned
 --   lengthKey      CatnipDB key the learned length is kept under
+--   learnFromReady also learn the length in combat, from when the ready flag turns on (only for
+--                  spells nothing resets early, or a reset would teach a short length)
 --   arc            from ns.CreateSegmentedArc
 --   onStart, onReady(animate), onHide   optional callbacks
 --   command        "/catnip <command> [seconds]" runs a preview
@@ -21,6 +23,7 @@ local addonName, ns = ...
 
 local HOLD_LIMIT = 10 -- seconds to hold a full arc waiting for the ready flag before giving up
 local RESET_GRACE = 0.5 -- ignore "not on cooldown" this soon after a cast (the cooldown may not be set yet)
+local POLL = 0.1 -- seconds between ready-flag checks while the clock runs (its end may fire no event)
 
 local function Call(callback, ...)
     if callback then
@@ -152,18 +155,52 @@ function ns.CreateSegmentedCooldown(spec)
         end
     end
 
-    driver:SetScript("OnUpdate", function()
+    -- The ready flag: onCooldown, sure (see ns.CooldownState); unsure without it.
+    local function ReadyFlag()
+        if not (TimingID() and ns.CooldownState) then
+            return nil, false
+        end
+        return ns.CooldownState(TimingID(), nil)
+    end
+
+    -- Ready now, by the flag: with learnFromReady, the time since the cast is the cooldown's length
+    -- (to the half second; it was read within POLL of the end).
+    local function ReadyByFlag()
+        if spec.learnFromReady then
+            local elapsed = GetTime() - castAt
+            if elapsed > 1.5 then
+                Learn(math.floor(elapsed * 2 + 0.5) / 2)
+            end
+        end
+        BecomeReady(true)
+    end
+
+    local sincePoll = 0
+    driver:SetScript("OnUpdate", function(_, elapsed)
         if not Timing() then
             driver:Hide()
             return
         end
         local progress = (GetTime() - castAt) / length
         arc.SetProgress(progress)
-        if progress < 1 then
+        if demo then
+            if progress >= 1 then
+                BecomeReady(true)
+            end
             return
         end
-        if demo then
-            BecomeReady(true)
+        if progress < 1 then
+            -- Ready before our clock ran out (too long a length, or a reset)?
+            sincePoll = sincePoll + elapsed
+            if sincePoll < POLL or JustCast() then
+                return
+            end
+            sincePoll = 0
+            local onCooldown, sure = ReadyFlag()
+            if sure and not onCooldown then
+                ns.Debug(spec.label .. ": ready at", string.format("%.1f", GetTime() - castAt), "s, before our clock")
+                ReadyByFlag()
+            end
             return
         end
         if state == "cooling" then
@@ -172,11 +209,10 @@ function ns.CreateSegmentedCooldown(spec)
         -- Our clock is done: ready unless the game is sure it's still on cooldown. During the GCD it
         -- can't tell, and waiting for a gap in the GCD made the flash come late (you could press the
         -- spell before it showed).
-        local onCooldown = false
-        if TimingID() and ns.CooldownState then
-            onCooldown = ns.CooldownState(TimingID(), false) -- false when unsure
-        end
-        if not onCooldown or GetTime() - holdSince > HOLD_LIMIT then
+        local onCooldown, sure = ReadyFlag()
+        if sure and not onCooldown then
+            ReadyByFlag() -- a little after our clock: the real length may be longer
+        elseif not sure or GetTime() - holdSince > HOLD_LIMIT then
             BecomeReady(true)
         end
     end)

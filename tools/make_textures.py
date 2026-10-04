@@ -300,16 +300,20 @@ def sp_orb(size):
     return colour
 
 
-# Faerie Fire (FaerieFire.lua): sampled by eye from the spell's icon, deep violet through magenta
-# to pale pink, clockwise from 12 o'clock.
+# Cooldown rings (CooldownRings.lua), each sampled by eye from its spell's icon, clockwise from
+# 12 o'clock. Faerie Fire (dot 1): deep violet through magenta to pale pink.
 FAERIE_STOPS = [(0.32, 0.08, 0.62), (0.62, 0.20, 0.95), (0.92, 0.32, 0.88), (1.0, 0.72, 0.95)]
+# Growl (dot 2): the icon's fire, dark ember orange through amber to a pale gold; kept off Rake and
+# Rip's red. Primal Bite (dot 3): the icon's teeth, warm bone through ivory to near white.
+GROWL_STOPS = [(0.55, 0.20, 0.02), (0.92, 0.45, 0.05), (1.0, 0.68, 0.15), (1.0, 0.88, 0.50)]
+PRIMAL_BITE_STOPS = [(0.50, 0.42, 0.32), (0.75, 0.68, 0.55), (0.92, 0.88, 0.78), (1.0, 0.98, 0.94)]
 
 
 # DoT rings (DotRings.lua): Rake and Rip share one red, sampled by eye from their icons, dark
 # crimson through red to a hot orange-red, clockwise from 12 o'clock.
 DOT_STOPS = [(0.42, 0.02, 0.02), (0.78, 0.07, 0.04), (0.98, 0.22, 0.08), (1.0, 0.50, 0.22)]
 # The combo point rings are drawn 46 units across (ComboPoints.lua COMBO_DOT_SIZE + 8); gaps are
-# cut 2 units wide on the band's centre line, like FaerieFire.lua's GAP.
+# cut 2 units wide on the band's centre line, like CooldownRings.lua's GAP.
 COMBO_RING_UNITS = 46
 COMBO_RING_GAP = 2
 
@@ -378,6 +382,8 @@ TEXTURES = {
     "sp_arc_outline": (256, sp_arc_outline(256)),           # Shifting Power: line around each segment, in its colours
     "sp_orb": (64, sp_orb(64)),                             # Shifting Power mana counter orb, blue to yellow
     "ring_faerie": (128, coloured_ring(128, 16, FAERIE_STOPS)),        # Faerie Fire cooldown ring; same band as ring_rip
+    "ring_growl": (128, coloured_ring(128, 16, GROWL_STOPS)),          # Growl cooldown ring
+    "ring_primal_bite": (128, coloured_ring(128, 16, PRIMAL_BITE_STOPS)),  # Primal Bite cooldown ring
     "ring_rake": (128, coloured_ring(128, 16, DOT_STOPS, 3)),          # Rake DoT ring: 3 segments (9s, 3s ticks)
     "ring_rip_segments": (128, coloured_ring(128, 16, DOT_STOPS, 6)),  # Rip DoT ring: 6 segments (12s, 2s ticks)
     "fill_energy": (128, power_fill(128, FOREVER_ENERGY)),  # 1, resource fill in Cat Form

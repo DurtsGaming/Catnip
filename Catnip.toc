@@ -28,7 +28,7 @@ SegmentedArc.lua
 SegmentedCooldown.lua
 ShiftingPower.lua
 ShiftingPowerMana.lua
-FaerieFire.lua
+CooldownRings.lua
 CooldownItems.lua
 Cooldowns.lua
 EditMode.lua
