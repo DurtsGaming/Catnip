@@ -13,6 +13,8 @@ local BARS = {
         frame = function() return _G.MainActionBar or _G.MainMenuBar end, -- MainActionBar on Forever (EllesmereUI)
         buttons = "ActionButton",
         count = 12,
+        -- Blizzard parents the leave-vehicle button to this bar; it has to stay visible.
+        keepVisible = { "MainMenuBarVehicleLeaveButton" },
     },
     {
         setting = "hideStanceBar",
@@ -68,6 +70,14 @@ local function Update(info)
         info.hooked = true -- only once someone uses the setting
     end
     bar:SetAlpha(Hidden(info) and 0 or 1)
+    -- Children that must survive the fade opt out of the bar's alpha (unprotected, so fine in
+    -- combat). EllesmereUI reparents instead, but then has to own the button's show/hide too.
+    for _, name in ipairs(info.keepVisible or {}) do
+        local child = _G[name]
+        if child and child.SetIgnoreParentAlpha then
+            child:SetIgnoreParentAlpha(Hidden(info))
+        end
+    end
     if InCombatLockdown() then
         mousePending = true -- caught up on PLAYER_REGEN_ENABLED
     else

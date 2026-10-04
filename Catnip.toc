@@ -18,6 +18,7 @@ ComboPoints.lua
 Swing.lua
 Cast.lua
 ActionBar.lua
+VehicleLeaveButton.lua
 FiveSecondRule.lua
 Gcd.lua
 Proc.lua
