@@ -34,7 +34,7 @@ holder:SetPoint("CENTER", hud, "CENTER", 0, Y)
 holder:SetFrameLevel(hud:GetFrameLevel() + 2)
 holder:Hide()
 ns.OnStealthChanged(function(stealthed)
-    holder:SetAlpha(stealthed and 0.3 or 1) -- dimmed in stealth mode (Stealth.lua); the rows set their own alpha
+    holder:SetAlpha(stealthed and 0.6 or 1) -- dimmed in stealth mode (Stealth.lua); the rows set their own alpha
 end)
 
 -- rows[n]: n orbs, centred.

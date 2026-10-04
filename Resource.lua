@@ -36,6 +36,7 @@ mask:SetAllPoints(bar)
 -- Swaps the fill texture, only when it changes. If the StatusBar hands back a new texture object,
 -- the mask goes on that one too.
 local currentFile, maskedTexture
+local fillAlpha = 1 -- the fill's own alpha, lowered in stealth mode
 local function SetFill(file, r, g, b)
     if file ~= currentFile then
         bar:SetStatusBarTexture(file)
@@ -45,6 +46,7 @@ local function SetFill(file, r, g, b)
             texture:AddMaskTexture(mask)
             maskedTexture = texture
         end
+        texture:SetAlpha(fillAlpha)
     end
     bar:SetStatusBarColor(r, g, b)
 end
@@ -79,7 +81,9 @@ StyleText()
 -- colour sits over the new fill and fades out. Like ManaPrediction.lua's bands, it's a clip frame
 -- from the bar's bottom up to the fill's top edge, holding full-size circle art, so it covers just
 -- the filled part and follows the fill while it fades. It sits over the border for that moment.
+-- The fill itself (not the border or number) also dims to STEALTH_FILL_ALPHA over the same time.
 local FADE_TIME = 0.35
+local STEALTH_FILL_ALPHA = 0.7
 local ghost = CreateFrame("Frame", nil, hud)
 ghost:SetFrameLevel(bar:GetFrameLevel() + 1)
 ghost:SetClipsChildren(true)
@@ -115,9 +119,28 @@ local function FadeFrom(file)
         return
     end
     ghostFill:SetTexture(file)
+    fadeAlpha:SetFromAlpha(fillAlpha) -- starts as bright as the fill it covers
     fade:Stop()
     ghost:Show()
     fade:Play()
+end
+
+local alphaFrom, alphaTo, alphaStart = 1, 1, 0
+local alphaDriver = CreateFrame("Frame")
+alphaDriver:Hide()
+alphaDriver:SetScript("OnUpdate", function(self)
+    local t = math.min(1, (GetTime() - alphaStart) / FADE_TIME)
+    local eased = 1 - (1 - t) ^ 2 -- ease out, like the crossfade
+    fillAlpha = alphaFrom + (alphaTo - alphaFrom) * eased
+    bar:GetStatusBarTexture():SetAlpha(fillAlpha)
+    if t >= 1 then
+        self:Hide()
+    end
+end)
+
+local function FadeFillAlpha(to)
+    alphaFrom, alphaTo, alphaStart = fillAlpha, to, GetTime()
+    alphaDriver:Show()
 end
 
 -- Mana shows as a percentage. Mana is secret in combat, so we can't divide it ourselves:
@@ -200,11 +223,12 @@ events:SetScript("OnEvent", Update)
 
 local ENERGY_FILES = { [POWER_TEXTURES[Enum.PowerType.Energy]] = true, [STEALTH_ENERGY_TEXTURE] = true }
 
-ns.OnStealthChanged(function()
+ns.OnStealthChanged(function(stealthed)
     StyleText()
     local before = currentFile
     Update()
     if before ~= currentFile and ENERGY_FILES[before] then
         FadeFrom(before)
     end
+    FadeFillAlpha(stealthed and STEALTH_FILL_ALPHA or 1)
 end)
