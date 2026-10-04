@@ -17,6 +17,7 @@ Resource.lua
 ComboPoints.lua
 Swing.lua
 Cast.lua
+ManaPrediction.lua
 ActionBar.lua
 VehicleLeaveButton.lua
 FiveSecondRule.lua

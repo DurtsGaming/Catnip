@@ -78,6 +78,36 @@ local function PowerText(powerType, power)
     return power
 end
 
+-- Mana cost prediction (ManaPrediction.lua) lowers the fill by a spell's cost while it's cast.
+-- Mana is secret in combat, so it can't subtract: it raises the bar's range by the cost instead
+-- (offset to max + offset), which draws mana - cost. maxMana is a plain number it read earlier.
+local offset, offsetMax = 0, nil
+local IMMEDIATE = Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.Immediate
+
+local function SetRange(powerType)
+    if offset > 0 and offsetMax and powerType == Enum.PowerType.Mana then
+        bar:SetMinMaxValues(offset, offsetMax + offset)
+    else
+        bar:SetMinMaxValues(0, UnitPowerMax("player", powerType))
+    end
+end
+
+-- The fill texture, whose top edge ManaPrediction.lua anchors its bands to.
+function ns.ResourceFillTexture()
+    return bar:GetStatusBarTexture()
+end
+
+-- snap: also jump the fill to the current value, skipping the smoothing (for when the range
+-- returns to normal in the same moment the mana is spent, so the fill doesn't dip and recover).
+function ns.SetResourceOffset(newOffset, maxMana, snap)
+    offset, offsetMax = newOffset, maxMana
+    local powerType = UnitPowerType("player")
+    SetRange(powerType)
+    if snap then
+        bar:SetValue(UnitPower("player", powerType), IMMEDIATE)
+    end
+end
+
 local function Update()
     local powerType = UnitPowerType("player")
     local knownType = not ns.IsSecret(powerType)
@@ -90,7 +120,7 @@ local function Update()
 
     -- Current and max power may be secret in combat; StatusBar and FontString accept secrets as-is.
     local power = UnitPower("player", powerType)
-    bar:SetMinMaxValues(0, UnitPowerMax("player", powerType))
+    SetRange(powerType)
     bar:SetValue(power, SMOOTH)
     text:SetText(knownType and PowerText(powerType, power) or power)
 end
