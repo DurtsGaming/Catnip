@@ -38,6 +38,19 @@ function ns.TryRegisterEvent(frame, event)
     return ok
 end
 
+-- The ID of the first of `names` that's in the spellbook, else nil. By name, since IDs differ by
+-- rank and client.
+function ns.FindKnownSpell(names)
+    for _, name in ipairs(names) do
+        local info = C_Spell.GetSpellInfo(name)
+        local id = info and info.spellID
+        if id and not ns.IsSecret(id) and not (IsPlayerSpell and not IsPlayerSpell(id)) then
+            return id
+        end
+    end
+    return nil
+end
+
 local hud = CreateFrame("Frame", "CatnipHUD", UIParent)
 hud:SetSize(240, 240) -- positioned, scaled and faded by Layout.lua
 ns.hud = hud

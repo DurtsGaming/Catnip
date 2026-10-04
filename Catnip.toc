@@ -30,7 +30,7 @@ Enrage.lua
 SegmentedArc.lua
 SegmentedCooldown.lua
 ShiftingPower.lua
-ShiftingPowerMana.lua
+ShiftOrbs.lua
 CooldownRings.lua
 CooldownItems.lua
 Cooldowns.lua

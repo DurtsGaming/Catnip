@@ -39,7 +39,7 @@ local arc = ns.CreateSegmentedArc({
 -- Ready pulse ---------------------------------------------------------------------------------------
 
 -- The pulse's animation drives its own alpha, so "only if mana pays for a cast" goes on a parent:
--- ShiftingPowerMana.lua sets the gate's alpha to 0 or 1 from a mana curve. Without the mana the
+-- ShiftOrbs.lua sets the gate's alpha to 0 or 1 from a mana curve. Without the mana the
 -- pulse still plays, unseen; it doesn't flash later when the mana arrives.
 local gate = CreateFrame("Frame", nil, hud)
 gate:SetAllPoints()
@@ -75,7 +75,7 @@ end
 
 -- Timing --------------------------------------------------------------------------------------------
 
-local cooldown = ns.CreateSegmentedCooldown({
+ns.CreateSegmentedCooldown({
     label = "Shifting Power",
     names = { "Shifting Power" },
     castNames = { ["Shifting Power"] = true },
@@ -93,6 +93,3 @@ local cooldown = ns.CreateSegmentedCooldown({
         end
     end,
 })
-
--- The spell's ID while it's known (talented), else nil. Used by ShiftingPowerMana.lua.
-ns.ShiftingPowerSpell = cooldown.SpellID

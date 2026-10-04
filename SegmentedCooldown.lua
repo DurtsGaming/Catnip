@@ -237,20 +237,7 @@ function ns.CreateSegmentedCooldown(spec)
 
     -- Finds the spell in the spellbook by name (its ID may differ by rank or client).
     local function Resolve()
-        local id
-        for _, name in ipairs(spec.names) do
-            local info = C_Spell.GetSpellInfo(name)
-            id = info and info.spellID
-            if id and ns.IsSecret(id) then
-                id = nil
-            end
-            if id and IsPlayerSpell and not IsPlayerSpell(id) then
-                id = nil
-            end
-            if id then
-                break
-            end
-        end
+        local id = ns.FindKnownSpell(spec.names)
         if id ~= knownID then
             ns.Debug(spec.label .. ": spell", id or "not known")
         end

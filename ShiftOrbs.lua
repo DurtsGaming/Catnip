@@ -1,13 +1,21 @@
--- Shifting Power mana counter: in Cat Form, a centred row of small blue-to-yellow orbs under the
--- Shifting Power arc, one for each cast your mana pays for: floor(mana / cost). Hidden if Shifting
--- Power isn't known; COMBAT_ONLY (off for now) also hides it out of combat. Hidden while casting
--- or channelling (ns.IsCasting), since Cast.lua's text (time and spell name) sits in the same spot.
--- It also gates ShiftingPower.lua's ready pulse (ns.shiftingPowerPulseGate) on a one-cast curve,
+-- Shift orbs: a centred row of small orbs under the Shifting Power arc, one for each shapeshift your
+-- mana pays for: floor(mana / cost), up to 5. In every form, once a form is learned (Bear Form at
+-- 10, Cat Form at 20); before that there's no cost to divide by and nothing shows. Shifting Power
+-- costs the same as a shift, so the orbs count its casts too. COMBAT_ONLY (off for now) also hides
+-- them out of combat. Hidden while casting or channelling (ns.IsCasting), since Cast.lua's text
+-- (time and spell name) sits in the same spot.
+--
+-- The orbs match the resource circle (Resource.lua): mana's gradient out of Cat and Bear Form, full
+-- rage in Bear Form, full energy in Cat Form, and stealth mode's periwinkle while stealthed (Prowl
+-- or Shadowmeld, in any form; dimmed then too). With Shifting Power known, Cat Form's orbs are half
+-- mana blue instead: blue to yellow, or blue to periwinkle while stealthed.
+--
+-- It also gates ShiftingPower.lua's ready pulse (ns.shiftingPowerPulseGate) on a one-shift curve,
 -- in every form, so the pulse only shows if your mana pays for a cast.
 --
 -- Mana is secret in combat, so we can't divide it. Instead there's a pre-built, centred row for
 -- each count (one orb, two orbs, ...), and each row's alpha comes from UnitPowerPercent with a step
--- curve that is 1 only between that count's thresholds (n and n+1 casts' worth of mana, as a
+-- curve that is 1 only between that count's thresholds (n and n+1 shifts' worth of mana, as a
 -- fraction of max mana). The engine evaluates the curve, so the secret never reaches our code, and
 -- SetAlpha takes the result as it is (Blood in the Water colours its combo text the same way;
 -- EllesmereUI feeds curve results to SetAlpha). The cost and max mana are plain numbers out of
@@ -22,9 +30,22 @@ local MAX_ORBS = 5
 local ORB_SIZE = 0.6 * ns.COMBO_DOT_SIZE -- 60% of a combo point
 local SPACING = ORB_SIZE * 1.25
 local Y = -95 -- centre, below the Shifting Power arc (its outer edge is ~78.5 below the HUD's centre)
+local STEALTH_ALPHA = 0.6 -- 30% was too much
 local MANA = Enum.PowerType.Mana
+local SHIFT_SPELLS = { "Cat Form", "Dire Bear Form", "Bear Form" } -- all cost the same
+local SHIFTING_POWER = { "Shifting Power" }
 local CAN_COUNT = UnitPowerPercent ~= nil and C_CurveUtil ~= nil and C_CurveUtil.CreateCurve ~= nil
     and Enum.LuaCurveType ~= nil
+
+-- Orb art (make_textures.py), coloured and drawn untinted. Anything not listed gets mana's.
+local POWER_ART = {
+    [Enum.PowerType.Energy] = "orb_energy",
+    [Enum.PowerType.Rage] = "orb_rage",
+}
+local MANA_ART = "orb_mana"
+local STEALTH_ART = "orb_prowl"
+local SP_CAT_ART = "sp_orb" -- Cat Form with Shifting Power known: blue to yellow
+local SP_CAT_STEALTH_ART = "sp_orb_prowl" -- the same, stealthed: blue to periwinkle
 
 local hud = ns.hud
 
@@ -33,12 +54,10 @@ holder:SetSize(MAX_ORBS * SPACING, ORB_SIZE)
 holder:SetPoint("CENTER", hud, "CENTER", 0, Y)
 holder:SetFrameLevel(hud:GetFrameLevel() + 2)
 holder:Hide()
-ns.OnStealthChanged(function(stealthed)
-    holder:SetAlpha(stealthed and 0.6 or 1) -- dimmed in stealth mode (Stealth.lua); the rows set their own alpha
-end)
 
--- rows[n]: n orbs, centred.
-local rows = {}
+-- rows[n]: n orbs, centred. orbs: every orb texture across the rows, for swapping the art.
+local rows, orbs = {}, {}
+local currentArt = MANA_ART
 for n = 1, MAX_ORBS do
     local row = CreateFrame("Frame", nil, holder)
     row:SetAllPoints()
@@ -46,9 +65,10 @@ for n = 1, MAX_ORBS do
     for i = 1, n do
         local x = (i - (n + 1) / 2) * SPACING
         local orb = row:CreateTexture(nil, "ARTWORK")
-        orb:SetTexture(ns.MEDIA .. "sp_orb")
+        orb:SetTexture(ns.MEDIA .. currentArt)
         orb:SetSize(ORB_SIZE, ORB_SIZE)
         orb:SetPoint("CENTER", row, "CENTER", x, 0)
+        orbs[#orbs + 1] = orb
         local border = row:CreateTexture(nil, "OVERLAY") -- same black rim as the combo points
         border:SetTexture(ns.MEDIA .. "ring_small")
         border:SetVertexColor(0, 0, 0)
@@ -58,10 +78,38 @@ for n = 1, MAX_ORBS do
     rows[n] = row
 end
 
-local cost, maxMana -- mana per cast and max mana, as last read out of combat; cost nil = unknown
-local curves = {} -- curves[n]: 1 while mana is between n and n+1 casts' worth, as a fraction of max
-local affordCurve -- 1 from one cast's worth of mana up: gates ShiftingPower.lua's ready pulse
+local cost, maxMana -- mana per shift and max mana, as last read out of combat; cost nil = unknown
+local curves = {} -- curves[n]: 1 while mana is between n and n+1 shifts' worth, as a fraction of max
+local affordCurve -- 1 from one shift's worth of mana up: gates ShiftingPower.lua's ready pulse
+local hasShiftingPower = false
 local inCombat = false -- from PLAYER_REGEN_DISABLED / _ENABLED
+
+-- The art for the current form and stealth state; nil (keep the current art) if the form is secret.
+local function OrbArt()
+    local powerType = UnitPowerType("player")
+    if ns.IsSecret(powerType) then
+        return nil
+    end
+    local stealthed = ns.IsStealthMode()
+    if powerType == Enum.PowerType.Energy and hasShiftingPower then
+        return stealthed and SP_CAT_STEALTH_ART or SP_CAT_ART
+    end
+    if stealthed then
+        return STEALTH_ART
+    end
+    return POWER_ART[powerType] or MANA_ART
+end
+
+local function UpdateArt()
+    local art = OrbArt()
+    if not art or art == currentArt then
+        return
+    end
+    currentArt = art
+    for _, orb in ipairs(orbs) do
+        orb:SetTexture(ns.MEDIA .. art)
+    end
+end
 
 local function PlainNumber(value)
     if value == nil or ns.IsSecret(value) then
@@ -83,12 +131,13 @@ local function ReadCost(spellID)
     return nil
 end
 
--- Out of combat: reads the cost and max mana and rebuilds the curves. In combat they keep the
--- values from the last time.
+-- Looks up the spells; out of combat also reads the cost and max mana and rebuilds the curves. In
+-- combat they keep the values from the last time.
 local function Rebuild()
-    local spellID = ns.ShiftingPowerSpell and ns.ShiftingPowerSpell()
+    hasShiftingPower = ns.FindKnownSpell(SHIFTING_POWER) ~= nil
+    local spellID = ns.FindKnownSpell(SHIFT_SPELLS)
     if not spellID then
-        cost = nil
+        cost = nil -- no form learned yet
         return
     end
     if InCombatLockdown() then
@@ -96,7 +145,7 @@ local function Rebuild()
     end
     local newCost, max = ReadCost(spellID), PlainNumber(UnitPowerMax("player", MANA))
     if not newCost or newCost <= 0 or not max or max <= 0 then
-        ns.Debug("SP mana counter: cost", newCost, "max mana", max, "- hidden")
+        ns.Debug("shift orbs: cost", newCost, "max mana", max, "- hidden")
         cost = nil
         return
     end
@@ -119,7 +168,7 @@ local function Rebuild()
     affordCurve:SetType(Enum.LuaCurveType.Step)
     affordCurve:AddPoint(0, 0)
     affordCurve:AddPoint(fraction, 1)
-    ns.Debug("SP mana counter: cost", cost, "of", max, "mana")
+    ns.Debug("shift orbs: cost", cost, "of", max, "mana (spell", spellID .. ")")
 end
 
 -- The ready pulse shows only if mana pays for a cast, in every form. Cost unknown: always shows.
@@ -137,12 +186,13 @@ end
 
 local function Update()
     UpdatePulseGate()
-    local show = CAN_COUNT and (inCombat or not COMBAT_ONLY) and cost ~= nil and UnitPowerType("player") == Enum.PowerType.Energy
+    local show = CAN_COUNT and (inCombat or not COMBAT_ONLY) and cost ~= nil
         and not ns.IsCasting() -- Cast.lua's text sits where the orbs are
     holder:SetShown(show and true or false)
     if not show then
         return
     end
+    UpdateArt()
     for n, row in ipairs(rows) do
         row:SetAlpha(UnitPowerPercent("player", MANA, false, curves[n]))
     end
@@ -152,6 +202,12 @@ local function RebuildAndUpdate()
     Rebuild()
     Update()
 end
+
+ns.OnStealthChanged(function(stealthed)
+    holder:SetAlpha(stealthed and STEALTH_ALPHA or 1) -- the rows set their own alpha
+    Update()
+end)
+ns.OnCastChanged(Update)
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -163,7 +219,6 @@ events:RegisterUnitEvent("UNIT_MAXPOWER", "player")
 events:RegisterUnitEvent("UNIT_DISPLAYPOWER", "player")
 ns.TryRegisterEvent(events, "PLAYER_TALENT_UPDATE")
 ns.TryRegisterEvent(events, "TRAIT_CONFIG_UPDATED")
-ns.OnCastChanged(Update)
 events:SetScript("OnEvent", function(_, event, _, powerToken)
     if event == "UNIT_POWER_FREQUENT" then
         if powerToken == "MANA" then
@@ -185,5 +240,5 @@ events:SetScript("OnEvent", function(_, event, _, powerToken)
 end)
 
 ns.OnLoad(function()
-    ns.Debug("SP mana counter: curves available:", CAN_COUNT)
+    ns.Debug("shift orbs: curves available:", CAN_COUNT)
 end)

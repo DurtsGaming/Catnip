@@ -1,5 +1,5 @@
 -- Stealth mode ("Moonlit"): while stealthed (Prowl, or Shadowmeld), the HUD cools down: a periwinkle
--- energy fill and combo points, a paler number and dimmer mana orbs.
+-- energy fill and combo points, a paler number and periwinkle, dimmer shift orbs.
 -- This file only tracks the state; each piece restyles itself from ns.OnStealthChanged.
 --
 -- IsStealthed and UPDATE_STEALTH are retail API, unverified on Forever. UNIT_AURA is a backup in

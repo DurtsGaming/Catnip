@@ -290,18 +290,19 @@ def sp_arc(size):
     return colour
 
 
-def sp_orb(size):
-    """Shifting Power mana counter orb: circle_hard's disc blending diagonally from the mana bar's
-    blue (top left) to the energy bar's yellow (bottom right), slightly darker toward the rim."""
+def sp_orb(size, second=FOREVER_ENERGY):
+    """Shift orb in Cat Form with Shifting Power known (ShiftOrbs.lua): circle_hard's disc blending
+    diagonally from the mana bar's blue (top left) to `second` at SP_YELLOW_FROM along its bar
+    (bottom right): energy's yellow, or stealth mode's periwinkle. Slightly darker toward the rim."""
     disc = circle_hard(size)
     r = size / 2 - 1
     blue = forever_colour(1, FOREVER_MANA)
-    yellow = forever_colour(SP_YELLOW_FROM, FOREVER_ENERGY)
+    other = forever_colour(SP_YELLOW_FROM, second)
     def colour(d, dx, dy):
         t = clamp01(0.5 + (dx + dy) / (2.4 * r))  # dy grows downward: 0 top left, 1 bottom right
         t = t * t * (3 - 2 * t)
         shade = 1 - 0.25 * clamp01(d / r) ** 3
-        return disc(d), tuple((b + (y - b) * t) * shade for b, y in zip(blue, yellow))
+        return disc(d), tuple((b + (o - b) * t) * shade for b, o in zip(blue, other))
     return colour
 
 
@@ -498,7 +499,13 @@ TEXTURES = {
     # Coloured, drawn untinted.
     "sp_arc": (256, sp_arc(256)),                           # Shifting Power: the four segments, blue to white to yellow
     "sp_arc_outline": (256, sp_arc_outline(256)),           # Shifting Power: line around each segment, in its colours
-    "sp_orb": (64, sp_orb(64)),                             # Shifting Power mana counter orb, blue to yellow
+    # Shift orbs (ShiftOrbs.lua), one look per form: like the combo points, the full bar cut to a circle
+    "orb_mana": (64, combo_fill(64, FOREVER_MANA)),         # out of Cat and Bear Form
+    "orb_rage": (64, combo_fill(64, FOREVER_RAGE)),         # Bear Form
+    "orb_energy": (64, combo_fill(64)),                     # Cat Form
+    "orb_prowl": (64, combo_fill(64, PROWL_PERIWINKLE)),    # stealthed, any form
+    "sp_orb": (64, sp_orb(64)),                             # Cat Form with Shifting Power: blue to yellow
+    "sp_orb_prowl": (64, sp_orb(64, PROWL_PERIWINKLE)),     # the same, stealthed: blue to periwinkle
     "ring_faerie": (128, coloured_ring(128, 16, FAERIE_STOPS)),        # Faerie Fire cooldown ring; same band as ring_rip
     "ring_growl": (128, coloured_ring(128, 16, GROWL_STOPS)),          # Growl cooldown ring
     "ring_primal_bite": (128, coloured_ring(128, 16, PRIMAL_BITE_STOPS)),  # Primal Bite cooldown ring
