@@ -24,8 +24,11 @@ Gcd.lua
 Proc.lua
 DotRings.lua
 Enrage.lua
+SegmentedArc.lua
+SegmentedCooldown.lua
 ShiftingPower.lua
 ShiftingPowerMana.lua
+FaerieFire.lua
 CooldownItems.lua
 Cooldowns.lua
 EditMode.lua

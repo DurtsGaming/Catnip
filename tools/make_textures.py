@@ -300,6 +300,23 @@ def sp_orb(size):
     return colour
 
 
+# Faerie Fire (FaerieFire.lua): sampled by eye from the spell's icon, deep violet through magenta
+# to pale pink, clockwise from 12 o'clock.
+FAERIE_STOPS = [(0.32, 0.08, 0.62), (0.62, 0.20, 0.95), (0.92, 0.32, 0.88), (1.0, 0.72, 0.95)]
+
+
+def ring_faerie(size, thickness):
+    """A full ring in Faerie Fire's colours, by angle clockwise from 12 o'clock, with the tube
+    shading across the band. No gaps: SegmentedArc.lua cuts the segments, so their count is a Lua number."""
+    band = ring(size, thickness)
+    r = size / 2 - 1
+    def colour(d, dx, dy):
+        t = (math.atan2(dx, -dy) / (2 * math.pi)) % 1  # dy grows downward
+        shade = soft_tube((d - (r - thickness)) / thickness)
+        return band(d), tuple(ch * shade for ch in sample(FAERIE_STOPS, t))
+    return colour
+
+
 def half_plane(size):
     """The canvas's left half, hard edge through the centre; rotated to sweep across an arc."""
     return lambda d, dx, dy: -dx + 0.5
@@ -343,6 +360,7 @@ TEXTURES = {
     "sp_arc": (256, sp_arc(256)),                           # Shifting Power: the four segments, blue to white to yellow
     "sp_arc_outline": (256, sp_arc_outline(256)),           # Shifting Power: line around each segment, in its colours
     "sp_orb": (64, sp_orb(64)),                             # Shifting Power mana counter orb, blue to yellow
+    "ring_faerie": (128, ring_faerie(128, 16)),              # Faerie Fire cooldown ring; same band as ring_rip
     "fill_energy": (128, power_fill(128, FOREVER_ENERGY)),  # 1, resource fill in Cat Form
     "fill_rage": (128, power_fill(128, FOREVER_RAGE)),      # 1, resource fill in Bear Form
     "fill_mana": (128, power_fill(128, FOREVER_MANA)),      # 1, resource fill otherwise
