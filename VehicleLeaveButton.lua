@@ -2,9 +2,11 @@
 -- never shows. Blizzard's button only re-checks itself on vehicle and bonus-bar events, and none
 -- fire for a taxi on Forever (seen 2026-10-03: UnitOnTaxi and CanExitVehicle true, button hidden;
 -- calling its Update() by hand showed it). So while on a taxi, we call Update() for it.
+-- Only for routes with a connection to get off at: on a direct flight the button stays hidden.
 local addonName, ns = ...
 
 local ticker
+local multiHop = false -- the flight we're taking (or about to) stops at a connection
 
 local function Refresh()
     local button = _G.MainMenuBarVehicleLeaveButton
@@ -17,6 +19,9 @@ end
 -- Refreshes now, then once a second until the flight ends (UnitOnTaxi can lag the triggering
 -- event, and nothing tells the button when we land either).
 local function Watch()
+    if not multiHop then
+        return
+    end
     Refresh()
     if ticker then
         return
@@ -32,13 +37,18 @@ local function Watch()
         if (seenTaxi and not onTaxi) or (not seenTaxi and checks >= 5) then
             ticker:Cancel()
             ticker = nil
+            multiHop = false
         end
     end)
 end
 
+-- A destination was picked on the flight map; GetNumRoutes counts the hops to it.
+hooksecurefunc("TakeTaxiNode", function(slot)
+    multiHop = (GetNumRoutes(slot) or 0) > 1
+    Watch()
+end)
+
 local events = CreateFrame("Frame")
-events:RegisterEvent("TAXIMAP_CLOSED") -- a destination was picked (or the map just closed)
-events:RegisterEvent("PLAYER_ENTERING_WORLD") -- e.g. a /reload mid-flight
-ns.TryRegisterEvent(events, "PLAYER_CONTROL_LOST") -- unverified on Forever
+ns.TryRegisterEvent(events, "PLAYER_CONTROL_LOST") -- the flight started (EllesmereUI uses these on Forever)
 ns.TryRegisterEvent(events, "PLAYER_CONTROL_GAINED")
 events:SetScript("OnEvent", Watch)
