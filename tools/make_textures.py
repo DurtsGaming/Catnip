@@ -442,6 +442,16 @@ def cloud_ring(size, radius, width, freq, seed, contrast, offset, wisp, blur):
     return lambda d, dx, dy: grid[round(dy + c)][round(dx + c)]
 
 
+def smoke_gap(size, shape, clear=53.5, fade=2.5):
+    """`shape` with a tiny clear gap kept outside the resource circle's border (its edge is ~53 units
+    out): nothing inside `clear` HUD units, easing in over `fade`, like the swing glow's gap."""
+    scale = size / SMOKE_UNITS
+    def gapped(d, dx, dy):
+        t = clamp01((d / scale - clear) / fade)
+        return shape(d, dx, dy) * t * t * (3 - 2 * t)
+    return gapped
+
+
 def half_plane(size):
     """The canvas's left half, hard edge through the centre; rotated to sweep across an arc."""
     return lambda d, dx, dy: -dx + 0.5
@@ -497,9 +507,9 @@ TEXTURES = {
     "fill_energy_prowl": (128, power_fill(128, PROWL_PERIWINKLE)),  # 1, resource fill in Cat Form while stealthed
     "combo_fill_prowl": (128, combo_fill(128, PROWL_PERIWINKLE)),   # 1, combo points while stealthed
     # Stealth mode's shadow smoke: white, tinted and rotated in-game (StealthSmoke.lua)
-    "smoke_base": (256, smoke_ring(256, 61, 13, 4.2)),
-    "smoke_a": (256, cloud_ring(256, 61, 13, 0.035, 5, 3.2, -1.0, 3.2, 2.1)),
-    "smoke_b": (256, cloud_ring(256, 59, 8, 0.05, 11, 3.4, -1.2, 2.2, 1.7)),
+    "smoke_base": (256, smoke_gap(256, smoke_ring(256, 61, 13, 4.2))),
+    "smoke_a": (256, smoke_gap(256, cloud_ring(256, 61, 13, 0.035, 5, 3.2, -1.0, 3.2, 2.1))),
+    "smoke_b": (256, smoke_gap(256, cloud_ring(256, 59, 8, 0.05, 11, 3.4, -1.2, 2.2, 1.7))),
 }
 
 def write_tga_pixels(path, width, height, pixel):
