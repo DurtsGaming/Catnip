@@ -38,7 +38,7 @@ if ns.HAS_AURA_CONTAINER then
             x = x,
             y = y,
             level = 5,
-            parent = ns.comboGroup, -- hides with the combo dots outside Cat Form
+            parent = ns.comboGroup, -- hides with the combo dots outside Cat and Bear Form
             initialize = StyleButton,
         })
     end

@@ -1,4 +1,5 @@
--- Five combo point dots along the arc above the resource circle. Only shown in Cat Form.
+-- Five combo point dots along the arc above the resource circle. Shown in Cat and Bear Form, so
+-- points and DoTs left over from Cat stay visible while tanking.
 local addonName, ns = ...
 
 local COUNT = 5
@@ -10,7 +11,7 @@ local ANGLES = { 150, 120, 90, 60, 30 } -- degrees, left to right; 90 is straigh
 local group = CreateFrame("Frame", nil, ns.hud)
 group:SetAllPoints()
 
--- Shared with DotRings.lua, whose rings sit around dots 4 and 5 and hides with the dots outside Cat Form.
+-- Shared with DotRings.lua, whose rings sit around dots 4 and 5 and hides with the dots outside Cat and Bear Form.
 ns.comboGroup = group
 ns.COMBO_DOT_SIZE = DOT_SIZE
 function ns.ComboDotOffset(i)
@@ -56,7 +57,8 @@ local function ReadPoints()
 end
 
 local function Update()
-    group:SetShown(UnitPowerType("player") == Enum.PowerType.Energy)
+    local powerType = UnitPowerType("player")
+    group:SetShown(powerType == Enum.PowerType.Energy or powerType == Enum.PowerType.Rage)
 
     local points = ReadPoints()
     for _, bar in ipairs(bars) do
