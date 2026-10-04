@@ -21,7 +21,7 @@ New `.lua` files must be added to `Catnip.toc` or they won't load. In this clien
 Forever does **not** use the Classic API. It uses the modern retail (Midnight, 12.x) API, including Midnight's **combat restrictions on addons** — much of what WeakAuras did in combat is limited or blocked. Claude's training knowledge of the WoW API largely predates this, and the beta changes frequently.
 
 - `docs/api-research.md` has what's been verified and what failed; check it before trying an approach.
-- Before general web searching, check the reference addons listed in `docs/architecture.md`: first [EllesmereUI](https://github.com/EllesmereGaming/EllesmereUI) (large Midnight UI suite, actively being adapted for Forever; its PRs document Forever fixes), then Blood in the Water (a Forever Feral addon, installed locally).
+- Before general web searching, check the reference addons listed in `docs/architecture.md`: first [EllesmereUI](https://github.com/EllesmereGaming/EllesmereUI) (large Midnight UI suite, actively being adapted for Forever; its PRs document Forever fixes), then Cooldown Manager Centered (popular Blizzard Cooldown Manager skin with a Forever build), then Forever Cooldown Manager (Forever-only Cooldown Manager replacement), then Blood in the Water (a Forever Feral addon, installed locally).
 - Don't assume a function, event, or field exists or behaves as remembered. When unsure, say so and verify: have the user run `/dump <expr>` or `/api` in-game, or check Blizzard's shipped UI source.
 - Prefer approaches that are robust to combat restrictions; flag early if a feature may be impossible under them.
 - Blizzard's addon rules for Forever: free, with visible (non-obfuscated) code.

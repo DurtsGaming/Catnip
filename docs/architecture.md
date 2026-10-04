@@ -113,8 +113,10 @@ The user tests in-game; Claude can't run the game. Each change ends with exact s
 Check these before general web searching, in this order:
 
 1. **[EllesmereUI](https://github.com/EllesmereGaming/EllesmereUI)**: a large Midnight UI suite with many active contributors, now being adapted for Forever. The best source for current API usage. Search its code and pull requests: Forever-specific fixes land as PRs, e.g. the swing timer via `PLAYER_SWING` (PR #2150) and the Forever GCD fix (PR #2240).
-2. **Blood in the Water** (another Forever Feral addon), installed locally at `C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\BloodInTheWater\`. Its comments document many Forever quirks; it's where the AuraContainer technique came from.
-3. **[EnhancedCooldownManager](https://github.com/argium/EnhancedCooldownManager)**: the Cooldown Manager reading technique.
+2. **[Cooldown Manager Centered](https://www.curseforge.com/wow/addons/cooldown-manager-centered)** (CMC, by WilduTools): the most popular skin and extension for Blizzard's Cooldown Manager (6.8M downloads), with Retail and Forever (1.60.x) builds. The reference for styling and extending the built-in Cooldown Manager. There's no official repo; [andi-74/cooldownmanagercentered-mirror](https://github.com/andi-74/cooldownmanagercentered-mirror) is a third-party GitHub mirror of its releases, or download the Forever file from CurseForge.
+3. **[Forever Cooldown Manager](https://www.curseforge.com/wow/addons/forever-cooldown-manager)** (by Thunderz96): a Forever-only replacement for the Cooldown Manager that builds cooldown and buff icon rows from the spellbook and the player's auras, with no libraries. Its description says Blizzard's Cooldown Manager "has no spells to show for most classes" on Forever yet, and that it stays within combat restrictions by giving hidden timing values directly to Blizzard's cooldown widget without reading them (unverified by us).
+4. **Blood in the Water** (another Forever Feral addon), installed locally at `C:\Program Files (x86)\World of Warcraft\_classic_beta_\Interface\AddOns\BloodInTheWater\`. Its comments document many Forever quirks; it's where the AuraContainer technique came from.
+5. **[EnhancedCooldownManager](https://github.com/argium/EnhancedCooldownManager)**: the Cooldown Manager reading technique.
 
 ## Releasing
 
