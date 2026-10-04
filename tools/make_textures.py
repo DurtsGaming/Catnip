@@ -305,15 +305,32 @@ def sp_orb(size):
 FAERIE_STOPS = [(0.32, 0.08, 0.62), (0.62, 0.20, 0.95), (0.92, 0.32, 0.88), (1.0, 0.72, 0.95)]
 
 
-def ring_faerie(size, thickness):
-    """A full ring in Faerie Fire's colours, by angle clockwise from 12 o'clock, with the tube
-    shading across the band. No gaps: SegmentedArc.lua cuts the segments, so their count is a Lua number."""
+# DoT rings (DotRings.lua): Rake and Rip share one red, sampled by eye from their icons, dark
+# crimson through red to a hot orange-red, clockwise from 12 o'clock.
+DOT_STOPS = [(0.42, 0.02, 0.02), (0.78, 0.07, 0.04), (0.98, 0.22, 0.08), (1.0, 0.50, 0.22)]
+# The combo point rings are drawn 46 units across (ComboPoints.lua COMBO_DOT_SIZE + 8); gaps are
+# cut 2 units wide on the band's centre line, like FaerieFire.lua's GAP.
+COMBO_RING_UNITS = 46
+COMBO_RING_GAP = 2
+
+
+def coloured_ring(size, thickness, stops, segments=0):
+    """A full ring coloured by angle clockwise from 12 o'clock (`stops`), with the tube shading
+    across the band. With `segments`, gaps are cut at each boundary (one at 12 o'clock) for a
+    Cooldown swipe to drain; without, SegmentedArc.lua cuts them."""
     band = ring(size, thickness)
     r = size / 2 - 1
+    half_gap = COMBO_RING_GAP * size / COMBO_RING_UNITS / 2  # px, measured along the circle
     def colour(d, dx, dy):
-        t = (math.atan2(dx, -dy) / (2 * math.pi)) % 1  # dy grows downward
+        angle = math.atan2(dx, -dy) % (2 * math.pi)  # dy grows downward
+        a = band(d)
+        if segments:
+            seg = 2 * math.pi / segments
+            off = angle % seg
+            along = min(off, seg - off) * max(d, 1)  # px from the nearest boundary
+            a = min(a, along - half_gap + 0.5)
         shade = soft_tube((d - (r - thickness)) / thickness)
-        return band(d), tuple(ch * shade for ch in sample(FAERIE_STOPS, t))
+        return a, tuple(ch * shade for ch in sample(stops, angle / (2 * math.pi)))
     return colour
 
 
@@ -360,7 +377,9 @@ TEXTURES = {
     "sp_arc": (256, sp_arc(256)),                           # Shifting Power: the four segments, blue to white to yellow
     "sp_arc_outline": (256, sp_arc_outline(256)),           # Shifting Power: line around each segment, in its colours
     "sp_orb": (64, sp_orb(64)),                             # Shifting Power mana counter orb, blue to yellow
-    "ring_faerie": (128, ring_faerie(128, 16)),              # Faerie Fire cooldown ring; same band as ring_rip
+    "ring_faerie": (128, coloured_ring(128, 16, FAERIE_STOPS)),        # Faerie Fire cooldown ring; same band as ring_rip
+    "ring_rake": (128, coloured_ring(128, 16, DOT_STOPS, 3)),          # Rake DoT ring: 3 segments (9s, 3s ticks)
+    "ring_rip_segments": (128, coloured_ring(128, 16, DOT_STOPS, 6)),  # Rip DoT ring: 6 segments (12s, 2s ticks)
     "fill_energy": (128, power_fill(128, FOREVER_ENERGY)),  # 1, resource fill in Cat Form
     "fill_rage": (128, power_fill(128, FOREVER_RAGE)),      # 1, resource fill in Bear Form
     "fill_mana": (128, power_fill(128, FOREVER_MANA)),      # 1, resource fill otherwise

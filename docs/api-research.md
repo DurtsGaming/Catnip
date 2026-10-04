@@ -111,6 +111,7 @@ The Cooldown Manager viewers (`BuffIconCooldownViewer`, `BuffBarCooldownViewer`,
 - Updating frames attached to AuraContainer buttons (forbidden).
 - `C_UnitAuras.GetPlayerAuraBySpellID` in combat (returns nil, not a secret or an error, even while the buff is up: it looks exactly like "not up"; seen again 2026-10-03 with Mark of the Wild and Thorns).
 - Sorting the cooldown box active-first from Lua: no Druid aura is readable in combat (`ShouldSpellAuraBeSecret` is true for all, 2026-10-03). The remaining route is AuraContainer groups, which Blizzard lays out itself (see the AuraContainer section).
+- Per-tick pulses on the DoT rings (2026-10-04): the ticks can't be seen in combat. Aura timing is secret, `C_UnitAuras.GetAuraDuration` hard-errors under 12.1 aura restrictions (EllesmereUIQoL `_Bloodlust.lua`, unverified by us), so `DurationObject:EvaluateRemainingDuration(curve)` (which EllesmereUI uses for spell cooldowns) can't be reached, and the combat log is gone. A looping animation started at setup isn't tied to the DoT's phase. Left without pulses; the only option left is a cast-timed clock driving decoration only.
 
 ## Sources
 
