@@ -2,6 +2,8 @@
 -- Shifting Power arc, one for each cast your mana pays for: floor(mana / cost). Hidden if Shifting
 -- Power isn't known; COMBAT_ONLY (off for now) also hides it out of combat. Hidden while casting
 -- or channelling (ns.IsCasting), since Cast.lua's text (time and spell name) sits in the same spot.
+-- It also gates ShiftingPower.lua's ready pulse (ns.shiftingPowerPulseGate) on a one-cast curve,
+-- in every form, so the pulse only shows if your mana pays for a cast.
 --
 -- Mana is secret in combat, so we can't divide it. Instead there's a pre-built, centred row for
 -- each count (one orb, two orbs, ...), and each row's alpha comes from UnitPowerPercent with a step
@@ -55,6 +57,7 @@ end
 
 local cost, maxMana -- mana per cast and max mana, as last read out of combat; cost nil = unknown
 local curves = {} -- curves[n]: 1 while mana is between n and n+1 casts' worth, as a fraction of max
+local affordCurve -- 1 from one cast's worth of mana up: gates ShiftingPower.lua's ready pulse
 local inCombat = false -- from PLAYER_REGEN_DISABLED / _ENABLED
 
 local function PlainNumber(value)
@@ -109,10 +112,28 @@ local function Rebuild()
         end
         curves[n] = curve
     end
+    affordCurve = C_CurveUtil.CreateCurve()
+    affordCurve:SetType(Enum.LuaCurveType.Step)
+    affordCurve:AddPoint(0, 0)
+    affordCurve:AddPoint(fraction, 1)
     ns.Debug("SP mana counter: cost", cost, "of", max, "mana")
 end
 
+-- The ready pulse shows only if mana pays for a cast, in every form. Cost unknown: always shows.
+local function UpdatePulseGate()
+    local gate = ns.shiftingPowerPulseGate
+    if not gate then
+        return
+    end
+    if CAN_COUNT and cost ~= nil and affordCurve then
+        gate:SetAlpha(UnitPowerPercent("player", MANA, false, affordCurve))
+    else
+        gate:SetAlpha(1)
+    end
+end
+
 local function Update()
+    UpdatePulseGate()
     local show = CAN_COUNT and (inCombat or not COMBAT_ONLY) and cost ~= nil and UnitPowerType("player") == Enum.PowerType.Energy
         and not ns.IsCasting() -- Cast.lua's text sits where the orbs are
     holder:SetShown(show and true or false)

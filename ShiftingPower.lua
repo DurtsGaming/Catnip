@@ -2,7 +2,8 @@
 -- the cooldown, each segment a quarter (4s, 3s or 2s), coloured blue, blue to white, white to
 -- yellow, yellow. Each segment has an outline in its own colours; unfilled parts are clear inside it.
 -- Each segment pulses briefly as it fills (at 4s, 8s, 12s of a 16s cooldown). At zero the arc
--- flashes and fades out, and a blue light pulses once inside the resource circle.
+-- flashes and fades out, and a blue light pulses once inside the resource circle, if your mana
+-- pays for a cast.
 --
 -- The arc is a SegmentedArc.lua arc timed by SegmentedCooldown.lua (our own clock from the cast,
 -- length learned out of combat in CatnipDB.spLength: 16s, or 12s/8s with talents). Its segments
@@ -35,9 +36,17 @@ local arc = ns.CreateSegmentedArc({
 
 -- Ready pulse ---------------------------------------------------------------------------------------
 
-local pulse = CreateFrame("Frame", nil, hud)
+-- The pulse's animation drives its own alpha, so "only if mana pays for a cast" goes on a parent:
+-- ShiftingPowerMana.lua sets the gate's alpha to 0 or 1 from a mana curve. Without the mana the
+-- pulse still plays, unseen; it doesn't flash later when the mana arrives.
+local gate = CreateFrame("Frame", nil, hud)
+gate:SetAllPoints()
+gate:SetFrameLevel(hud:GetFrameLevel() + 3)
+ns.shiftingPowerPulseGate = gate
+
+local pulse = CreateFrame("Frame", nil, gate)
 pulse:SetSize(ns.RESOURCE_SIZE, ns.RESOURCE_SIZE)
-pulse:SetPoint("CENTER")
+pulse:SetPoint("CENTER", hud)
 pulse:SetFrameLevel(hud:GetFrameLevel() + 3) -- over the resource fill, under its number
 pulse:Hide()
 
