@@ -7,6 +7,8 @@ local DOT_SIZE = 38
 local RING_THICKNESS = DOT_SIZE * 3 / 64 -- ring_small is 3px thick in a 64px texture
 local ARC_RADIUS = 93 -- distance of the dot centres from the HUD centre
 local ANGLES = { 150, 120, 90, 60, 30 } -- degrees, left to right; 90 is straight up
+local FILL = ns.MEDIA .. "combo_fill"
+local STEALTH_FILL = ns.MEDIA .. "combo_fill_prowl" -- periwinkle, in stealth mode (Stealth.lua)
 
 local group = CreateFrame("Frame", nil, ns.hud)
 group:SetAllPoints()
@@ -33,7 +35,7 @@ for i = 1, COUNT do
     local fillSize = DOT_SIZE - 2 * RING_THICKNESS
     bar:SetSize(fillSize, fillSize)
     bar:SetPoint("CENTER", group, "CENTER", x, y)
-    bar:SetStatusBarTexture(ns.MEDIA .. "combo_fill")
+    bar:SetStatusBarTexture(FILL)
     bar:SetMinMaxValues(i - 1, i)
     bar:SetValue(0)
 
@@ -46,6 +48,13 @@ for i = 1, COUNT do
 
     bars[i] = bar
 end
+
+-- Stealth mode: periwinkle fill (the black outlines stay).
+ns.OnStealthChanged(function(stealthed)
+    for _, bar in ipairs(bars) do
+        bar:SetStatusBarTexture(stealthed and STEALTH_FILL or FILL)
+    end
+end)
 
 -- Forever keeps classic per-target combo points: UnitPower doesn't reset on a target switch or
 -- when the target dies (Blood in the Water, EllesmereUI). GetComboPoints reads the current target.

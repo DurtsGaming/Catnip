@@ -78,6 +78,10 @@ Patch 12.1.0 widget; the main tool for buffs and debuffs. Learned from the Blood
 
 From EllesmereUI (`EllesmereUI_SharedHelpers.lua`, `SetPlayerCastBarSuppressed`): re-parent `PlayerCastingBarFrame` to a hidden frame instead of unregistering its events. Edit Mode re-parents the bar during layout changes, so hook `SetParent` and park it again on the next frame, but never in combat or while `EditModeManagerFrame` is shown (SetParent there runs Blizzard's layout code under addon taint). EllesmereUI warns against re-arming the bar via `SetUnit`: it iterates a table that errors when tainted. `Cast.lua` does this.
 
+### Stealth detection (unverified)
+
+`Stealth.lua` uses retail's `IsStealthed()` and `UPDATE_STEALTH`, with player `UNIT_AURA` as a backup. None of the reference addons use them, so check on Forever: `/dump IsStealthed()` in and out of Prowl, and whether the HUD changes the moment Prowl goes on and off (`/catnip debug` prints "stealth mode: true/false" and, on load, whether the event registered).
+
 ### StatusBar textures: crop or stretch? (unverified)
 
 When a StatusBar is part-full, does it show the matching part of its texture (crop) or squeeze the whole texture into the filled part (stretch)? It matters for the gradient fills (`Resource.lua`): crop keeps the gradient fixed to the circle (low energy is all dark gold), stretch keeps the pale end on top of the fill. Both look acceptable, but shading that varies in two directions (a sphere, a rim) only works with crop. Check by eye at low energy. Stock bars in Forever are pre-coloured atlases (`UI-HUD-UnitFrame-Player-PortraitOn-Bar-<Power>`); EllesmereUI's resource bars put one on a StatusBar with `bar:GetStatusBarTexture():SetAtlas(atlas, true)`.

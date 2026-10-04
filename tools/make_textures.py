@@ -168,6 +168,10 @@ FOREVER_MANA = [(0, 61, 139), (1, 66, 149), (2, 73, 164), (4, 83, 182), (6, 93, 
                 (9, 110, 234), (10, 114, 242), (10, 114, 242), (10, 114, 242), (10, 114, 242), (10, 114, 242)]
 FOREVER_RAGE = [(160, 0, 0), (169, 0, 0), (179, 0, 0), (190, 1, 1), (203, 7, 4), (215, 17, 10),
                 (227, 29, 18), (238, 47, 28), (247, 65, 41), (254, 85, 53), (255, 98, 62), (255, 110, 69)]
+# Stealth mode (Stealth.lua): energy cooled to periwinkle, picked from a mockup (2026-10-04). Not
+# measured: deep indigo-violet through periwinkle, paling toward lavender-white at the full end like energy.
+PROWL_PERIWINKLE = [(59, 53, 146), (70, 63, 160), (80, 74, 173), (91, 84, 187), (101, 94, 201), (112, 105, 215),
+                    (129, 122, 225), (146, 139, 236), (163, 156, 246), (180, 174, 255), (197, 191, 255), (213, 209, 255)]
 
 
 def sample(values, t):
@@ -205,9 +209,9 @@ def power_fill(size, stops):
     return colour
 
 
-def combo_fill(size):
+def combo_fill(size, stops=FOREVER_ENERGY):
     """A combo point: the full energy fill cut to circle_hard's shape (the dots are always full)."""
-    fill, circle = power_fill(size, FOREVER_ENERGY), circle_hard(size)
+    fill, circle = power_fill(size, stops), circle_hard(size)
     return lambda d, dx, dy: (circle(d), fill(d, dx, dy)[1])
 
 
@@ -390,6 +394,8 @@ TEXTURES = {
     "fill_rage": (128, power_fill(128, FOREVER_RAGE)),      # 1, resource fill in Bear Form
     "fill_mana": (128, power_fill(128, FOREVER_MANA)),      # 1, resource fill otherwise
     "combo_fill": (128, combo_fill(128)),                   # 1, combo points
+    "fill_energy_prowl": (128, power_fill(128, PROWL_PERIWINKLE)),  # 1, resource fill in Cat Form while stealthed
+    "combo_fill_prowl": (128, combo_fill(128, PROWL_PERIWINKLE)),   # 1, combo points while stealthed
 }
 
 def write_tga_pixels(path, width, height, pixel):
