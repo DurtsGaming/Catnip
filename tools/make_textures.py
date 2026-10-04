@@ -342,6 +342,45 @@ def coloured_ring(size, thickness, stops, segments=0):
     return colour
 
 
+# Stealth mode's shadow smoke (StealthSmoke.lua): soft rings where the swing timer's glow sits, some
+# broken into blurred dashes, tinted and rotated in-game. Measured in HUD units on a canvas
+# SMOKE_UNITS across, centred on the HUD's centre; keep it in step with SMOKE_SIZE in StealthSmoke.lua.
+SMOKE_UNITS = 160
+
+
+def smoke_ring(size, radius, width, blur, dashes=None):
+    """A band `width` wide centred on `radius`, blurred by `blur` (a Gaussian's sigma), all in HUD units.
+    `dashes` (on, off, on, off... lengths along the ring, like SVG's stroke-dasharray) breaks it up;
+    the pattern is stretched a little so a whole number of repeats fits the ring, leaving no seam."""
+    scale = size / SMOKE_UNITS  # px per unit
+    k = math.sqrt(2) * blur
+    inner, outer = radius - width / 2, radius + width / 2
+    spans, circumference = [], 2 * math.pi * radius
+    if dashes:
+        period = sum(dashes)
+        repeats = max(1, round(circumference / period))
+        stretch = circumference / (repeats * period)
+        start = 0.0
+        for _ in range(repeats):
+            for i, length in enumerate(dashes):
+                if i % 2 == 0:
+                    spans.append((start, start + length * stretch))
+                start += length * stretch
+
+    def alpha(d, dx, dy):
+        u = d / scale
+        a = 0.5 * (math.erf((u - inner) / k) - math.erf((u - outer) / k))
+        if not dashes or a < 0.002:
+            return a
+        s = (math.atan2(dy, dx) % (2 * math.pi)) * radius  # arc length, clockwise from 3 o'clock
+        along = 0.0
+        for lo, hi in spans:
+            for shift in (-circumference, 0.0, circumference):
+                along += 0.5 * (math.erf((s + shift - lo) / k) - math.erf((s + shift - hi) / k))
+        return a * min(1.0, along)
+    return alpha
+
+
 def half_plane(size):
     """The canvas's left half, hard edge through the centre; rotated to sweep across an arc."""
     return lambda d, dx, dy: -dx + 0.5
@@ -396,6 +435,10 @@ TEXTURES = {
     "combo_fill": (128, combo_fill(128)),                   # 1, combo points
     "fill_energy_prowl": (128, power_fill(128, PROWL_PERIWINKLE)),  # 1, resource fill in Cat Form while stealthed
     "combo_fill_prowl": (128, combo_fill(128, PROWL_PERIWINKLE)),   # 1, combo points while stealthed
+    # Stealth mode's shadow smoke: white, tinted and rotated in-game (StealthSmoke.lua)
+    "smoke_base": (256, smoke_ring(256, 61, 11, 4)),
+    "smoke_a": (256, smoke_ring(256, 61, 9, 3, [22, 8, 9, 15, 30, 10, 14, 12])),
+    "smoke_b": (256, smoke_ring(256, 59, 4, 2.5, [8, 20, 16, 26, 5, 30])),
 }
 
 def write_tga_pixels(path, width, height, pixel):

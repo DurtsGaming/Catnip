@@ -17,6 +17,7 @@ AuraContainer.lua
 Resource.lua
 ComboPoints.lua
 Swing.lua
+StealthSmoke.lua
 Cast.lua
 ManaPrediction.lua
 ActionBar.lua

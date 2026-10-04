@@ -16,6 +16,7 @@ glow:SetTexture(ns.MEDIA .. "ring_glow")
 glow:SetSize(SIZE * GLOW_SCALE, SIZE * GLOW_SCALE)
 glow:SetPoint("CENTER")
 glow:SetVertexColor(0, 0, 0, 0.75)
+ns.swingGlow = glow -- StealthSmoke.lua fades it out while stealthed
 
 -- #7 bar ring, drawn by a Cooldown frame's swipe, which starts full and empties clockwise from
 -- 12 o'clock. SetCooldown rejects secrets from addon code, but PLAYER_SWING's duration is a plain
