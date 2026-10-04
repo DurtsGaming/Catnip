@@ -4,7 +4,10 @@
 -- steadily, over a glowing band (Blizzard's "gain" glow: the bar's own texture with
 -- UI-StatusBar-Glow added on top, linear over 0.5s); if it lands, the band goes when the mana is
 -- spent.
--- Only while the power shown is mana (caster forms): Cat and Bear abilities are instant.
+-- Only shown while the power shown is mana (caster forms): Cat and Bear abilities are instant.
+-- A heal pressed in Cat Form drops the form and starts the cast; the cast's START and the switch
+-- to showing mana come in either order, so the prediction starts regardless of what's shown and
+-- the bands appear once Resource.lua shows mana (ns.onResourceUpdate).
 --
 -- Mana is secret in combat, so the fill isn't lowered by subtracting: Resource.lua raises the
 -- bar's range by the cost (ns.SetResourceOffset). That needs max mana as a plain number, read
@@ -129,6 +132,13 @@ local function ShowingMana()
     return not ns.IsSecret(powerType) and powerType == MANA
 end
 
+-- The band for the current state, shown only while the circle shows mana
+local function ShowBand(band)
+    local mana = ShowingMana()
+    spendBand:SetShown(mana and band == spendBand)
+    refundBand:SetShown(mana and band == refundBand)
+end
+
 local function UpdateBands()
     level:SetMinMaxValues(0, UnitPowerMax("player", MANA))
     level:SetValue(UnitPower("player", MANA), SMOOTH)
@@ -141,8 +151,7 @@ local function Clear(snap)
     state = "idle"
     castSpellID, cost = nil, nil
     driver:SetScript("OnUpdate", nil)
-    spendBand:Hide()
-    refundBand:Hide()
+    ShowBand(nil)
     ns.SetResourceOffset(0, maxMana, snap)
 end
 
@@ -160,8 +169,7 @@ end
 local function Refund()
     token = token + 1
     state = "refunding"
-    spendBand:Hide()
-    refundBand:Show()
+    ShowBand(refundBand)
     UpdateBands()
     refundStart = GetTime()
     driver:SetScript("OnUpdate", RefundUpdate)
@@ -182,9 +190,6 @@ end
 
 local function OnStart(spellID)
     Clear()
-    if not ShowingMana() then
-        return
-    end
     ReadMaxMana()
     local spellCost = ManaCost(spellID)
     -- Clearcasting makes the next spell free (true only when we know it's up)
@@ -193,7 +198,7 @@ local function OnStart(spellID)
         return
     end
     state, castSpellID, cost = "casting", spellID, spellCost
-    spendBand:Show()
+    ShowBand(spendBand)
     UpdateBands()
     ns.SetResourceOffset(cost, maxMana)
 end
@@ -209,8 +214,7 @@ local function OnSucceeded(spellID)
     end
     if lateSuccess then -- back to the lowered fill and dark band
         driver:SetScript("OnUpdate", nil)
-        refundBand:Hide()
-        spendBand:Show()
+        ShowBand(spendBand)
         UpdateBands()
         ns.SetResourceOffset(cost, maxMana)
     end
@@ -267,7 +271,7 @@ events:SetScript("OnEvent", function(_, event, ...)
         local _, _, spellID = ... -- unit, castGUID, spellID
         OnStart(spellID)
         ns.Debug("mana prediction: start", ns.Describe(spellID), "cost", ns.Describe(cost),
-            "max", ns.Describe(maxMana))
+            "max", ns.Describe(maxMana), "showing mana", ShowingMana())
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
         if state ~= "idle" then
             ns.Debug("mana prediction:", event, "while", state) -- to learn the event order
@@ -288,9 +292,24 @@ events:SetScript("OnEvent", function(_, event, ...)
     elseif event == "UNIT_MAXPOWER" then
         ReadMaxMana()
         OnPower()
-    elseif state ~= "idle" then -- shapeshift or loading screen
+    elseif event == "PLAYER_ENTERING_WORLD" and state ~= "idle" then
         Clear()
     else
         ReadMaxMana()
     end
 end)
+
+-- After Resource.lua redraws (e.g. it switched to showing mana as a cast took us out of Cat
+-- Form): its fill texture may be a new object, and the bands' visibility may change.
+function ns.onResourceUpdate()
+    if state == "idle" then
+        return
+    end
+    AnchorBands()
+    if state == "refunding" then
+        ShowBand(refundBand)
+    else
+        ShowBand(spendBand)
+    end
+    UpdateBands()
+end

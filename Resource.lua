@@ -123,6 +123,9 @@ local function Update()
     SetRange(powerType)
     bar:SetValue(power, SMOOTH)
     text:SetText(knownType and PowerText(powerType, power) or power)
+    if ns.onResourceUpdate then -- ManaPrediction.lua
+        ns.onResourceUpdate()
+    end
 end
 
 ns.OnLoad(function()
