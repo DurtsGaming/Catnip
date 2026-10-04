@@ -213,6 +213,44 @@ local function Update()
     SetCasting(shown)
 end
 
+-- Other modules' callbacks for when a cast starts or ends (ns.OnCastChanged).
+local listeners = {}
+
+-- Whether our cast ring and text are showing.
+function ns.IsCasting()
+    return isCasting
+end
+
+function ns.OnCastChanged(callback)
+    listeners[#listeners + 1] = callback
+end
+
+local function Refresh(reason)
+    local wasCasting = isCasting
+    Update()
+    if isCasting ~= wasCasting then -- skip the many events that change nothing (e.g. failed casts)
+        ns.Debug("cast bar", isCasting and "shown" or "hidden", "on", reason)
+        for _, callback in ipairs(listeners) do
+            callback(isCasting)
+        end
+    end
+end
+
+-- The cast can still be reported as running when its stop event fires (seen 2026-10-03: the text
+-- froze at "3.0 / 3.0s Skinning"), and no later event tells us, so look again shortly after.
+local STOP_EVENTS = {
+    UNIT_SPELLCAST_STOP = true, UNIT_SPELLCAST_FAILED = true,
+    UNIT_SPELLCAST_INTERRUPTED = true, UNIT_SPELLCAST_CHANNEL_STOP = true,
+}
+local function RecheckSoon()
+    C_Timer.After(0.2, function()
+        Refresh("re-check after stop")
+    end)
+    C_Timer.After(1, function()
+        Refresh("late re-check after stop")
+    end)
+end
+
 local events = CreateFrame("Frame")
 for _, event in ipairs({
     "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_STOP", "UNIT_SPELLCAST_FAILED",
@@ -223,10 +261,9 @@ for _, event in ipairs({
 end
 events:RegisterEvent("PLAYER_ENTERING_WORLD")
 events:SetScript("OnEvent", function(_, event)
-    local wasCasting = isCasting
-    Update()
-    if isCasting ~= wasCasting then -- skip the many events that change nothing (e.g. failed casts)
-        ns.Debug("cast bar", isCasting and "shown" or "hidden", "on", event)
+    Refresh(event)
+    if STOP_EVENTS[event] and isCasting then
+        RecheckSoon()
     end
 end)
 
