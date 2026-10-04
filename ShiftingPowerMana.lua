@@ -1,6 +1,7 @@
 -- Shifting Power mana counter: in Cat Form, a centred row of small blue-to-yellow orbs under the
 -- Shifting Power arc, one for each cast your mana pays for: floor(mana / cost). Hidden if Shifting
--- Power isn't known; COMBAT_ONLY (off for now) also hides it out of combat.
+-- Power isn't known; COMBAT_ONLY (off for now) also hides it out of combat. Hidden while casting
+-- or channelling, since Cast.lua's text (time and spell name) sits in the same spot.
 --
 -- Mana is secret in combat, so we can't divide it. Instead there's a pre-built, centred row for
 -- each count (one orb, two orbs, ...), and each row's alpha comes from UnitPowerPercent with a step
@@ -111,9 +112,19 @@ local function Rebuild()
     ns.Debug("SP mana counter: cost", cost, "of", max, "mana")
 end
 
+-- True while casting or channelling (spells and item uses alike): Cast.lua's text then sits where
+-- the orbs are. Guarded like Cast.lua's check, in case the info is ever secret.
+local function Casting()
+    local ok, casting = pcall(function()
+        return UnitCastingInfo("player") ~= nil or UnitChannelInfo("player") ~= nil
+    end)
+    return ok and casting
+end
+
 local function Update()
     local show = CAN_COUNT and (inCombat or not COMBAT_ONLY) and cost ~= nil and UnitPowerType("player") == Enum.PowerType.Energy
-    holder:SetShown(show)
+        and not Casting()
+    holder:SetShown(show and true or false)
     if not show then
         return
     end
@@ -137,12 +148,19 @@ events:RegisterUnitEvent("UNIT_MAXPOWER", "player")
 events:RegisterUnitEvent("UNIT_DISPLAYPOWER", "player")
 ns.TryRegisterEvent(events, "PLAYER_TALENT_UPDATE")
 ns.TryRegisterEvent(events, "TRAIT_CONFIG_UPDATED")
+local CAST_EVENTS = {
+    UNIT_SPELLCAST_START = true, UNIT_SPELLCAST_STOP = true, UNIT_SPELLCAST_FAILED = true,
+    UNIT_SPELLCAST_INTERRUPTED = true, UNIT_SPELLCAST_CHANNEL_START = true, UNIT_SPELLCAST_CHANNEL_STOP = true,
+}
+for event in pairs(CAST_EVENTS) do
+    pcall(events.RegisterUnitEvent, events, event, "player")
+end
 events:SetScript("OnEvent", function(_, event, _, powerToken)
     if event == "UNIT_POWER_FREQUENT" then
         if powerToken == "MANA" then
             Update()
         end
-    elseif event == "UNIT_DISPLAYPOWER" then
+    elseif event == "UNIT_DISPLAYPOWER" or CAST_EVENTS[event] then
         Update()
     elseif event == "PLAYER_REGEN_DISABLED" then
         inCombat = true
