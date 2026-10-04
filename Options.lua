@@ -744,7 +744,7 @@ local abilities = cooldowns.subs.Add("Abilities")
 
 Section()
 
-Hint("Tick the abilities to show. Drag ticked ones up or down to set their priority: the top one shows first. Unticked items drop off the list.")
+Hint("Tick the abilities to show. Drag ticked ones up or down to set their priority: higher ones sit closer to the anchor point (chosen in Layout). Unticked items drop off the list.")
 
 -- The list: one row per ability with a cooldown, in its own scrolling area. Rows are pooled and
 -- rebuilt on every refresh from ns.Cooldowns.Candidates() (tracked first, in priority order).

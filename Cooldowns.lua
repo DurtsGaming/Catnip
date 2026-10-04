@@ -364,10 +364,36 @@ local function CellSize(count, width, height)
     return best, bestColumns
 end
 
--- Packs the shown icons into the box in priority order, left to right, then top to bottom, gathered
--- at the alignment point (CatnipDB.cdAlign: one of the nine anchor points, e.g. "TOP" = across the
--- top, each row centred). Sized so every tracked ability fits at once, so icons don't change size
--- as they come and go.
+-- Spot (0 = left or top) for the `rank`th icon (0 = highest priority) of `count` in a line, nearest
+-- the anchor first: from the start, from the end, or from the middle outward. In the middle, ties
+-- (an equal distance either side, or the two middle spots of an even count) go to `tieToStart`'s side.
+local function SpotFromAnchor(rank, count, side, tieToStart)
+    if side == "START" then
+        return rank
+    elseif side == "END" then
+        return count - 1 - rank
+    end
+    local middle = (count - 1) / 2
+    local spots = {}
+    for spot = 0, count - 1 do
+        spots[spot + 1] = spot
+    end
+    table.sort(spots, function(a, b)
+        local distanceA, distanceB = math.abs(a - middle), math.abs(b - middle)
+        if distanceA ~= distanceB then
+            return distanceA < distanceB
+        end
+        return a ~= b and (a < b) == tieToStart -- never true for a spot against itself
+    end)
+    return spots[rank + 1]
+end
+
+-- Packs the shown icons into the box at the alignment point (CatnipDB.cdAlign: one of the nine
+-- anchor points), higher priority nearer the anchor: rows fill outward from the anchor's edge
+-- (from the middle row for the middle anchors, then below, then above), and each row fills outward
+-- from the anchor's side (from its middle for the centre anchors, then left, then right). E.g. top
+-- centre: middle of the top row, then the rest of it, then the middle of the second row. Sized so
+-- every tracked ability fits at once, so icons don't change size as they come and go.
 local function Arrange()
     local tracked = ns.db.cdTracked
     local width, height = widget:GetWidth(), widget:GetHeight()
@@ -384,9 +410,15 @@ local function Arrange()
     local horizontal = align:find("LEFT") and "LEFT" or align:find("RIGHT") and "RIGHT" or "CENTER"
     local vertical = align:find("TOP") and "TOP" or align:find("BOTTOM") and "BOTTOM" or "MIDDLE"
     local rows = math.ceil(#shown / columns)
+    local rowSide = vertical == "TOP" and "START" or vertical == "BOTTOM" and "END" or "MIDDLE"
+    local columnSide = horizontal == "LEFT" and "START" or horizontal == "RIGHT" and "END" or "MIDDLE"
     for i, slot in ipairs(shown) do
-        local row, column = math.floor((i - 1) / columns), (i - 1) % columns
-        local inRow = math.min(columns, #shown - row * columns)
+        -- Rows take icons in priority order: which row this icon is in and its rank there, then
+        -- where those ranks sit relative to the anchor.
+        local rowRank, columnRank = math.floor((i - 1) / columns), (i - 1) % columns
+        local inRow = math.min(columns, #shown - rowRank * columns)
+        local row = SpotFromAnchor(rowRank, rows, rowSide, false) -- middle anchors: below first
+        local column = SpotFromAnchor(columnRank, inRow, columnSide, true) -- centre anchors: left first
         local x, y
         if horizontal == "LEFT" then
             x = (column + 0.5) * cell
