@@ -18,60 +18,49 @@ function ns.ComboDotOffset(i)
     return ARC_RADIUS * math.cos(angle), ARC_RADIUS * math.sin(angle)
 end
 
-local fills = {}
+-- Each fill is a StatusBar ranging i-1..i, fed the raw count: full when points >= i, empty below.
+-- A StatusBar takes secret values, so this works even if the count is secret (EllesmereUI's
+-- technique; Blood in the Water found GetComboPoints secret in combat).
+local bars = {}
 for i = 1, COUNT do
     local x, y = ns.ComboDotOffset(i)
-
-    -- Border draws above the fill, so a filled dot keeps its outline.
-    local border = group:CreateTexture(nil, "OVERLAY")
-    border:SetTexture(ns.MEDIA .. "ring_small")
-    border:SetSize(DOT_SIZE, DOT_SIZE)
-    border:SetPoint("CENTER", group, "CENTER", x, y)
-    border:SetVertexColor(0, 0, 0)
 
     -- Tucks ~0.5px under the ring's inner edge (the ring sits 1/64 in from the texture edge), so
     -- there's no gap but the whole ring still shows. Any bigger and the fill covers the thin ring.
     -- combo_fill is the full energy fill cut to a circle (colour baked in, so untinted).
-    local fill = group:CreateTexture(nil, "ARTWORK")
-    fill:SetTexture(ns.MEDIA .. "combo_fill")
+    local bar = CreateFrame("StatusBar", nil, group)
     local fillSize = DOT_SIZE - 2 * RING_THICKNESS
-    fill:SetSize(fillSize, fillSize)
-    fill:SetPoint("CENTER", border)
-    fill:Hide()
+    bar:SetSize(fillSize, fillSize)
+    bar:SetPoint("CENTER", group, "CENTER", x, y)
+    bar:SetStatusBarTexture(ns.MEDIA .. "combo_fill")
+    bar:SetMinMaxValues(i - 1, i)
+    bar:SetValue(0)
 
-    local fadeIn = fill:CreateAnimationGroup()
-    local alpha = fadeIn:CreateAnimation("Alpha")
-    alpha:SetFromAlpha(0)
-    alpha:SetToAlpha(1)
-    alpha:SetDuration(0.15)
-    fill.fadeIn = fadeIn
+    -- Border draws above the fill (same frame, higher layer), so a filled dot keeps its outline.
+    local border = bar:CreateTexture(nil, "OVERLAY")
+    border:SetTexture(ns.MEDIA .. "ring_small")
+    border:SetSize(DOT_SIZE, DOT_SIZE)
+    border:SetPoint("CENTER")
+    border:SetVertexColor(0, 0, 0)
 
-    fills[i] = fill
+    bars[i] = bar
 end
 
-local warnedSecret = false
+-- Forever keeps classic per-target combo points: UnitPower doesn't reset on a target switch or
+-- when the target dies (Blood in the Water, EllesmereUI). GetComboPoints reads the current target.
+local function ReadPoints()
+    if GetComboPoints then
+        return GetComboPoints("player", "target") or 0
+    end
+    return UnitPower("player", Enum.PowerType.ComboPoints)
+end
 
 local function Update()
     group:SetShown(UnitPowerType("player") == Enum.PowerType.Energy)
 
-    local points = UnitPower("player", Enum.PowerType.ComboPoints)
-    if ns.IsSecret(points) then
-        -- Research says combo points aren't secret; flag it if Forever disagrees.
-        if not warnedSecret then
-            print("|cff33ff99Catnip|r: combo points are secret here; combo display disabled.")
-            warnedSecret = true
-        end
-        return
-    end
-
-    for i, fill in ipairs(fills) do
-        local active = i <= points
-        if active and not fill:IsShown() then
-            fill:Show()
-            fill.fadeIn:Play()
-        elseif not active then
-            fill:Hide()
-        end
+    local points = ReadPoints()
+    for _, bar in ipairs(bars) do
+        bar:SetValue(points)
     end
 end
 
@@ -80,4 +69,6 @@ events:RegisterEvent("PLAYER_ENTERING_WORLD")
 events:RegisterEvent("PLAYER_TARGET_CHANGED")
 events:RegisterUnitEvent("UNIT_POWER_FREQUENT", "player")
 events:RegisterUnitEvent("UNIT_DISPLAYPOWER", "player")
+events:RegisterUnitEvent("UNIT_HEALTH", "target") -- catches the target dying
+ns.TryRegisterEvent(events, "UNIT_COMBO_POINTS") -- classic's event; unverified on Forever
 events:SetScript("OnEvent", Update)

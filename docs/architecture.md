@@ -17,7 +17,7 @@ How the code is organised, so a new session can start a feature without reading 
 | `CooldownManager.lua` | `ns.CDM`: reads Blizzard's Cooldown Manager frames. Now only the Clearcasting fallback uses it; also `/catnip cdm` |
 | `AuraContainer.lua` | `ns.CreateAuraContainer`: shared setup for Blizzard's AuraContainer (how we show auras in combat) |
 | `Resource.lua` | Big centre circle: energy/rage/mana fill + number (mana as %) |
-| `ComboPoints.lua` | Five dots on an arc above the circle; Cat Form only |
+| `ComboPoints.lua` | Five dots on an arc above the circle; Cat Form only. Count from `GetComboPoints("player", "target")` (per-target on Forever); each fill is a StatusBar so a secret count still draws |
 | `Swing.lua` | Swing timer ring (Cooldown swipe from `PLAYER_SWING`) + Maul-queued tint |
 | `Cast.lua` | Cast bar: takes the swing ring's place while casting or channelling (duration objects); hides Blizzard's player cast bar |
 | `FiveSecondRule.lua` | Five-second-rule ring over the resource border (every form); fills when a mana spell lands, then opens at 12 o'clock and drains down both sides to 6 over 5s |

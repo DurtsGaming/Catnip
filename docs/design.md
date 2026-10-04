@@ -29,7 +29,7 @@ We need to make these (with transparency):
 ## MVP
 
 1. **Resource circle (#1 on #2, bordered by #3).** Energy in Cat, Rage in Bear. Fills from the bottom; raw value as text in the middle.
-2. **Combo points (#1 bordered by #3).** Five small circles; fill/fade in by count. Hide the borders when not in Cat Form.
+2. **Combo points (#1 bordered by #3).** Five small circles; fill by count, appearing instantly (no fade-in). Hide the borders when not in Cat Form.
 3. **DoT rings (#5).** Rip is a red ring (~5.75px band, overlapping the dot's border ring) around the 5th combo point and Rake the same around the 4th (one AuraContainer each), hidden with the dots outside Cat Form. Full when applied, drains clockwise to empty. (A thin red layer outside the swing ring was tried and dropped.)
 4. **Swing timer (#7 on #4).** Ring around the big circle that appears full on each swing and empties clockwise from 12 o'clock (earlier versions filled, then emptied counter-clockwise), over the soft glow (#4, pulled slightly inside the bar's band) with a small gap from the resource circle. (A crisp black outline was tried and dropped in favour of the feathered look.) Turns red/pink when Maul is queued. The `0.2 / 1.0` text was tried and dropped: the ring alone is the swing timer.
 5. **Enrage tint.** In Bear Form, while the Enrage buff is up, the empty part of the resource circle turns a dim red (a red disc behind the rage fill).
@@ -82,7 +82,7 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 |---------|-------|
 | Resource circle (energy/rage fill + number) | Verified in combat |
 | Mana shown as % | Verified |
-| Combo points | Verified. **Open issue:** may not update on target switch (Forever combo points may be per-target; see api-research.md) |
+| Combo points | Verified, but showed stale points after the target died; switched to per-target `GetComboPoints` (2026-10-03), **needs in-game check** |
 | Swing timer (clockwise, Maul tint) | Verified |
 | GCD Harvey ball | Verified |
 | Cast bar on the swing ring | Built, **untested** in-game |
@@ -105,4 +105,4 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Cooldown widget items (drop box, per-item icons, shared Potions icon with special-case potion buffs) | Built, **untested** in-game |
 | Cooldown widget (tracked list with drag-to-reorder, grey icon + timer on cooldown, coloured buff icon + running dashed border + timer, learns buffs with a different ID while the buff is up, move/resize) | Built, **untested** in-game |
 
-Next candidates: fix combo points on target switch; items from "Later".
+Next candidates: items from "Later".
