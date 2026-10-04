@@ -60,6 +60,9 @@ Patch 12.1.0 widget; the main tool for buffs and debuffs. Learned from the Blood
 - **Buttons are forbidden after setup**, and so is anything we parent to them. So our look must be **static** (textures, animations). Anything that needs updating must live outside the button, and the button can't tell our code when it's shown (an `OnShow`-script "gate" idea is untested).
 - **Register our own widgets** and Blizzard drives them with real aura data: `button:SetDurationCooldown(cooldownFrame)` (timer swipe; used for Rip), `SetIcon(texture)`, `SetApplicationCount(fontString)`, `AddPandemicRegion(region)`.
 - Feature check: `C_XMLUtil.GetTemplateInfo("CustomAuraContainerTemplate")`.
+- **Ordering active auras (unverified by us, found 2026-10-03):** one container can hold several groups (`AddAuraGroup` per key). The container's flow layout places groups in `layout.layoutIndex` order and **collapses empty groups**, so one group per spell, each limited to that spell with `includeSpellIDs`, gives a gapless run of whichever are up, in priority order, without our code knowing which. Groups are add-only (turn one off with `SetAuraGroupMaxFrameCount(key, 0)`), and each group allocates 10 buttons. Source: EllesmereUI raid frames "Custom Order" (`EUI_RaidFrames_AuraContainers.lua`, `BmSegments`; layout helpers in `EllesmereUI_AuraKit.lua`). Limit: our own frames can't join that flow, so the cooldown icons can't be packed in after it.
+- **Moving AuraContainer frames in combat is blocked**, even `SetPoint` offsets relative to UIParent (Cooldown Manager Centered, `modules/auraTracking.lua`; unverified by us). Lay them out before combat.
+- **No Druid aura is readable in combat** (verified 2026-10-03 with a temporary check command, since removed): `C_Secrets.ShouldSpellAuraBeSecret(spellID)` (idea from Forever Cooldown Manager: some buffs are never secret) returns **true for every spellbook spell** in combat, all ranks and passives, plus our tracked buffs (Elemental Blessing, potions). Out of combat it's false for all, and `ShouldAurasBeSecret()` follows combat the same way. Out of combat, `GetPlayerAuraBySpellID` matches the exact rank's ID: only the rank cast reads as up (Mark of the Wild 6756, Thorns 1075), lower ranks read not up.
 
 ### Global cooldown (verified)
 
@@ -106,7 +109,8 @@ The Cooldown Manager viewers (`BuffIconCooldownViewer`, `BuffBarCooldownViewer`,
 - Matching new auras via `UNIT_AURA` `addedAuras` + `auraInstanceID` (both secret in combat).
 - A cast-event timer for Rip (guessed the duration, lost track on target switches); replaced by AuraContainer.
 - Updating frames attached to AuraContainer buttons (forbidden).
-- `C_UnitAuras.GetPlayerAuraBySpellID` in combat (returns nil).
+- `C_UnitAuras.GetPlayerAuraBySpellID` in combat (returns nil, not a secret or an error, even while the buff is up: it looks exactly like "not up"; seen again 2026-10-03 with Mark of the Wild and Thorns).
+- Sorting the cooldown box active-first from Lua: no Druid aura is readable in combat (`ShouldSpellAuraBeSecret` is true for all, 2026-10-03). The remaining route is AuraContainer groups, which Blizzard lays out itself (see the AuraContainer section).
 
 ## Sources
 
