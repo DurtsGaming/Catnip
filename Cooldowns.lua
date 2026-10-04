@@ -85,6 +85,12 @@ end
 -- animation: square_dashed holds 16 frames, each with the dashes a little further clockwise.
 local function StyleActiveButton(button)
     ns.HideAuraButtonArt(button)
+    -- Always full strength, ignoring the box's Opacity: at partial opacity every layer is see-through,
+    -- so the grey cooldown icon underneath would show through. We can't hide that one instead: in
+    -- combat we never learn that the buff is up.
+    if button.SetIgnoreParentAlpha then
+        button:SetIgnoreParentAlpha(true)
+    end
 
     button:SetIcon(CreateIcon(button)) -- Blizzard fills in the buff's icon
 
@@ -508,7 +514,7 @@ end
 local function ApplyLayout()
     local db = ns.db
     widget:SetShown(db.cdEnabled)
-    widget:SetAlpha(db.cdAlpha) -- icons and their AuraContainers inherit it; the unlock overlay doesn't
+    widget:SetAlpha(db.cdAlpha) -- the icons inherit it; active buff icons and the unlock overlay don't
     widget:SetSize(db.cdWidth, db.cdHeight)
     widget:ClearAllPoints()
     widget:SetPoint("CENTER", UIParent, "CENTER", db.cdX, db.cdY)

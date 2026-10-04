@@ -6,7 +6,7 @@ Text summary of [design.pdf](design.pdf) ("Feral Forever: Resource Manager / Rot
 
 A compact, circular Feral Druid HUD, ported from a WeakAuras setup. Inspiration: [Rabble's energy WA](https://wago.io/Ak7NxBdCc) plus the same author's Rage and Mana WAs ([wago.io/p/Rabble](https://wago.io/p/Rabble)).
 
-Layout, from the centre out: the resource circle (with the GCD pie over it), the swing timer ring, then five combo point dots along an arc above, with the Rake ring around dot 4 and the Rip ring around dot 5. Clearcasting lights a crescent of light inside the top of the resource circle. The whole HUD draws at 0.85 alpha by default (General → Opacity); the cooldown box has its own Opacity slider (Cooldown → Layout, default 100%).
+Layout, from the centre out: the resource circle (with the GCD pie over it), the swing timer ring, then five combo point dots along an arc above, with the Rake ring around dot 4 and the Rip ring around dot 5. Clearcasting lights a crescent of light inside the top of the resource circle. The whole HUD draws at 0.85 alpha by default (General → Opacity); the cooldown box has its own Opacity slider (Cooldown → Layout, default 100%). Active icons ignore it and always draw at full strength: below 100% the grey cooldown icon underneath showed through them, and we can't hide that one in combat (2026-10-03).
 
 - **Combo points follow the arc** of the big circle's top edge (a paw-print shape), not a flat row. See the sketch.
 - Ignore the thin inner ring in the reference WA — it's the old Classic 2s energy ticker.
