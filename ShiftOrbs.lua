@@ -1,10 +1,10 @@
--- Shift orbs: a row of small orbs curved under the Shifting Power arc, one for each shapeshift your
+-- Shift orbs: a row of small orbs curved under the swing ring, one for each shapeshift your
 -- mana pays for: floor(mana / cost), up to 5. In every form, once a form is learned (Bear Form at
 -- 10, Cat Form at 20); before that there's no cost to divide by and nothing shows. Shifting Power
 -- costs the same as a shift, so the orbs count its casts too. COMBAT_ONLY (off for now) also hides
--- them out of combat. They sit on the combo points' circle (radius 93), mirroring them across the
--- bottom, centred on 6 o'clock, just outside the arc. Cast.lua's text sits below them, so they stay
--- up during casts (when the count matters: can I shift back after this heal?).
+-- them out of combat. They curve around 6 o'clock just outside the thin Shifting Power arc, mirroring
+-- the combo points across the bottom. Cast.lua's text sits below them, so they stay up during casts
+-- (when the count matters: can I shift back after this heal?).
 --
 -- The orbs match the resource circle (Resource.lua): mana's gradient out of Cat and Bear Form, full
 -- rage in Bear Form, full energy in Cat Form, and stealth mode's periwinkle while stealthed (Prowl
@@ -30,8 +30,8 @@ local COMBAT_ONLY = false -- off for now: the orbs show in and out of combat
 local MAX_ORBS = 5
 local ORB_SIZE = 0.6 * ns.COMBO_DOT_SIZE -- 60% of a combo point
 local SPACING = ORB_SIZE * 1.25 -- centre to centre, along the chord
-local RADIUS = 93 -- the combo points' ARC_RADIUS; inner edge ~81.6, clear of the arc's ~78.5 outer edge
-local STEP = 2 * math.asin(SPACING / 2 / RADIUS) -- angle between neighbouring orbs (~17.6 degrees)
+local RADIUS = 89 -- inner edge ~77.6, ~3.4 outside the Shifting Power arc (make_textures.py SP_RADIUS)
+local STEP = 2 * math.asin(SPACING / 2 / RADIUS) -- angle between neighbouring orbs (~18.4 degrees)
 local STEALTH_ALPHA = 0.6 -- 30% was too much
 local MANA = Enum.PowerType.Mana
 local SHIFT_SPELLS = { "Cat Form", "Dire Bear Form", "Bear Form" } -- all cost the same

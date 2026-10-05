@@ -1,6 +1,7 @@
 -- Shifting Power cooldown: a four-segment arc under the swing ring that fills left to right over
 -- the cooldown, each segment a quarter (4s, 3s or 2s), coloured blue, blue to white, white to
--- yellow, yellow. Each segment has a black outline; unfilled parts show a dim copy of their colour.
+-- yellow, yellow. Each segment has a thin black outline; unfilled parts are clear inside it (a dim
+-- copy of their colour was tried and dropped).
 -- Each segment pulses briefly as it fills (at 4s, 8s, 12s of a 16s cooldown). At zero the arc
 -- flashes and fades out, and a blue light pulses once inside the resource circle, if your mana
 -- pays for a cast.
@@ -30,7 +31,6 @@ local arc = ns.CreateSegmentedArc({
     art = "sp_arc",
     outline = "sp_arc_outline", -- a black rim around each segment, like the combo points
     outlineColor = { 0, 0, 0 }, -- in its own colours it read as a neon glow
-    track = 0.3, -- a dim copy of each segment, so empty ones still show their colour
     from = 1.5 * math.pi - SPAN, -- left end
     span = 2 * SPAN,
     segments = SEGMENTS, -- the gaps are in the art

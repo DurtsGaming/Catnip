@@ -220,11 +220,14 @@ def combo_fill(size, stops=FOREVER_ENERGY):
 # 6 o'clock. Measured in HUD units on a canvas SP_CANVAS units across, centred on the HUD's centre;
 # keep these in step with the constants in ShiftingPower.lua.
 SP_CANVAS = 164
-SP_RADIUS = 74            # centre line of the band: inner edge (with outline) ~2.5 outside the swing ring's band
-SP_HALF_WIDTH = 3         # band is 6 units thick
+SP_RADIUS = 71            # centre line of the band: inner edge (with outline) ~1.3 outside the swing ring's
+                          # band (66.5), outer edge ~3.4 inside the shift orbs (ShiftOrbs.lua RADIUS)
+SP_HALF_WIDTH = 1.9       # band is 3.8 units thick (was 6 at radius 74, before the shift orbs moved up under it;
+                          # 2.5 was too thin)
 SP_SPAN = 180 / 4.2       # degrees either side of 6 o'clock
 SP_GAP = math.degrees(4 / SP_RADIUS)  # 4 units between segments (and trimmed off both outer ends)
-SP_OUTLINE = 1.5          # outline thickness, just outside each segment; leaves 1 unit clear between outlines
+SP_OUTLINE = 1.3          # outline thickness, just outside each segment: two texture pixels at 256px for 164
+                          # units (was 1.5, then 1; one pixel, 0.65, was too thin in-game)
 SP_YELLOW_FROM = 0.6      # where along the energy bar segment 4 starts (saturated yellow, not the dark end)
 
 
