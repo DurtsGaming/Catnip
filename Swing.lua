@@ -1,6 +1,6 @@
 -- Swing timer: a ring around the resource circle that appears full on each swing and empties
 -- clockwise from 12 o'clock until the next auto-attack. Driven by the PLAYER_SWING event
--- (Midnight-era API); tints pink while Maul is queued. Below it, "elapsed / total" text while a
+-- (Midnight-era API); tints pink, with a pink dot at 12 o'clock, while Maul is queued. Below it, "elapsed / total" text while a
 -- swing counts down.
 local addonName, ns = ...
 
@@ -35,6 +35,34 @@ local function SetRingColor(color)
 end
 
 SetRingColor(COLOR)
+
+-- Maul marker: a pink dot on the ring's band at 12 o'clock (where each swing starts), shown while
+-- Maul is queued, so it shows even when not swinging and the ring is empty. On its own frame so it
+-- draws over the ring's swipe; a soft black backing keeps it readable over the white ring.
+local MARKER_SIZE = 12
+local MARKER_Y = SIZE * (127 - 10) / 256 -- middle of ring_bar's band (20px thick, out to 127 of 256)
+
+local marker = CreateFrame("Frame", nil, hud)
+marker:SetSize(MARKER_SIZE, MARKER_SIZE)
+marker:SetPoint("CENTER", hud, "CENTER", 0, MARKER_Y)
+marker:SetFrameLevel(ring:GetFrameLevel() + 1)
+marker:Hide()
+
+local markerShadow = marker:CreateTexture(nil, "ARTWORK", nil, 0)
+markerShadow:SetTexture(ns.MEDIA .. "circle_soft")
+markerShadow:SetSize(MARKER_SIZE * 1.6, MARKER_SIZE * 1.6)
+markerShadow:SetPoint("CENTER")
+markerShadow:SetVertexColor(0, 0, 0, 0.8)
+
+-- Shaded like the shift orbs: orb_maul carries its own pink gradient (drawn untinted), with their black rim
+local markerDot = marker:CreateTexture(nil, "ARTWORK", nil, 1)
+markerDot:SetTexture(ns.MEDIA .. "orb_maul")
+markerDot:SetAllPoints()
+
+local markerRim = marker:CreateTexture(nil, "OVERLAY")
+markerRim:SetTexture(ns.MEDIA .. "ring_small")
+markerRim:SetVertexColor(0, 0, 0)
+markerRim:SetAllPoints()
 
 -- Swing text: "0.0 / 2.5s" (elapsed / swing length) where the cast text goes, under the shift
 -- orbs; same font as the cast time. Hidden once the swing is ready, and while casting (the cast
@@ -92,6 +120,7 @@ local function UpdateMaul()
         ns.Debug("Maul queued:", queued)
         local color = queued and MAUL_COLOR or COLOR
         SetRingColor(color)
+        marker:SetShown(queued)
         timeText:SetTextColor(color[1], color[2], color[3])
     end
 end
