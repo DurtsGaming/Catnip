@@ -972,17 +972,22 @@ Button("Reset to defaults", function() ns.ResetElement("general") end)
 
 EndTab(hudPage)
 
--- Each zone's elements, under the zone's name; zones without any are left out.
+-- Each zone's elements, under the zone's name, by their `order` (e.g. the combo point they sit on),
+-- else as registered; zones without any are left out.
 for _, zone in ipairs(ns.ZONES) do
-    local first = true
-    for _, element in ipairs(ns.elements) do
+    local list = {}
+    for index, element in ipairs(ns.elements) do
         if element.zone == zone.id then
-            if first then
-                TreeHeader(zone.name)
-                treeIndent, first = 8, false
-            end
-            ElementPage(element)
+            list[#list + 1] = { element = element, key = element.order or 1000 + index }
         end
+    end
+    table.sort(list, function(a, b) return a.key < b.key end)
+    for i, entry in ipairs(list) do
+        if i == 1 then
+            TreeHeader(zone.name)
+            treeIndent = 8
+        end
+        ElementPage(entry.element)
     end
 end
 treeY = treeY - TREE_INSET + 4

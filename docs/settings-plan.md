@@ -12,8 +12,7 @@ Plan for letting players customize the HUD (opacity per element, text font and s
 | Choice controls: clicking the value opens a menu of all values (Blizzard's `MenuUtil`, fonts drawn in their font via `SetFontObject`); the arrows still step | Verified in-game 2026-10-04 (owner's request) |
 | 3a. Per-element opacity, Swing ring zone: Swing ring (bar, background), Maul orb (Bear sample shows Maul queued), Stealth smoke, Cast bar; ring-shaped hit targets (`kind = "ring"`) and `visible` functions | Verified in-game 2026-10-04 |
 | 3b. Under the ring: Shifting Power arc (opacity, ready pulse on/off), Growl arc (opacity), Shift orbs (opacity, almost-ready orb on/off; previews all five, picked as one by their own circles, owner's request); part-ring hit targets (`angle`, `spread`); the arcs' samples are looping copies (`ns.ArcSampler`) while the real ones hide in `ns.cooldownArcHolder` | Verified in-game 2026-10-04 |
-| 3c. Combo arc: combo points and rings (Rip, Rake, ticks need step 4's stand-ins) | Not started |
-| 4. AuraContainer stand-ins | Not started |
+| 3c + 4. Combo arc: Combo points (opacity, picked as one), Faerie Fire, Primal Bite, Rake and Rip rings (opacity each; Rake/Rip with their ticks). Real rings move into `ns.comboLive` (hidden in preview); Rake/Rip get stand-ins (same art on a plain Cooldown, looping) and FF/PB looping sample arcs, in `ns.comboSample`. Rake/Rip opacity is a gate frame around the AuraContainer, so no /reload needed | Verified in-game 2026-10-04 (a real Rake ring can't be checked yet: Rake isn't unlocked in the beta) |
 
 ## Decisions (owner, 2026-10-04)
 

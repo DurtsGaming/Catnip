@@ -7,9 +7,9 @@
 -- The HUD's circles and rings overlap, so one mouse catcher covers the whole HUD and works out
 -- what's under the cursor from each element's hit shape (Elements.lua `hit`):
 --   { kind = "circle", radius = r, x = 0, y = 0 } -- HUD units from the HUD's centre
---   { kind = "ring", inner = r1, outer = r2 }      -- a band round the HUD's centre
+--   { kind = "ring", inner = r1, outer = r2, x = 0, y = 0 } -- a band round the HUD's centre (+ x, y)
 --     with angle = a, spread = s: only the part within s radians of maths angle a (counter-
---     clockwise from 3 o'clock; 6 o'clock is -pi/2), s under pi/2
+--     clockwise from 3 o'clock; 6 o'clock is -pi/2), s under pi/2; only for rings round the centre
 --   { kind = "circles", radius = r, centres = function } -- several circles picked as one: centres()
 --     returns the current { x, y } list (it may change, e.g. how many orbs show)
 -- Circles and rings may have `visible = function` (pickable only while it returns true).
@@ -132,13 +132,13 @@ local function RingHighlight(hit)
     fill:SetTexture(ns.MEDIA .. "ring_bar")
     local fillSize = hit.outer / RING_BAR_OUTER
     fill:SetSize(fillSize, fillSize)
-    fill:SetPoint("CENTER")
+    fill:SetPoint("CENTER", hit.x or 0, hit.y or 0)
     local edges = {}
     for i, radius in ipairs({ hit.inner, hit.outer }) do
         local edge = frame:CreateTexture(nil, "OVERLAY")
         edge:SetTexture(ns.MEDIA .. "ring_thin")
         edge:SetSize(2 * radius + 2, 2 * radius + 2)
-        edge:SetPoint("CENTER")
+        edge:SetPoint("CENTER", hit.x or 0, hit.y or 0)
         edges[i] = edge
     end
     -- A part ring: everything masked to the wedge between angle - spread and angle + spread, by two

@@ -21,6 +21,36 @@ function ns.ComboDotOffset(i)
     return ARC_RADIUS * math.cos(angle), ARC_RADIUS * math.sin(angle)
 end
 
+-- The real rings around the dots (DotRings.lua's AuraContainers, CooldownRings.lua's arcs) live in
+-- comboLive; preview mode hides it while its stand-ins show in comboSample. Both at the group's
+-- level, so frames placed in them keep the levels they had in the group.
+local live = CreateFrame("Frame", nil, group)
+live:SetAllPoints()
+live:SetFrameLevel(group:GetFrameLevel())
+ns.comboLive = live
+
+local sampleHolder = CreateFrame("Frame", nil, group)
+sampleHolder:SetAllPoints()
+sampleHolder:SetFrameLevel(group:GetFrameLevel())
+sampleHolder:Hide()
+ns.comboSample = sampleHolder
+
+-- A frame for a ring's layer in one of those holders, at the holder's level (for an opacity setting).
+function ns.ComboRingGate(holder)
+    local gate = CreateFrame("Frame", nil, holder)
+    gate:SetAllPoints()
+    gate:SetFrameLevel(holder:GetFrameLevel())
+    return gate
+end
+
+-- Preview mode's hit for a ring around dot i: its band (ring_rip's, 47-63 of 128 on a canvas
+-- DOT_SIZE + 8 across) from just inside the dot's edge, so the dot keeps its middle.
+function ns.ComboRingHit(i, visible)
+    local x, y = ns.ComboDotOffset(i)
+    return { kind = "ring", x = x, y = y, inner = DOT_SIZE / 2 - 2, outer = (DOT_SIZE + 8) * 63 / 128 + 2,
+        visible = visible }
+end
+
 -- Each fill is a StatusBar ranging i-1..i, fed the raw count: full when points >= i, empty below.
 -- A StatusBar takes secret values, so this works even if the count is secret (EllesmereUI's
 -- technique; Blood in the Water found GetComboPoints secret in combat).
@@ -65,7 +95,19 @@ local function ReadPoints()
     return UnitPower("player", Enum.PowerType.ComboPoints)
 end
 
+-- Preview mode's state (Preview.lua), nil when live: a fixed count, the dots shown in every state
+-- but Caster, and the rings' stand-ins in Cat and Bear (not Prowl: no DoTs before the opener).
+local SAMPLE_POINTS = 3
+local sampleState
+
 local function Update()
+    if sampleState then
+        group:SetShown(sampleState ~= "caster")
+        for _, bar in ipairs(bars) do
+            bar:SetValue(SAMPLE_POINTS)
+        end
+        return
+    end
     local powerType = UnitPowerType("player")
     group:SetShown(powerType == Enum.PowerType.Energy or powerType == Enum.PowerType.Rage)
 
@@ -83,3 +125,34 @@ events:RegisterUnitEvent("UNIT_DISPLAYPOWER", "player")
 events:RegisterUnitEvent("UNIT_HEALTH", "target") -- catches the target dying
 ns.TryRegisterEvent(events, "UNIT_COMBO_POINTS") -- classic's event; unverified on Forever
 events:SetScript("OnEvent", Update)
+
+-- Settings (Elements.lua). Opacity is each dot's alpha (the group's would fade the rings too).
+-- Picked as one group by the dots' middles; the rings around them have their own elements.
+local centres = {}
+for i = 1, COUNT do
+    centres[i] = { ns.ComboDotOffset(i) }
+end
+
+ns.RegisterElement({
+    id = "combo.points",
+    zone = "combo",
+    name = "Combo points",
+    order = 0,
+    hit = { kind = "circles", radius = DOT_SIZE / 2 - 2, centres = function() return centres end,
+        visible = function() return group:IsVisible() end },
+    states = { "cat", "bear", "prowl" },
+    options = {
+        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+    },
+    apply = function(get)
+        for _, bar in ipairs(bars) do
+            bar:SetAlpha(get("opacity") / 100)
+        end
+    end,
+    sample = function(state)
+        sampleState = state
+        live:SetShown(state == nil)
+        sampleHolder:SetShown(state == "cat" or state == "bear")
+        Update()
+    end,
+})

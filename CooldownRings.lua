@@ -17,6 +17,7 @@ end
 
 local RINGS = {
     {
+        id = "combo.ff", -- the settings element (Elements.lua)
         label = "Faerie Fire",
         dot = 1,
         art = "ring_faerie",
@@ -31,6 +32,7 @@ local RINGS = {
         command = "ff",
     },
     {
+        id = "combo.pb",
         label = "Primal Bite",
         dot = 3,
         art = "ring_primal_bite",
@@ -45,17 +47,9 @@ local RINGS = {
 
 for _, ring in ipairs(RINGS) do
     local x, y = ns.ComboDotOffset(ring.dot)
-    ns.CreateSegmentedCooldown({
-        label = ring.label,
-        names = ring.names,
-        castNames = ring.castNames,
-        castAllowed = ring.castAllowed,
-        defaultLength = ring.defaultLength,
-        lengthKey = ring.lengthKey,
-        command = ring.command, -- /catnip <command> [seconds], in Cat or Bear Form
-        learnFromReady = true, -- nothing resets these early, so the ready flag gives the length in combat too
-        arc = ns.CreateSegmentedArc({
-            parent = ns.comboGroup, -- hides with the combo dots outside Cat and Bear Form
+    local function ArcOptions(parent)
+        return {
+            parent = parent,
             size = RING_SIZE,
             x = x,
             y = y,
@@ -68,6 +62,49 @@ for _, ring in ipairs(RINGS) do
             gap = GAP,
             drain = true,
             noFlash = true,
-        }),
+        }
+    end
+
+    -- Gates (ns.ComboRingGate, at the group's level) carry the Opacity setting: the real arc's in
+    -- comboLive (hides with the combo dots outside Cat and Bear Form), preview mode's looping copy
+    -- (ns.ArcSampler) in comboSample.
+    local gate = ns.ComboRingGate(ns.comboLive)
+    local sampleGate = ns.ComboRingGate(ns.comboSample)
+
+    ns.CreateSegmentedCooldown({
+        label = ring.label,
+        names = ring.names,
+        castNames = ring.castNames,
+        castAllowed = ring.castAllowed,
+        defaultLength = ring.defaultLength,
+        lengthKey = ring.lengthKey,
+        command = ring.command, -- /catnip <command> [seconds], in Cat or Bear Form
+        learnFromReady = true, -- nothing resets these early, so the ready flag gives the length in combat too
+        arc = ns.CreateSegmentedArc(ArcOptions(gate)),
+    })
+
+    local sampleArc = ns.CreateSegmentedArc(ArcOptions(sampleGate))
+    local StartSample, StopSample = ns.ArcSampler(sampleArc, ring.defaultLength)
+    ns.RegisterElement({
+        id = ring.id,
+        zone = "combo",
+        name = ring.label .. " ring",
+        order = ring.dot,
+        hit = ns.ComboRingHit(ring.dot, function() return sampleArc.frame:IsVisible() end),
+        states = { "cat", "bear" },
+        options = {
+            { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        },
+        apply = function(get)
+            gate:SetAlpha(get("opacity") / 100)
+            sampleGate:SetAlpha(get("opacity") / 100)
+        end,
+        sample = function(state)
+            if state == "cat" or state == "bear" then
+                StartSample()
+            else
+                StopSample()
+            end
+        end,
     })
 end
