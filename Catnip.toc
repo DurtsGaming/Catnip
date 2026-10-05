@@ -39,4 +39,5 @@ EditModeSnap.lua
 BlizzardEditMode.lua
 EditModeLayouts.lua
 OptionsArt.lua
+OptionsScroll.lua
 Options.lua

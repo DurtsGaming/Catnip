@@ -116,6 +116,7 @@ The Cooldown Manager viewers (`BuffIconCooldownViewer`, `BuffBarCooldownViewer`,
 - `C_UnitAuras.GetPlayerAuraBySpellID` in combat (returns nil, not a secret or an error, even while the buff is up: it looks exactly like "not up"; seen again 2026-10-03 with Mark of the Wild and Thorns).
 - Shortening the GCD pie during Nature's Grace (2026-10-04): the buff isn't readable in combat (see above) and crits can't be seen, so the pie keeps the full length.
 - Sorting the cooldown box active-first from Lua: no Druid aura is readable in combat (`ShouldSpellAuraBeSecret` is true for all, 2026-10-03). The remaining route is AuraContainer groups, which Blizzard lays out itself (see the AuraContainer section).
+- A vertical `Slider` as a scrollbar (2026-10-04): a player reported dragging it moved the wrong way up/down (unverified why; we never checked which end the minimum sits at in this client). `OptionsScroll.lua` now does its own thumb and drag maths instead.
 - Per-tick pulses on the DoT rings (2026-10-04): the ticks can't be seen in combat. Aura timing is secret, `C_UnitAuras.GetAuraDuration` hard-errors under 12.1 aura restrictions (EllesmereUIQoL `_Bloodlust.lua`, unverified by us), so `DurationObject:EvaluateRemainingDuration(curve)` (which EllesmereUI uses for spell cooldowns) can't be reached, and the combat log is gone. A looping animation started at setup isn't tied to the DoT's phase. Left without pulses; the only option left is a cast-timed clock driving decoration only.
 
 ## Sources

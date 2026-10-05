@@ -12,7 +12,8 @@ local addonName, ns = ...
 
 local art = ns.OptionsArt
 
-local WIDTH = 320 -- default and minimum width; long hints are measured at this width
+local WIDTH = 320 -- long hints are measured at this window width, without the scrollbar
+local MIN_WIDTH = WIDTH + ns.OptionsScrollWidth -- default and minimum: WIDTH plus room for the scrollbar
 local DEFAULT_HEIGHT = 580
 local MAX_WIDTH = 700
 local MIN_HEIGHT = 200
@@ -37,7 +38,6 @@ local function RGB(r, g, b, a) return { r / 255, g / 255, b / 255, a or 1 } end
 local WHITE = { 1, 1, 1, 1 }
 local GOLD = { 1, 0.82, 0, 1 } -- GameFontNormal
 local MUTED = RGB(163, 154, 138)
-local BRONZE = RGB(125, 102, 52)
 local BRONZE_HI = RGB(200, 163, 79)
 local BRONZE_DIM = RGB(74, 61, 38)
 local GROUND = art.GROUND
@@ -81,7 +81,7 @@ local function AddHover(frame, border, edge)
 end
 
 local window = art.CreateWindow("CatnipOptions", "Catnip")
-window:SetSize(WIDTH, DEFAULT_HEIGHT) -- the saved size is applied once settings load
+window:SetSize(MIN_WIDTH, DEFAULT_HEIGHT) -- the saved size is applied once settings load
 window:SetPoint("CENTER")
 window:SetFrameStrata("DIALOG")
 window:SetClampedToScreen(true)
@@ -108,97 +108,26 @@ end
 
 -- Scroll area ------------------------------------------------------------------------------------
 
--- The pages live on `canvas`, scrolled inside `body`. A thin scrollbar in the gap between the
--- panels and the frame's right edge shows while the page is taller than the window.
+-- The pages live on `canvas`, scrolled inside `body`. A scrollbar (OptionsScroll.lua) at the
+-- frame's right edge shows while the page is taller than the window, and the pages narrow to make
+-- room for it.
 local body = CreateFrame("ScrollFrame", nil, inner)
 body:SetAllPoints()
 local canvas = CreateFrame("Frame", nil, body)
 canvas:SetSize(WIDTH, 1)
 body:SetScrollChild(canvas)
 
--- A thin vertical scrollbar: a dark track with a bronze thumb that brightens on hover. The caller
--- anchors it and handles OnValueChanged.
-local function ThinScrollbar(parent)
-    local bar = CreateFrame("Slider", nil, parent)
-    bar:SetWidth(4)
-    bar:SetOrientation("VERTICAL")
-    bar:SetMinMaxValues(0, 0)
-    bar:SetValueStep(1)
-    local track = bar:CreateTexture(nil, "BACKGROUND")
-    track:SetAllPoints()
-    track:SetColorTexture(unpack(WELL))
-    local thumb = bar:CreateTexture(nil, "OVERLAY")
-    thumb:SetSize(4, 40)
-    thumb:SetColorTexture(unpack(BRONZE))
-    bar:SetThumbTexture(thumb)
-    bar:SetScript("OnEnter", function() thumb:SetColorTexture(unpack(BRONZE_HI)) end)
-    bar:SetScript("OnLeave", function() thumb:SetColorTexture(unpack(BRONZE)) end)
-    return bar, thumb
-end
+local scroll = ns.OptionsScroll(body, canvas, SCROLL_STEP, ns.OptionsScrollWidth)
+scroll.bar:SetPoint("TOPRIGHT", -2, -PAD)
+scroll.bar:SetPoint("BOTTOMRIGHT", -2, 18) -- clear of the resize grip
 
--- Sizes `bar` and its thumb to a scroll frame showing `visible` of `total` pixels, hiding it when
--- everything fits. Returns the furthest the frame can scroll.
-local function FitScrollbar(bar, thumb, visible, total)
-    local maxScroll = math.max(0, total - visible)
-    bar:SetMinMaxValues(0, maxScroll)
-    bar:SetValue(math.min(bar:GetValue(), maxScroll))
-    bar:SetShown(maxScroll > 0)
-    if total > 0 then
-        thumb:SetHeight(math.max(20, bar:GetHeight() * visible / total))
-    end
-    return maxScroll
-end
+local UpdateCanvas -- defined with the tabs; fits the page to the window, then the scrollbar
+body:SetScript("OnSizeChanged", function() UpdateCanvas() end)
 
-local scrollbar, scrollThumb = ThinScrollbar(inner)
-scrollbar:SetPoint("TOPRIGHT", -1, -PAD)
-scrollbar:SetPoint("BOTTOMRIGHT", -1, 18) -- clear of the resize grip
--- The wheel glides to a target (gliding below); dragging the scrollbar moves straight there.
--- Offsets are whole pixels, so text and boxes don't snap out of step.
-local scrollTarget, gliding = 0, false
-scrollbar:SetScript("OnValueChanged", function(_, value)
-    body:SetVerticalScroll(math.floor(value + 0.5))
-    if not gliding then
-        scrollTarget = value
-    end
-end)
-
-local function MaxScroll()
-    return math.max(0, canvas:GetHeight() - body:GetHeight())
-end
-
-local function UpdateScroll()
-    local maxScroll = FitScrollbar(scrollbar, scrollThumb, body:GetHeight(), canvas:GetHeight())
-    scrollTarget = math.min(scrollTarget, maxScroll)
-end
-
--- Eases the scroll position toward scrollTarget over a few frames.
-local function Glide(_, elapsed)
-    local current = scrollbar:GetValue()
-    local gap = scrollTarget - current
-    gliding = true
-    if math.abs(gap) < 1 then
-        scrollbar:SetValue(scrollTarget)
-        body:SetScript("OnUpdate", nil)
-    else
-        scrollbar:SetValue(current + gap * math.min(1, elapsed * 18))
-    end
-    gliding = false
-end
-
-body:EnableMouseWheel(true)
-body:SetScript("OnMouseWheel", function(_, delta)
-    scrollTarget = math.max(0, math.min(MaxScroll(), scrollTarget - delta * SCROLL_STEP))
-    body:SetScript("OnUpdate", Glide)
-end)
-body:SetScript("OnSizeChanged", function(_, width)
-    canvas:SetWidth(width)
-    UpdateScroll()
-end)
-
--- A size that fits: width WIDTH..MAX_WIDTH, height MIN_HEIGHT up to a little less than the screen.
+-- A size that fits: width MIN_WIDTH..MAX_WIDTH, height MIN_HEIGHT up to a little less than the screen.
 local function ClampSize(width, height)
     local maxHeight = math.max(MIN_HEIGHT, UIParent:GetHeight() - 40)
-    return math.max(WIDTH, math.min(MAX_WIDTH, width)), math.max(MIN_HEIGHT, math.min(maxHeight, height))
+    return math.max(MIN_WIDTH, math.min(MAX_WIDTH, width)), math.max(MIN_HEIGHT, math.min(maxHeight, height))
 end
 
 -- Resize grip: drag the bottom-right corner. Our own drag rather than StartSizing, which made the
@@ -245,25 +174,39 @@ end)
 
 -- Vertical layout: each Place puts a control under the previous one on the page being built.
 local page, y
+-- What controls hang from: the page's top, or after a Stretch, the stretching control's bottom (so
+-- they ride down as it grows). originY is that edge's y on the page at its smallest.
+local origin, originY, originLeft, originRight
 
 local topTabs -- the side tabs (General, Rotation, Cooldown), set below
 
--- Height of what a tab shows: its page, or (with sub-tabs) the selected sub-tab's page.
-local function VisibleHeight(tab)
-    if tab.subs then
-        return VisibleHeight(tab.subs.selected)
+-- What a tab shows: itself, or (with sub-tabs) its selected sub-tab.
+local function ShownTab(tab)
+    while tab.subs do
+        tab = tab.subs.selected
     end
-    return tab.height or 0
+    return tab
 end
 
-local function UpdateCanvas()
+-- Sizes the canvas to the shown page, first growing the page's Stretch control (if it has one) to
+-- fill the window, then fits the scrollbar.
+function UpdateCanvas()
     if not (topTabs and topTabs.selected) then
         return -- still building
     end
-    local tab = topTabs.selected
-    tab.page:SetHeight(math.max(1, VisibleHeight(tab)))
-    canvas:SetHeight(HEADER + math.max(1, VisibleHeight(tab)))
-    UpdateScroll()
+    local shown = ShownTab(topTabs.selected)
+    local height = shown.height or 0
+    local stretch = shown.page.stretch
+    if stretch then
+        local extra = math.max(0, math.floor(body:GetHeight() - HEADER - height))
+        stretch:SetHeight(stretch.minHeight + extra)
+        height = height + extra
+    end
+    height = math.max(1, height)
+    shown.page:SetHeight(height)
+    topTabs.selected.page:SetHeight(height)
+    canvas:SetHeight(HEADER + height)
+    scroll.Update()
 end
 
 -- Text width for sizing a tab; a fallback in case the font hasn't measured yet.
@@ -349,7 +292,7 @@ local function TabGroup(makeTab, buttonParent, pageParent, pageTop)
             other.selected = selected
             other.SetSelected(selected)
         end
-        scrollbar:SetValue(0)
+        scroll.ScrollTo(0)
         UpdateCanvas()
     end
 
@@ -364,6 +307,7 @@ local function TabGroup(makeTab, buttonParent, pageParent, pageTop)
         tab.page:Hide()
         group.tabs[#group.tabs + 1] = tab
         page, y = tab.page, -PAD
+        origin, originY, originLeft, originRight = page, 0, "TOPLEFT", "TOPRIGHT"
         return tab
     end
 
@@ -378,8 +322,8 @@ end
 
 -- Controls ---------------------------------------------------------------------------------------
 
--- The panel being filled (nil between panels), and the y it started at.
-local panel, panelTop
+-- The panel being filled (nil between panels).
+local panel
 
 -- What new controls are parented to: the open panel, so they draw above its background.
 local function Host()
@@ -389,10 +333,28 @@ end
 -- Pinned to both sides of the page (inset further inside a panel), so it stretches with the window.
 local function Place(widget, height, gap)
     local inset = panel and PAD + PANEL_PAD or PAD
-    widget:SetPoint("TOPLEFT", page, "TOPLEFT", inset, y)
-    widget:SetPoint("TOPRIGHT", page, "TOPRIGHT", -inset, y)
+    widget:SetPoint("TOPLEFT", origin, originLeft, inset, y - originY)
+    widget:SetPoint("TOPRIGHT", origin, originRight, -inset, y - originY)
     widget:SetHeight(height)
     y = y - height - (gap or 8)
+end
+
+-- Like Place, but the widget grows to fill the window when the page is shorter than it (one per
+-- page; UpdateCanvas does the growing). Controls placed after it, and the bottom of its panel, move
+-- down with it.
+local function Stretch(widget, minHeight)
+    local inset = panel and PAD + PANEL_PAD or PAD
+    local stretch = CreateFrame("Frame", nil, page) -- the widget's row, across the whole page
+    stretch:SetPoint("TOPLEFT", origin, originLeft, 0, y - originY)
+    stretch:SetPoint("TOPRIGHT", origin, originRight, 0, y - originY)
+    stretch:SetHeight(minHeight)
+    stretch.minHeight = minHeight
+    page.stretch = stretch
+    widget:SetPoint("TOPLEFT", stretch, "TOPLEFT", inset, 0)
+    widget:SetPoint("BOTTOMRIGHT", stretch, "BOTTOMRIGHT", -inset, 0)
+    y = y - minHeight
+    origin, originY, originLeft, originRight = stretch, y, "BOTTOMLEFT", "BOTTOMRIGHT"
+    y = y - 8
 end
 
 function ClosePanel()
@@ -400,7 +362,7 @@ function ClosePanel()
         return
     end
     y = y + 8 - PANEL_PAD - art.EDGE_INSET -- the last control's gap becomes the panel's bottom padding
-    panel:SetHeight(panelTop - y)
+    panel:SetPoint("BOTTOMRIGHT", origin, originRight, -PAD, y - originY)
     y = y - PAD -- between panels
     panel = nil
 end
@@ -410,10 +372,8 @@ end
 local function Section(text)
     ClosePanel()
     panel = CreateFrame("Frame", nil, page)
-    panel:SetPoint("TOPLEFT", page, "TOPLEFT", PAD, y)
-    panel:SetPoint("TOPRIGHT", page, "TOPRIGHT", -PAD, y)
+    panel:SetPoint("TOPLEFT", origin, originLeft, PAD, y - originY) -- its bottom right is set by ClosePanel
     art.Panel(panel)
-    panelTop = y
     y = y - (art.EDGE_INSET + TAB_COVER + 2)
     if text then
         local header = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -760,9 +720,10 @@ Section()
 Hint("Tick the abilities to show. Drag ticked ones up or down to set their priority: higher ones sit closer to the anchor point (chosen in Layout). Unticked items drop off the list.")
 
 -- The list: one row per ability with a cooldown, in its own scrolling area. Rows are pooled and
--- rebuilt on every refresh from ns.Cooldowns.Candidates() (tracked first, in priority order).
+-- rebuilt on every refresh from ns.Cooldowns.Candidates() (tracked first, in priority order). It
+-- stretches to fill the window, at least LIST_ROWS rows tall.
 local ROW_HEIGHT = 26
-local LIST_ROWS = 10
+local LIST_ROWS = 6
 
 local list = CreateFrame("ScrollFrame", nil, Host())
 Box(list, WELL, BRONZE_DIM)
@@ -770,29 +731,12 @@ local content = CreateFrame("Frame", nil, list)
 content:SetSize(CONTENT, 1)
 list:SetScrollChild(content)
 
--- Its own scrollbar, inside the box's right edge (right of the rows' drag grips), above the rows.
-local listBar, listThumb = ThinScrollbar(list)
-listBar:SetPoint("TOPRIGHT", -3, -3)
-listBar:SetPoint("BOTTOMRIGHT", -3, 3)
-listBar:SetFrameLevel(list:GetFrameLevel() + 20)
-listBar:SetScript("OnValueChanged", function(_, value)
-    list:SetVerticalScroll(math.floor(value + 0.5))
-end)
-
-local function UpdateListScroll()
-    FitScrollbar(listBar, listThumb, list:GetHeight(), content:GetHeight())
-end
-
-list:SetScript("OnSizeChanged", function(_, width)
-    content:SetWidth(width)
-    UpdateListScroll()
-end)
-list:EnableMouseWheel(true)
-list:SetScript("OnMouseWheel", function(_, delta)
-    local _, maxScroll = listBar:GetMinMaxValues()
-    listBar:SetValue(math.max(0, math.min(maxScroll, listBar:GetValue() - delta * ROW_HEIGHT * 2)))
-end)
-Place(list, ROW_HEIGHT * LIST_ROWS)
+-- Its own scrollbar, inside the box's edge, with the rows narrowed to clear it.
+local listScroll = ns.OptionsScroll(list, content, ROW_HEIGHT * 2, ns.OptionsScrollWidth + 4)
+listScroll.bar:SetPoint("TOPRIGHT", -3, -3)
+listScroll.bar:SetPoint("BOTTOMRIGHT", -3, 3)
+list:SetScript("OnSizeChanged", listScroll.Update)
+Stretch(list, ROW_HEIGHT * LIST_ROWS)
 
 local empty = list:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 empty:SetPoint("CENTER")
@@ -827,8 +771,21 @@ local function DropIndex()
     return math.max(1, math.min(trackedCount, math.floor(offset / ROW_HEIGHT) + 1))
 end
 
-local function FollowCursor(row)
+-- Held near (or past) the list's top or bottom edge, a dragged row scrolls the list, faster the
+-- further out it is.
+local function DragScroll(cursorY, elapsed)
+    local intoTop = cursorY - (list:GetTop() - ROW_HEIGHT)
+    local intoBottom = (list:GetBottom() + ROW_HEIGHT) - cursorY
+    local push = intoTop > 0 and -intoTop or intoBottom > 0 and intoBottom or 0
+    push = math.max(-2 * ROW_HEIGHT, math.min(2 * ROW_HEIGHT, push))
+    if push ~= 0 then
+        listScroll.ScrollTo(listScroll.Target() + push * elapsed * 10)
+    end
+end
+
+local function FollowCursor(row, elapsed)
     local _, cursorY = GetCursorPosition()
+    DragScroll(cursorY / list:GetEffectiveScale(), elapsed)
     local offset = content:GetTop() - cursorY / content:GetEffectiveScale()
     PinRow(row, -(offset - ROW_HEIGHT / 2))
     local target = DropIndex()
@@ -956,7 +913,7 @@ function RefreshList()
         rows[i]:Hide()
     end
     content:SetHeight(math.max(1, #candidates * ROW_HEIGHT))
-    UpdateListScroll()
+    listScroll.Update()
     empty:SetShown(#candidates == 0)
 end
 refreshers[#refreshers + 1] = RefreshList
@@ -1058,7 +1015,7 @@ end
 topTabs.Select(general)
 window:SetScript("OnShow", function()
     Refresh()
-    UpdateScroll()
+    UpdateCanvas()
 end)
 ns.OnSettingsChanged(function()
     if window:IsShown() then
@@ -1068,7 +1025,7 @@ end)
 
 ns.OnLoad(function()
     -- Clamped, so a saved size from a bigger screen (or a bad resize) can't hide the grip.
-    window:SetSize(ClampSize(ns.db.optionsWidth or WIDTH, ns.db.optionsHeight or DEFAULT_HEIGHT))
+    window:SetSize(ClampSize(ns.db.optionsWidth or MIN_WIDTH, ns.db.optionsHeight or DEFAULT_HEIGHT))
 end)
 
 ns.commands[""] = function()
