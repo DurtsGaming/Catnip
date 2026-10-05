@@ -173,10 +173,10 @@ FOREVER_RAGE = [(160, 0, 0), (169, 0, 0), (179, 0, 0), (190, 1, 1), (203, 7, 4),
 # measured: deep indigo-violet through periwinkle, paling toward lavender-white at the full end like energy.
 PROWL_PERIWINKLE = [(59, 53, 146), (70, 63, 160), (80, 74, 173), (91, 84, 187), (101, 94, 201), (112, 105, 215),
                     (129, 122, 225), (146, 139, 236), (163, 156, 246), (180, 174, 255), (197, 191, 255), (213, 209, 255)]
-# Maul queued (Swing.lua's Maul dot): deep rose up through Swing.lua's MAUL_COLOR (255, 77, 128), paling a
-# little at the full end like energy. Not measured; picked to match the pink swing ring.
-MAUL_PINK = [(150, 12, 56), (162, 16, 62), (176, 22, 70), (190, 30, 79), (204, 39, 88), (217, 48, 97),
-             (229, 57, 106), (240, 66, 115), (249, 75, 123), (255, 84, 131), (255, 96, 140), (255, 108, 149)]
+# Maul queued (Swing.lua's Maul dot): burnt orange up through Swing.lua's MAUL_COLOR (255, 150, 30), paling a
+# little at the full end like energy. Not measured; picked to match the amber swing ring (was pink until 2026-10-04).
+MAUL_AMBER = [(150, 62, 0), (163, 72, 0), (177, 83, 2), (191, 95, 4), (205, 107, 7), (218, 118, 11),
+              (230, 129, 16), (241, 138, 21), (250, 145, 26), (255, 150, 30), (255, 164, 52), (255, 178, 74)]
 
 
 def sample(values, t):
@@ -523,7 +523,7 @@ TEXTURES = {
     "orb_rage": (64, combo_fill(64, FOREVER_RAGE)),         # Bear Form
     "orb_energy": (64, combo_fill(64)),                     # Cat Form
     "orb_prowl": (64, combo_fill(64, PROWL_PERIWINKLE)),    # stealthed, any form
-    "orb_maul": (64, combo_fill(64, MAUL_PINK)),            # Swing.lua: Maul queued dot at 12 o'clock
+    "orb_maul": (64, combo_fill(64, MAUL_AMBER)),           # Swing.lua: Maul queued dot at 12 o'clock
     "orb_dot": (64, combo_fill(64, DOT_RED)),               # unused: DotRings.lua's old still-up orb (now a tick)
     "sp_orb": (64, sp_orb(64)),                             # Cat Form with Shifting Power: blue to yellow
     "sp_orb_prowl": (64, sp_orb(64, PROWL_PERIWINKLE)),     # the same, stealthed: blue to periwinkle

@@ -1,13 +1,13 @@
 -- Swing timer: a ring around the resource circle that appears full on each swing and empties
 -- clockwise from 12 o'clock until the next auto-attack. Driven by the PLAYER_SWING event
--- (Midnight-era API); tints pink, with a pink dot at 12 o'clock, while Maul is queued. Below it, "elapsed / total" text while a
+-- (Midnight-era API); tints amber, with an amber dot at 12 o'clock, while Maul is queued. Below it, "elapsed / total" text while a
 -- swing counts down.
 local addonName, ns = ...
 
 local SIZE = ns.SWING_RING_SIZE
 local GLOW_SCALE = 1.14 -- ring_glow's soft band sits just inside ring_bar's band (1.18 centres it; see tools/make_textures.py)
 local COLOR = { 1, 1, 1 }
-local MAUL_COLOR = { 1, 0.3, 0.5 }
+local MAUL_COLOR = { 1, 150 / 255, 30 / 255 } -- amber: warm like rage, apart from the red rage fill and DoT ticks
 
 local hud = ns.hud
 
@@ -36,7 +36,7 @@ end
 
 SetRingColor(COLOR)
 
--- Maul marker: a pink dot on the ring's band at 12 o'clock (where each swing starts), shown while
+-- Maul marker: an amber dot on the ring's band at 12 o'clock (where each swing starts), shown while
 -- Maul is queued, so it shows even when not swinging and the ring is empty. On its own frame so it
 -- draws over the ring's swipe; a soft black backing keeps it readable over the white ring.
 local MARKER_SIZE = 12
@@ -54,7 +54,7 @@ markerShadow:SetSize(MARKER_SIZE * 1.6, MARKER_SIZE * 1.6)
 markerShadow:SetPoint("CENTER")
 markerShadow:SetVertexColor(0, 0, 0, 0.8)
 
--- Shaded like the shift orbs: orb_maul carries its own pink gradient (drawn untinted), with their black rim
+-- Shaded like the shift orbs: orb_maul carries its own amber gradient (drawn untinted), with their black rim
 local markerDot = marker:CreateTexture(nil, "ARTWORK", nil, 1)
 markerDot:SetTexture(ns.MEDIA .. "orb_maul")
 markerDot:SetAllPoints()
