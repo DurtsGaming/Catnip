@@ -8,6 +8,10 @@
 -- what's under the cursor from each element's hit shape (Elements.lua `hit`):
 --   { kind = "circle", radius = r, x = 0, y = 0 } -- HUD units from the HUD's centre
 --   { kind = "ring", inner = r1, outer = r2 }      -- a band round the HUD's centre
+--     with angle = a, spread = s: only the part within s radians of maths angle a (counter-
+--     clockwise from 3 o'clock; 6 o'clock is -pi/2), s under pi/2
+--   { kind = "circles", radius = r, centres = function } -- several circles picked as one: centres()
+--     returns the current { x, y } list (it may change, e.g. how many orbs show)
 -- Circles and rings may have `visible = function` (pickable only while it returns true).
 --   { kind = "text", region = fontString, anchor = frame, point = "TOP", y = 0 or function, chars = 10 }
 -- A text's own rectangle can't be used: a FontString showing a secret value (the energy number)
@@ -26,6 +30,8 @@ local GLOW_ALPHA = 0.4 -- the additive copy that brightens a hovered outline, as
 local TEXT_PAD = 4 -- around a text's box, for the hit and the outline
 local CHAR_WIDTH = 0.55 -- a character's estimated width, as a fraction of the font size
 local CATCHER_SIZE = 320 -- covers the HUD and the text under it
+
+local atan2 = math.atan2 or atan2
 
 local Preview = {}
 ns.Preview = Preview
@@ -85,6 +91,37 @@ local function CircleHighlight(hit)
     return frame
 end
 
+-- Circles: CircleHighlight's look on each centre, re-placed on every refresh (Place).
+local function CirclesHighlight(hit)
+    local frame = CreateFrame("Frame", nil, layer)
+    frame:SetAllPoints(hud)
+    local pool = {}
+    function frame.Place()
+        local centres = hit.centres()
+        for i, centre in ipairs(centres) do
+            local circle = pool[i]
+            if not circle then
+                circle = CircleHighlight({ radius = hit.radius })
+                circle:SetParent(frame)
+                pool[i] = circle
+            end
+            circle:ClearAllPoints()
+            circle:SetPoint("CENTER", hud, "CENTER", centre[1], centre[2])
+            circle:Show()
+        end
+        for i = #centres + 1, #pool do
+            pool[i]:Hide()
+        end
+    end
+    function frame.SetState(state)
+        for _, circle in ipairs(pool) do
+            circle.SetState(state)
+        end
+        frame:SetAlpha(1) -- each circle sets its own
+    end
+    return frame
+end
+
 -- Ring: the band filled (ring_bar, the swing ring's band, sized so its outer edge is `outer`) with
 -- thin rings at both edges, tinted blue, or gold when selected.
 local RING_BAR_OUTER = 127 / 256 -- ring_bar's band reaches this far out on its canvas (Swing.lua)
@@ -103,6 +140,25 @@ local function RingHighlight(hit)
         edge:SetSize(2 * radius + 2, 2 * radius + 2)
         edge:SetPoint("CENTER")
         edges[i] = edge
+    end
+    -- A part ring: everything masked to the wedge between angle - spread and angle + spread, by two
+    -- half_plane masks (SegmentedArc.lua's technique; half_plane shows its left half and
+    -- SetRotation turns it counter-clockwise).
+    if hit.angle then
+        local function Mask(rotation)
+            local mask = frame:CreateMaskTexture()
+            mask:SetTexture(ns.MEDIA .. "half_plane", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            mask:SetAllPoints(frame)
+            mask:SetRotation(rotation)
+            return mask
+        end
+        local from, to = hit.angle - hit.spread, hit.angle + hit.spread
+        local above = Mask(from - math.pi / 2) -- shows from .. from + 180 degrees
+        local below = Mask(to - 3 * math.pi / 2) -- shows to - 180 degrees .. to
+        for _, texture in ipairs({ fill, edges[1], edges[2] }) do
+            texture:AddMaskTexture(above)
+            texture:AddMaskTexture(below)
+        end
     end
     function frame.SetState(state)
         local colour = state == "selected" and GOLD or BLUE
@@ -171,6 +227,8 @@ local function Targets()
             local highlight
             if hit.kind == "circle" then
                 highlight = CircleHighlight(hit)
+            elseif hit.kind == "circles" then
+                highlight = CirclesHighlight(hit)
             elseif hit.kind == "ring" then
                 highlight = RingHighlight(hit)
             else
@@ -214,10 +272,27 @@ local function Contains(target)
     local scale = hud:GetEffectiveScale()
     local cx, cy = hud:GetCenter()
     local x, y = GetCursorPosition()
+    if hit.kind == "circles" then
+        local r2 = hit.radius * hit.radius
+        for _, centre in ipairs(hit.centres()) do
+            local dx, dy = x / scale - cx - centre[1], y / scale - cy - centre[2]
+            if dx * dx + dy * dy <= r2 then
+                return true
+            end
+        end
+        return false
+    end
     local dx, dy = x / scale - cx - (hit.x or 0), y / scale - cy - (hit.y or 0)
     local distance = dx * dx + dy * dy
     if hit.kind == "ring" then
-        return distance >= hit.inner * hit.inner and distance <= hit.outer * hit.outer
+        if distance < hit.inner * hit.inner or distance > hit.outer * hit.outer then
+            return false
+        end
+        if not hit.angle then
+            return true
+        end
+        local off = (atan2(dy, dx) - hit.angle + math.pi) % (2 * math.pi) - math.pi -- -pi .. pi
+        return math.abs(off) <= hit.spread
     end
     return distance <= hit.radius * hit.radius
 end
