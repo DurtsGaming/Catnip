@@ -134,5 +134,5 @@ Check these before general web searching, in this order:
 
 1. Bump `## Version` in `Catnip.toc` (e.g. `0.1.0-beta.3`).
 2. The user commits, pushes, then tags and pushes the tag: `git tag v0.1.0-beta.3`, `git push origin v0.1.0-beta.3`.
-3. `.github/workflows/release.yml` builds `Catnip-<tag>.zip` (a `Catnip/` folder) and publishes it on the Releases page. Tags containing `-` become pre-releases. `.gitattributes` keeps dev files (`docs/`, `tools/`, `CLAUDE.md`, etc.) out of the zip.
+3. `.github/workflows/release.yml` builds `Catnip-<tag>.zip` (a `Catnip/` folder) and publishes it on the Releases page. Tags containing `-` become pre-releases. `.gitattributes` keeps dev files (`docs/`, `tools/`, every `.md` file including `README.md`, etc.) out of the zip. A second job runs the [BigWigsMods packager](https://github.com/BigWigsMods/packager) to upload the same tag to CurseForge: it needs the `CF_API_KEY` repository secret (a CurseForge API token) and `## X-Curse-Project-ID` in `Catnip.toc`, and is skipped while the secret is unset. Its ignore list is in `.pkgmeta`; keep it in step with `.gitattributes`. Tags containing `alpha` or `beta` upload as that release type.
 4. Keep `README.md` (player-facing install and usage) in sync with features.
