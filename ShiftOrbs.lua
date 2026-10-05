@@ -24,6 +24,12 @@
 --
 -- The design's 0.1s fade when the count changes isn't done: in combat we can't tell the count
 -- changed, so the rows just swap. (Out of combat it could be; not worth it while undecided.)
+--
+-- Almost there: with no orbs, while mana is regenerating (outside the five-second rule) and the
+-- first orb is at least NEAR of the way paid for, a ghost orb shows where it will appear: grey,
+-- with the bottom half in the orb's colour (HALF_FILL). Only for the first orb: never 1.5 orbs.
+-- Its curve is 1 between NEAR and one shift's worth, so it never overlaps a plain row; inside the
+-- rule it's hidden (plain Lua, so this works in combat too).
 local addonName, ns = ...
 
 local COMBAT_ONLY = false -- off for now: the orbs show in and out of combat
@@ -33,6 +39,9 @@ local SPACING = ORB_SIZE * 1.25 -- centre to centre, along the chord
 local RADIUS = 89 -- inner edge ~77.6, ~3.4 outside the Shifting Power arc (make_textures.py SP_RADIUS)
 local STEP = 2 * math.asin(SPACING / 2 / RADIUS) -- angle between neighbouring orbs (~18.4 degrees)
 local STEALTH_ALPHA = 0.6 -- 30% was too much
+local NEAR = 0.8 -- the ghost orb shows once the first orb is this far paid for (owner's eyeball)
+local HALF_FILL = true -- ghost orb: false = plain grey; true = grey with a coloured bottom half
+local GHOST_GREY = 0.55 -- the ghost's desaturated art is darkened to this
 local MANA = Enum.PowerType.Mana
 local SHIFT_SPELLS = { "Cat Form", "Dire Bear Form", "Bear Form" } -- all cost the same
 local SHIFTING_POWER = { "Shifting Power" }
@@ -57,32 +66,56 @@ holder:SetPoint("CENTER", hud, "CENTER")
 holder:SetFrameLevel(hud:GetFrameLevel() + 2)
 holder:Hide()
 
--- rows[n]: n orbs, centred on 6 o'clock. orbs: every orb texture across the rows, for swapping the art.
+-- rows[n]: n orbs, centred on 6 o'clock. orbs: every coloured orb texture, for swapping the art.
+-- ghostRow: the lone ghost orb, where the first orb appears.
 local rows, orbs = {}, {}
 local currentArt = MANA_ART
-for n = 1, MAX_ORBS do
+
+local function CreateOrb(row, x, y)
+    local orb = row:CreateTexture(nil, "ARTWORK")
+    orb:SetTexture(ns.MEDIA .. currentArt)
+    orb:SetSize(ORB_SIZE, ORB_SIZE)
+    orb:SetPoint("CENTER", row, "CENTER", x, y)
+    local border = row:CreateTexture(nil, "OVERLAY") -- same black rim as the combo points
+    border:SetTexture(ns.MEDIA .. "ring_small")
+    border:SetVertexColor(0, 0, 0)
+    border:SetSize(ORB_SIZE, ORB_SIZE)
+    border:SetPoint("CENTER", orb)
+    return orb
+end
+
+local function CreateRow()
     local row = CreateFrame("Frame", nil, holder)
     row:SetAllPoints()
     row:SetAlpha(0)
+    return row
+end
+
+for n = 1, MAX_ORBS do
+    local row = CreateRow()
     for i = 1, n do
         local angle = -math.pi / 2 + (i - (n + 1) / 2) * STEP
-        local x, y = RADIUS * math.cos(angle), RADIUS * math.sin(angle)
-        local orb = row:CreateTexture(nil, "ARTWORK")
-        orb:SetTexture(ns.MEDIA .. currentArt)
-        orb:SetSize(ORB_SIZE, ORB_SIZE)
-        orb:SetPoint("CENTER", row, "CENTER", x, y)
-        orbs[#orbs + 1] = orb
-        local border = row:CreateTexture(nil, "OVERLAY") -- same black rim as the combo points
-        border:SetTexture(ns.MEDIA .. "ring_small")
-        border:SetVertexColor(0, 0, 0)
-        border:SetSize(ORB_SIZE, ORB_SIZE)
-        border:SetPoint("CENTER", orb)
+        orbs[#orbs + 1] = CreateOrb(row, RADIUS * math.cos(angle), RADIUS * math.sin(angle))
     end
     rows[n] = row
 end
 
+local ghostRow = CreateRow()
+local ghost = CreateOrb(ghostRow, 0, -RADIUS) -- grey: desaturated and darkened
+ghost:SetDesaturated(true)
+ghost:SetVertexColor(GHOST_GREY, GHOST_GREY, GHOST_GREY)
+local half -- the ghost's coloured bottom half (HALF_FILL)
+if HALF_FILL then
+    half = ghostRow:CreateTexture(nil, "ARTWORK", nil, 1)
+    half:SetTexture(ns.MEDIA .. currentArt)
+    half:SetSize(ORB_SIZE, ORB_SIZE / 2)
+    half:SetPoint("BOTTOM", ghost)
+    half:SetTexCoord(0, 1, 0.5, 1)
+end
+
 local cost, maxMana -- mana per shift and max mana, as last read out of combat; cost nil = unknown
 local curves = {} -- curves[n]: 1 while mana is between n and n+1 shifts' worth, as a fraction of max
+local ghostCurve -- 1 between NEAR and one shift's worth
 local affordCurve -- 1 from one shift's worth of mana up: gates ShiftingPower.lua's ready pulse
 local hasShiftingPower = false
 local inCombat = false -- from PLAYER_REGEN_DISABLED / _ENABLED
@@ -111,6 +144,11 @@ local function UpdateArt()
     currentArt = art
     for _, orb in ipairs(orbs) do
         orb:SetTexture(ns.MEDIA .. art)
+    end
+    ghost:SetTexture(ns.MEDIA .. art)
+    if half then
+        half:SetTexture(ns.MEDIA .. art)
+        half:SetTexCoord(0, 1, 0.5, 1) -- in case SetTexture reset it
     end
 end
 
@@ -157,16 +195,21 @@ local function Rebuild()
     end
     cost, maxMana = newCost, max
     local fraction = cost / max
-    for n = 1, MAX_ORBS do
+    -- 1 from `from` shifts' worth of mana up to `to` (nil: no upper end).
+    local function Band(from, to)
         local curve = C_CurveUtil.CreateCurve()
         curve:SetType(Enum.LuaCurveType.Step)
         curve:AddPoint(0, 0)
-        curve:AddPoint(n * fraction, 1)
-        if n < MAX_ORBS then
-            curve:AddPoint((n + 1) * fraction, 0)
+        curve:AddPoint(from * fraction, 1)
+        if to then
+            curve:AddPoint(to * fraction, 0)
         end
-        curves[n] = curve
+        return curve
     end
+    for n = 1, MAX_ORBS do
+        curves[n] = Band(n, n < MAX_ORBS and n + 1 or nil)
+    end
+    ghostCurve = Band(NEAR, 1)
     affordCurve = C_CurveUtil.CreateCurve()
     affordCurve:SetType(Enum.LuaCurveType.Step)
     affordCurve:AddPoint(0, 0)
@@ -198,6 +241,13 @@ local function Update()
     for n, row in ipairs(rows) do
         row:SetAlpha(UnitPowerPercent("player", MANA, false, curves[n]))
     end
+    -- The ghost only while regenerating. (The curve result may be secret, so no `and`/`or` on it:
+    -- that would test it.)
+    if ns.InFiveSecondRule() then
+        ghostRow:SetAlpha(0)
+    else
+        ghostRow:SetAlpha(UnitPowerPercent("player", MANA, false, ghostCurve))
+    end
 end
 
 local function RebuildAndUpdate()
@@ -209,6 +259,8 @@ ns.OnStealthChanged(function(stealthed)
     holder:SetAlpha(stealthed and STEALTH_ALPHA or 1) -- the rows set their own alpha
     Update()
 end)
+
+ns.OnFiveSecondRuleChanged(Update)
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_ENTERING_WORLD")

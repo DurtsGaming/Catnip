@@ -54,6 +54,30 @@ local function SetFill(fill)
 end
 
 local lastSpend -- GetTime() of the last mana spend
+local active = false -- inside the 5 seconds, as last told to the callbacks
+local callbacks = {}
+
+-- Whether mana was spent in the last 5 seconds (so it isn't regenerating). Our own clock, so
+-- readable in combat.
+function ns.InFiveSecondRule()
+    return lastSpend ~= nil and GetTime() - lastSpend < RULE
+end
+
+-- fn(active) runs whenever the rule starts (a mana spend) or runs out.
+function ns.OnFiveSecondRuleChanged(fn)
+    callbacks[#callbacks + 1] = fn
+end
+
+local function Notify()
+    local now = ns.InFiveSecondRule()
+    if now == active then
+        return
+    end
+    active = now
+    for _, fn in ipairs(callbacks) do
+        fn(now)
+    end
+end
 
 local function Progress()
     if not lastSpend then
@@ -94,6 +118,10 @@ local function Spent(spellID, at, reason)
     lastSpend = math.max(lastSpend or 0, at)
     local name = not ns.IsSecret(spellID) and C_Spell.GetSpellName(spellID) or spellID
     ns.Debug("5s rule:", name, "spent mana, ring reset (" .. reason .. ")")
+    Notify()
+    -- Each spend schedules its own check; only the one after the latest spend finds the rule over.
+    local remaining = lastSpend + RULE - GetTime()
+    C_Timer.After(math.max(remaining, 0) + 0.05, Notify)
 end
 
 -- Whether Clearcasting was up when each cast was sent, keyed by spell ID (castGUID may be
