@@ -32,6 +32,7 @@ SegmentedCooldown.lua
 ShiftingPower.lua
 ShiftOrbs.lua
 CooldownRings.lua
+GrowlArc.lua
 CooldownItems.lua
 Cooldowns.lua
 EditMode.lua

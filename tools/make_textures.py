@@ -276,25 +276,34 @@ def sp_arc_geometry(size):
     return shape
 
 
-def sp_arc_outline(size):
+def sp_arc_outline(size, arc_colour=None):
     """A thin line around each segment, just outside its edge, in the segment's own colours; the
     inside is clear."""
     geometry = sp_arc_geometry(size)
+    arc_colour = arc_colour or sp_colour
     width = SP_OUTLINE * size / SP_CANVAS
     def colour(d, dx, dy):
         _, t, _, inside = geometry(d, dx, dy)
-        return min(clamp01(inside + width + 0.5), clamp01(0.5 - inside)), sp_colour(t)
+        return min(clamp01(inside + width + 0.5), clamp01(0.5 - inside)), arc_colour(t)
     return colour
 
 
-def sp_arc(size):
-    """The arc in colour (sp_colour), with the resource fill's tube shading across the band."""
+def sp_arc(size, arc_colour=None):
+    """The arc in colour (sp_colour, or `arc_colour(t)`), with the resource fill's tube shading across
+    the band."""
     geometry = sp_arc_geometry(size)
+    arc_colour = arc_colour or sp_colour
     def colour(d, dx, dy):
         a, t, u, _ = geometry(d, dx, dy)
         shade = soft_tube(u)
-        return a, tuple(ch * shade for ch in sp_colour(t))
+        return a, tuple(ch * shade for ch in arc_colour(t))
     return colour
+
+
+# Growl arc (GrowlArc.lua): Shifting Power's arc in its place (Growl hides it while showing), left to
+# right brown through red to orange (not measured; brightens toward ready like Shifting Power's).
+GROWL_ARC_STOPS = [(0.40, 0.22, 0.10), (0.62, 0.16, 0.06), (0.86, 0.14, 0.04), (0.98, 0.36, 0.06),
+                   (1.0, 0.58, 0.14)]
 
 
 def sp_orb(size, second=FOREVER_ENERGY):
@@ -316,9 +325,7 @@ def sp_orb(size, second=FOREVER_ENERGY):
 # Cooldown rings (CooldownRings.lua), each sampled by eye from its spell's icon, clockwise from
 # 12 o'clock. Faerie Fire (dot 1): deep violet through magenta to pale pink.
 FAERIE_STOPS = [(0.32, 0.08, 0.62), (0.62, 0.20, 0.95), (0.92, 0.32, 0.88), (1.0, 0.72, 0.95)]
-# Growl (dot 2): the icon's fire, dark ember orange through amber to a pale gold; kept off Rake and
-# Rip's red. Primal Bite (dot 3): the icon's teeth, warm bone through ivory to near white.
-GROWL_STOPS = [(0.55, 0.20, 0.02), (0.92, 0.45, 0.05), (1.0, 0.68, 0.15), (1.0, 0.88, 0.50)]
+# Primal Bite (dot 3): the icon's teeth, warm bone through ivory to near white.
 PRIMAL_BITE_STOPS = [(0.50, 0.42, 0.32), (0.75, 0.68, 0.55), (0.92, 0.88, 0.78), (1.0, 0.98, 0.94)]
 
 
@@ -518,6 +525,7 @@ TEXTURES = {
     # Coloured, drawn untinted.
     "sp_arc": (256, sp_arc(256)),                           # Shifting Power: the four segments, blue to white to yellow
     "sp_arc_outline": (256, sp_arc_outline(256)),           # Shifting Power: line around each segment, in its colours
+    "growl_arc": (256, sp_arc(256, lambda t: sample(GROWL_ARC_STOPS, t))),  # Growl: the same arc, brown to red to orange
     # Shift orbs (ShiftOrbs.lua), one look per form: like the combo points, the full bar cut to a circle
     "orb_mana": (64, combo_fill(64, FOREVER_MANA)),         # out of Cat and Bear Form
     "orb_rage": (64, combo_fill(64, FOREVER_RAGE)),         # Bear Form
@@ -528,7 +536,6 @@ TEXTURES = {
     "sp_orb": (64, sp_orb(64)),                             # Cat Form with Shifting Power: blue to yellow
     "sp_orb_prowl": (64, sp_orb(64, PROWL_PERIWINKLE)),     # the same, stealthed: blue to periwinkle
     "ring_faerie": (128, coloured_ring(128, 16, FAERIE_STOPS)),        # Faerie Fire cooldown ring; same band as ring_rip
-    "ring_growl": (128, coloured_ring(128, 16, GROWL_STOPS)),          # Growl cooldown ring
     "ring_primal_bite": (128, coloured_ring(128, 16, PRIMAL_BITE_STOPS)),  # Primal Bite cooldown ring
     "tick_dot": (64, tick_bar(64, DOT_STOPS[1:])),            # DotRings.lua still-up tick: red to orange-red up it
     "ring_rake": (128, coloured_ring(128, 16, DOT_STOPS, 3)),          # Rake DoT ring: 3 segments (9s, 3s ticks)

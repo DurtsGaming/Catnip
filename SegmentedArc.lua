@@ -22,6 +22,9 @@
 --   drain        start full and empty instead: the front eats each segment from its start, and
 --                as each segment empties the next one pulses (not the last one left)
 --   noFlash      at the end just hide, without flashing the whole arc
+--
+-- arc.onShownChanged(shown), if set, is called when the arc itself shows or hides (its fade-out
+-- included), whatever its parents are doing: GrowlArc.lua decides which of two arcs shows from it.
 local addonName, ns = ...
 
 local HALF_PI = math.pi / 2
@@ -173,12 +176,23 @@ function ns.CreateSegmentedArc(options)
         end
     end
 
+    local arc = { frame = frame }
+
+    local function SetShown(shown)
+        if frame:IsShown() == shown then
+            return
+        end
+        frame:SetShown(shown)
+        if arc.onShownChanged then
+            arc.onShownChanged(shown)
+        end
+    end
+
     fadeOut:SetScript("OnFinished", function()
         StopEffects() -- the flash may have a frame left; it mustn't be paused mid-fade while hidden
-        frame:Hide()
+        SetShown(false)
     end)
 
-    local arc = { frame = frame }
     local filled = 0 -- segments done so far (full, or empty when draining), for their pulses
 
     -- progress 0-1. Each segment fills (or empties) over its own share of the time, edge to edge,
@@ -220,7 +234,7 @@ function ns.CreateSegmentedArc(options)
         progress = math.min(progress, 1)
         filled = math.floor(progress * count)
         Draw(progress)
-        frame:Show()
+        SetShown(true)
     end
 
     function arc.IsFading()
@@ -243,7 +257,7 @@ function ns.CreateSegmentedArc(options)
     function arc.Hide()
         fadeOut:Stop()
         StopEffects()
-        frame:Hide()
+        SetShown(false)
     end
 
     return arc

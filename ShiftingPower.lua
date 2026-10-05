@@ -6,6 +6,11 @@
 -- flashes and fades out, and a blue light pulses once inside the resource circle, if your mana
 -- pays for a cast.
 --
+-- Growl's arc (GrowlArc.lua) shares the spot; it decides which shows (Growl in Bear Form, this one
+-- otherwise) by hiding this arc's parent (ns.shiftingPowerArcGate). The clock keeps running
+-- underneath, so the arc comes back where it should be; the ready pulse isn't in the gate and
+-- still plays.
+--
 -- The arc is a SegmentedArc.lua arc timed by SegmentedCooldown.lua (our own clock from the cast,
 -- length learned out of combat in CatnipDB.spLength: 16s, or 12s/8s with talents). Its segments
 -- and gaps are drawn into sp_arc and sp_arc_outline (make_textures.py sp_arc_geometry, and
@@ -24,10 +29,14 @@ local PULSE_IN, PULSE_OUT = 0.01, 0.5 -- a quick pop (a 1.2s fade felt slow)
 
 local hud = ns.hud
 
+local arcGate = CreateFrame("Frame", nil, hud)
+arcGate:SetAllPoints()
+ns.shiftingPowerArcGate = arcGate
+
 local arc = ns.CreateSegmentedArc({
-    parent = hud,
+    parent = arcGate,
     size = CANVAS,
-    level = 4,
+    level = 3, -- the gate is one above the HUD, so 4 above it as before
     art = "sp_arc",
     outline = "sp_arc_outline", -- a black rim around each segment, like the combo points
     outlineColor = { 0, 0, 0 }, -- in its own colours it read as a neon glow
@@ -35,6 +44,7 @@ local arc = ns.CreateSegmentedArc({
     span = 2 * SPAN,
     segments = SEGMENTS, -- the gaps are in the art
 })
+ns.shiftingPowerArc = arc -- GrowlArc.lua watches it (onShownChanged)
 
 -- Ready pulse ---------------------------------------------------------------------------------------
 

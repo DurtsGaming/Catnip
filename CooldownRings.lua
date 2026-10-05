@@ -1,5 +1,5 @@
--- Short cooldowns as segmented rings around the combo points: Faerie Fire (dot 1), Growl (dot 2),
--- Primal Bite (dot 3). Each ring starts full when we cast the spell and empties clockwise from
+-- Short cooldowns as segmented rings around the combo points: Faerie Fire (dot 1) and Primal Bite
+-- (dot 3); dot 2 is free (Growl moved to GrowlArc.lua). Each ring starts full when we cast the spell and empties clockwise from
 -- 12 o'clock over its cooldown, leaving nothing behind. As each segment empties the next one
 -- pulses, except the last one left; when ready it's simply gone (no flash). Hidden with the combo
 -- dots outside Cat and Bear Form. Each is a SegmentedArc.lua ring timed by SegmentedCooldown.lua,
@@ -29,17 +29,6 @@ local RINGS = {
         defaultLength = 6,
         lengthKey = "ffLength",
         command = "ff",
-    },
-    {
-        label = "Growl",
-        dot = 2,
-        art = "ring_growl",
-        segments = 8,
-        names = { "Growl" },
-        castNames = { ["Growl"] = true },
-        defaultLength = 8, -- ~8s seen 2026-10-04 (Classic's 10s ran 1.5 segments long); learned from the first cast
-        lengthKey = "growlLength",
-        command = "growl",
     },
     {
         label = "Primal Bite",
