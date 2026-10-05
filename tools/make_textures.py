@@ -306,19 +306,30 @@ GROWL_ARC_STOPS = [(0.40, 0.22, 0.10), (0.62, 0.16, 0.06), (0.86, 0.14, 0.04), (
                    (1.0, 0.58, 0.14)]
 
 
+SP_ORB_BLEND = 0.3   # width of the blend at the seam, as a fraction of the orb (0.12 was a hard cut; 0.4 and up
+                     # showed too little blue and yellow)
+SP_ORB_WHITE = 0.6   # how white the seam gets at its middle (0.9 was too much; 0.45 started to look green)
+SP_ORB_WHITE_DIM = 0.5  # how much the seam's white darkens toward the bottom like the bars (1 went grey)
+
+
 def sp_orb(size, second=FOREVER_ENERGY):
-    """Shift orb in Cat Form with Shifting Power known (ShiftOrbs.lua): circle_hard's disc blending
-    diagonally from the mana bar's blue (top left) to `second` at SP_YELLOW_FROM along its bar
-    (bottom right): energy's yellow, or stealth mode's periwinkle. Slightly darker toward the rim."""
+    """Shift orb in Cat Form with Shifting Power known (ShiftOrbs.lua): shaded like the other orbs
+    (combo_fill: each bar's gradient bottom to top, the tube shading across), split diagonally: the
+    mana bar top left, `second` bottom right (energy, or stealth mode's periwinkle). Both fade into
+    white where they meet, like the arc's blue to white to yellow (a straight blend went muddy)."""
     disc = circle_hard(size)
-    r = size / 2 - 1
-    blue = forever_colour(1, FOREVER_MANA)
-    other = forever_colour(SP_YELLOW_FROM, second)
+    c = (size - 1) / 2
     def colour(d, dx, dy):
-        t = clamp01(0.5 + (dx + dy) / (2.4 * r))  # dy grows downward: 0 top left, 1 bottom right
+        u, v = (dx + c + 0.5) / size, (dy + c + 0.5) / size
+        x = (u + v - 1) / math.sqrt(2) / SP_ORB_BLEND  # across the seam, -0.5 to 0.5 over the blend
+        t = clamp01(x + 0.5)
         t = t * t * (3 - 2 * t)
-        shade = 1 - 0.25 * clamp01(d / r) ** 3
-        return disc(d), tuple((b + (o - b) * t) * shade for b, o in zip(blue, other))
+        blue, other = forever_colour(1 - v, FOREVER_MANA), forever_colour(1 - v, second)
+        white = 1 - SP_ORB_WHITE_DIM * 0.45 * v  # white, a little darker toward the bottom
+        w = SP_ORB_WHITE * math.exp(-(2.2 * x) ** 2)  # peaks on the seam
+        shade = soft_tube(u)
+        return disc(d), tuple((m + (white - m) * w) * shade
+                              for m in (b + (o - b) * t for b, o in zip(blue, other)))
     return colour
 
 

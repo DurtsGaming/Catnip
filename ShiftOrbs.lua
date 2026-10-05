@@ -9,7 +9,8 @@
 -- The orbs match the resource circle (Resource.lua): mana's gradient out of Cat and Bear Form, full
 -- rage in Bear Form, full energy in Cat Form, and stealth mode's periwinkle while stealthed (Prowl
 -- or Shadowmeld, in any form; dimmed then too). With Shifting Power known, Cat Form's orbs are half
--- mana blue instead: blue to yellow, or blue to periwinkle while stealthed.
+-- mana blue instead, split diagonally: blue top left, yellow (or periwinkle while stealthed) bottom
+-- right, fading into white where they meet; shaded like the other orbs.
 --
 -- It also gates ShiftingPower.lua's ready pulse (ns.shiftingPowerPulseGate) on a one-shift curve,
 -- in every form, so the pulse only shows if your mana pays for a cast.
