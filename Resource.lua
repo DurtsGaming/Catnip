@@ -65,7 +65,7 @@ local textLayer = CreateFrame("Frame", nil, bar)
 textLayer:SetAllPoints()
 textLayer:SetFrameLevel(bar:GetFrameLevel() + 5)
 local text = textLayer:CreateFontString(nil, "OVERLAY")
-text:SetFont(STANDARD_TEXT_FONT, 20, "OUTLINE")
+text:SetFont(STANDARD_TEXT_FONT, 20, "OUTLINE") -- until the saved font is applied (the element below)
 text:SetPoint("CENTER")
 
 local function StyleText()
@@ -148,9 +148,10 @@ end
 -- string.format accepts secrets, so it can add the "%".
 local SCALE_TO_100 = CurveConstants and CurveConstants.ScaleTo100
 local CAN_SHOW_PERCENT = UnitPowerPercent ~= nil and SCALE_TO_100 ~= nil
+local manaFormat = "percent" -- the Resource number's "Mana as" option: "percent" or "value"
 
 local function PowerText(powerType, power)
-    if powerType == Enum.PowerType.Mana and CAN_SHOW_PERCENT then
+    if powerType == Enum.PowerType.Mana and CAN_SHOW_PERCENT and manaFormat == "percent" then
         return string.format("%d%%", UnitPowerPercent("player", powerType, false, SCALE_TO_100))
     end
     return power
@@ -213,6 +214,25 @@ ns.OnLoad(function()
     ns.Debug("mana as percent:", CAN_SHOW_PERCENT, "| UnitPowerPercent:", UnitPowerPercent ~= nil,
         "| CurveConstants.ScaleTo100:", SCALE_TO_100 ~= nil)
 end)
+
+-- Settings (Elements.lua): the number's font, size and outline, and how mana shows. A raw mana
+-- value is secret in combat too, but SetText takes it as-is.
+local numberOptions = ns.TextOptions(20)
+numberOptions[#numberOptions + 1] = { key = "manaFormat", type = "choice", label = "Mana as", default = "percent",
+    values = { { value = "percent", text = "Percent" }, { value = "value", text = "Value" } } }
+ns.RegisterElement({
+    id = "resource.number",
+    zone = "resource",
+    name = "Resource number",
+    options = numberOptions,
+    apply = function(get)
+        ns.ApplyFont(text, get("font"), get("size"), get("outline"))
+        manaFormat = get("manaFormat")
+        if UnitExists("player") then
+            Update()
+        end
+    end,
+})
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("PLAYER_ENTERING_WORLD")

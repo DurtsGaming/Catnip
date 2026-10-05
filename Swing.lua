@@ -73,8 +73,18 @@ info:SetPoint("TOP", hud, "CENTER", 0, -ns.TIME_TEXT_OFFSET)
 info:Hide()
 
 local timeText = info:CreateFontString(nil, "OVERLAY")
-timeText:SetFont(STANDARD_TEXT_FONT, 14, "OUTLINE")
+timeText:SetFont(STANDARD_TEXT_FONT, 14, "OUTLINE") -- until the saved font is applied
 timeText:SetPoint("TOP")
+
+ns.RegisterElement({
+    id = "text.swing",
+    zone = "text",
+    name = "Swing time",
+    options = ns.TextOptions(14),
+    apply = function(get)
+        ns.ApplyFont(timeText, get("font"), get("size"), get("outline"))
+    end,
+})
 
 local swingStart, swingDuration
 

@@ -9,6 +9,7 @@ libs\LibEditMode\namespaced.lua
 libs\LibEditMode\embed.xml
 
 Catnip.lua
+Elements.lua
 Stealth.lua
 UnlockOverlay.lua
 Layout.lua

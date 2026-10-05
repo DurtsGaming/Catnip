@@ -77,6 +77,26 @@ local nameText = info:CreateFontString(nil, "OVERLAY")
 nameText:SetFont(STANDARD_TEXT_FONT, 12, "OUTLINE")
 nameText:SetPoint("TOP", timeText, "BOTTOM", 0, -2)
 
+-- Settings (Elements.lua); the fonts above stand until these are applied.
+ns.RegisterElement({
+    id = "text.castTime",
+    zone = "text",
+    name = "Cast time",
+    options = ns.TextOptions(14),
+    apply = function(get)
+        ns.ApplyFont(timeText, get("font"), get("size"), get("outline"))
+    end,
+})
+ns.RegisterElement({
+    id = "text.castName",
+    zone = "text",
+    name = "Cast name",
+    options = ns.TextOptions(12),
+    apply = function(get)
+        ns.ApplyFont(nameText, get("font"), get("size"), get("outline"))
+    end,
+})
+
 -- The running cast: a duration object, or plain start/end seconds on a client without one.
 local channel, durationObject, startTime, endTime
 local fullFormat = true -- false once the object turns out to lack elapsed/total getters
