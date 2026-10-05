@@ -3,6 +3,9 @@ local addonName, ns = ...
 ns.MEDIA = "Interface\\AddOns\\" .. addonName .. "\\media\\"
 ns.RESOURCE_SIZE = 100
 ns.SWING_RING_SIZE = 134 -- band starts ~3px outside the resource circle's border
+-- Top of the cast and swing time text, below the HUD's centre: under the shift orbs
+-- (ShiftOrbs.lua: centres 89 below, 22.8 across, so their bottom is ~100.4).
+ns.TIME_TEXT_OFFSET = 104
 
 -- In combat, Midnight hands addons "secret" values we can display but not compare or do math on.
 function ns.IsSecret(value)

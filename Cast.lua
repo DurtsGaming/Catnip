@@ -2,7 +2,7 @@
 -- size, texture and glow) and the swing ring goes invisible. The swing ring keeps running
 -- underneath, so it reappears in sync when the cast ends. Casts fill counter-clockwise from
 -- 12 o'clock; channels start full and drain clockwise (the same shape, run backwards). Below the
--- ring: "elapsed / total" (remaining for channels) and the spell name.
+-- ring: "elapsed / total" (remaining for channels) and the spell name, in the swing text's place.
 --
 -- Cast timings may be secret in combat, so the ring is driven by duration objects
 -- (UnitCastingDuration / UnitChannelDuration -> Cooldown:SetCooldownFromDurationObject), the same
@@ -15,9 +15,7 @@
 local addonName, ns = ...
 
 local SIZE = ns.SWING_RING_SIZE
--- Below the shift orbs (ShiftOrbs.lua: centres 89 below the HUD's centre, 22.8 across, so their
--- bottom is ~100.4).
-local TEXT_OFFSET = 104
+local TEXT_OFFSET = ns.TIME_TEXT_OFFSET -- shared with Swing.lua's text, which hides while casting
 local CAST_COLOR = { 1, 0.7, 0 } -- Blizzard cast bar gold
 local CHANNEL_COLOR = { 0.3, 0.8, 1 }
 

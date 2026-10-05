@@ -1,6 +1,7 @@
 -- Swing timer: a ring around the resource circle that appears full on each swing and empties
 -- clockwise from 12 o'clock until the next auto-attack. Driven by the PLAYER_SWING event
--- (Midnight-era API); tints pink while Maul is queued.
+-- (Midnight-era API); tints pink while Maul is queued. Below it, "elapsed / total" text while a
+-- swing counts down.
 local addonName, ns = ...
 
 local SIZE = ns.SWING_RING_SIZE
@@ -36,12 +37,40 @@ end
 
 SetRingColor(COLOR)
 
+-- Swing text: "0.0 / 2.5s" (elapsed / swing length) where the cast text goes, under the shift
+-- orbs; same font as the cast time. Hidden once the swing is ready, and while casting (the cast
+-- text takes the spot). The frame is only shown while a swing is counting down.
+local info = CreateFrame("Frame", nil, hud)
+info:SetSize(1, 1)
+info:SetPoint("TOP", hud, "CENTER", 0, -ns.TIME_TEXT_OFFSET)
+info:Hide()
+
+local timeText = info:CreateFontString(nil, "OVERLAY")
+timeText:SetFont(STANDARD_TEXT_FONT, 14, "OUTLINE")
+timeText:SetPoint("TOP")
+
+local swingStart, swingDuration
+
+info:SetScript("OnUpdate", function()
+    local elapsed = GetTime() - swingStart
+    if elapsed >= swingDuration then
+        info:Hide() -- swing ready
+        return
+    end
+    timeText:SetShown(not (ns.IsCasting and ns.IsCasting()))
+    timeText:SetText(string.format("%.1f / %.1fs", elapsed, swingDuration))
+end)
+
 local function OnSwing(duration, weaponSlot)
     if ns.IsSecret(duration) or not duration or duration <= 0 then
         ring:Clear()
+        info:Hide()
         return
     end
-    ring:SetCooldown(GetTime(), duration)
+    local now = GetTime()
+    ring:SetCooldown(now, duration)
+    swingStart, swingDuration = now, duration
+    info:Show()
 end
 
 local IsCurrentSpell = (C_Spell and C_Spell.IsCurrentSpell) or IsCurrentSpell
@@ -56,7 +85,9 @@ local function UpdateMaul()
     if queued ~= maulQueued then
         maulQueued = queued
         ns.Debug("Maul queued:", queued)
-        SetRingColor(queued and MAUL_COLOR or COLOR)
+        local color = queued and MAUL_COLOR or COLOR
+        SetRingColor(color)
+        timeText:SetTextColor(color[1], color[2], color[3])
     end
 end
 
