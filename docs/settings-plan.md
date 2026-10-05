@@ -8,7 +8,7 @@ Plan for letting players customize the HUD (opacity per element, text font and s
 |------|-------|
 | 1. Registry (`Elements.lua`), storage, Rotation tab tree with generated pages; text elements (Resource number, Swing time, Cast time, Cast name: font, size, outline), General font/outline, Resource number's "Mana as" Percent / Value | Verified in-game 2026-10-04: all four fonts load, outlines, sizes, inheriting and reset work, raw mana value updates in combat without errors |
 | 2a. Preview hover and click (`Preview.lua`): outlines, hover tooltip, click opens the page, tree hover lights the element, open page's element in gold. Pickable: Resource circle (new element: fill, background and border opacity), Resource number, and the swing/cast texts while they show | Verified in-game 2026-10-04 (hover, click, tree hover, opacity sliders, off on tab switch / Edit Mode / combat, camera still turns over empty HUD area). Idle outlines faint enough; the cast time and name outlines overlap a little, which the owner is fine with |
-| 2b. Sample state and form switcher: always samples while the Rotation tab is open (owner's call, 2026-10-04), starting from the current form; "Preview as" at the top of the tree; Prowl via a stealth override (so every stealth-aware piece follows); samples for the resource circle and number, a looping swing (Cat, Bear), and a looping 2.5s cast (Caster; a separate Casting state was merged into Caster at the owner's request); Cast time/name pages and changing "Mana as" switch to Caster, Swing time to Cat | Verified in-game 2026-10-04. Fixed after: a real cast during a Bear preview showed the mana prediction bands over the sample (now hidden while sampled, **untested**) |
+| 2b. Sample state and form switcher: always samples while the Rotation tab is open (owner's call, 2026-10-04), starting from the current form; "Preview as" at the top of the tree; Prowl via a stealth override (so every stealth-aware piece follows); samples for the resource circle and number, a looping swing (Cat, Bear), and a looping 2.5s cast (Caster; a separate Casting state was merged into Caster at the owner's request); Cast time/name pages and changing "Mana as" switch to Caster, Swing time to Cat | Verified in-game 2026-10-04. Fixed after: a real cast during a Bear preview showed the mana prediction bands over the sample (now hidden while sampled, verified 2026-10-04) |
 | Choice controls: clicking the value opens a menu of all values (Blizzard's `MenuUtil`, fonts drawn in their font via `SetFontObject`); the arrows still step | Verified in-game 2026-10-04 (owner's request) |
 | 3a. Per-element opacity, Swing ring zone: Swing ring (bar, background), Maul orb (Bear sample shows Maul queued), Stealth smoke, Cast bar; ring-shaped hit targets (`kind = "ring"`) and `visible` functions | Verified in-game 2026-10-04 |
 | 3b. Under the ring: Shifting Power arc (opacity, ready pulse on/off), Growl arc (opacity), Shift orbs (opacity, almost-ready orb on/off; previews all five, picked as one by their own circles, owner's request); part-ring hit targets (`angle`, `spread`); the arcs' samples are looping copies (`ns.ArcSampler`) while the real ones hide in `ns.cooldownArcHolder` | Verified in-game 2026-10-04 |
@@ -54,7 +54,7 @@ Edit Mode frames are rectangles, but the HUD is circles and rings that overlap, 
   - `band` (inner, outer radius, optional angle range): the swing ring, the Shifting Power arc, the five-second ring, rings around combo points (a band around the dot's centre)
   - `rect`: text
   Smaller shapes are checked first, so a combo point beats the swing ring behind it. Elements that sit on top of another and can't be picked out (GCD pie, mana prediction bands, Enrage tint) are selected only from the tree.
-- **Look, borrowed from Blizzard's Edit Mode:** on entering preview, every selectable element gets a faint blue outline in its own shape. The hovered element brightens, and a small name tag ("Rip ring") shows by the cursor. The selected element (whose settings are open) turns gold, and the rest of the HUD dims to about 25% (the spotlight), so the changed part stands out.
+- **Look, borrowed from Blizzard's Edit Mode:** on entering preview, every selectable element gets a faint blue outline in its own shape. The hovered element brightens, and a small name tag ("Rip ring") shows by the cursor. The selected element (whose settings are open) turns gold. (A spotlight dimming the rest of the HUD to 25% while a page is open was built on 2026-10-04 and dropped the same day: the owner didn't like it. It scaled every element's opacity options through a shared `ns.OpacityOption` marked `dims`; don't rebuild it unasked.)
 - **Highlight art:** each element names the textures to outline (often an outline texture it already has, such as `sp_arc_outline`). The fallback is the hit shape drawn with `ring_thin` / `ring_small`, cut with `half_plane` masks for arcs.
 - **Click:** opens the settings window at that element (opening the window beside the HUD if it was closed). Uses the same idea as `ns.FollowSettings`.
 
@@ -74,6 +74,15 @@ Edit Mode frames are rectangles, but the HUD is circles and rings that overlap, 
 ## Order of work
 
 1. Registry, storage and a generated settings page, starting with the three text elements (font, size) and the mana format. Small, and tests the whole pipeline.
-2. Preview mode: sample state, form switcher, mouse catcher with hit shapes, hover outlines, click to select, spotlight.
+2. Preview mode: sample state, form switcher, mouse catcher with hit shapes, hover outlines, click to select (the spotlight was dropped).
 3. Opacity, zone by zone (colour alpha first, wrappers only where needed).
 4. Stand-ins for the AuraContainer elements.
+
+## Next steps
+
+Steps 1-4 are done and verified (released in 0.1.0-beta.10). Still open, in no fixed order; ask the owner which first:
+
+- **Colours where the art allows.** Art tinted in code can take any colour: the stealth smoke, the Maul amber, the five-second ring's indigo, the cast and channel colours, the GCD shade, the Enrage red. Art with its colour baked in (power fills, combo points, orbs, arcs, the coloured rings) would need preset textures to pick from. Needs a colour control in Options.lua (Blizzard's `ColorPickerFrame`, unverified on Forever).
+- **The cooldown box in the same scheme.** Its opacity, alignment and icon settings as elements in the settings tree (its own zone, or the Cooldown tab built the same way), with a preview showing sample icons. It's a separate frame, not in `ns.hud`, so Preview.lua's layer and catcher would need one for it too.
+- **More options per element** as wanted, e.g. hiding elements outright, text colour, the number's position.
+- **Wrap-up:** fold this plan into design.md and architecture.md (both already describe what's built), leaving this file as a short history or removing it.
