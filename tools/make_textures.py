@@ -328,6 +328,8 @@ DOT_STOPS = [(0.42, 0.02, 0.02), (0.78, 0.07, 0.04), (0.98, 0.22, 0.08), (1.0, 0
 # The combo point rings are drawn 46 units across (ComboPoints.lua COMBO_DOT_SIZE + 8); gaps are
 # cut 2 units wide on the band's centre line, like CooldownRings.lua's GAP.
 COMBO_RING_UNITS = 46
+# DoT orbs (DotRings.lua): the rings' colours as a 12-step bar gradient, for combo_fill
+DOT_RED = [tuple(round(ch * 255) for ch in sample(DOT_STOPS, i / 11)) for i in range(12)]
 COMBO_RING_GAP = 2
 
 
@@ -512,6 +514,7 @@ TEXTURES = {
     "orb_energy": (64, combo_fill(64)),                     # Cat Form
     "orb_prowl": (64, combo_fill(64, PROWL_PERIWINKLE)),    # stealthed, any form
     "orb_maul": (64, combo_fill(64, MAUL_PINK)),            # Swing.lua: Maul queued dot at 12 o'clock
+    "orb_dot": (64, combo_fill(64, DOT_RED)),               # DotRings.lua: on the last segment while the DoT is up
     "sp_orb": (64, sp_orb(64)),                             # Cat Form with Shifting Power: blue to yellow
     "sp_orb_prowl": (64, sp_orb(64, PROWL_PERIWINKLE)),     # the same, stealthed: blue to periwinkle
     "ring_faerie": (128, coloured_ring(128, 16, FAERIE_STOPS)),        # Faerie Fire cooldown ring; same band as ring_rip
