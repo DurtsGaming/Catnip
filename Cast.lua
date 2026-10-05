@@ -344,6 +344,29 @@ local function Sample(state)
 end
 ns.GetElement("text.castTime").sample = Sample
 
+-- Whether the cast ring (swipe or arcs) is showing, real or sampled. Swing.lua's ring isn't
+-- pickable then.
+function ns.CastBarShown()
+    return ring:IsShown() or arcs:IsShown()
+end
+
+-- Settings (Elements.lua): the ring's opacity, as frame alpha (nothing else sets it on these frames).
+ns.RegisterElement({
+    id = "swing.cast",
+    zone = "swing",
+    name = "Cast bar",
+    hit = { kind = "ring", inner = ns.SWING_BAND.inner, outer = ns.SWING_BAND.outer, visible = ns.CastBarShown },
+    states = { "caster" },
+    options = {
+        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+    },
+    apply = function(get)
+        local alpha = get("opacity") / 100
+        ring:SetAlpha(alpha)
+        arcs:SetAlpha(alpha)
+    end,
+})
+
 ns.OnLoad(function()
     ns.Debug("cast bar method:", UnitCastingDuration and "duration object" or "UnitCastingInfo times")
 end)

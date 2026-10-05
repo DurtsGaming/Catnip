@@ -7,6 +7,8 @@
 -- The HUD's circles and rings overlap, so one mouse catcher covers the whole HUD and works out
 -- what's under the cursor from each element's hit shape (Elements.lua `hit`):
 --   { kind = "circle", radius = r, x = 0, y = 0 } -- HUD units from the HUD's centre
+--   { kind = "ring", inner = r1, outer = r2 }      -- a band round the HUD's centre
+-- Circles and rings may have `visible = function` (pickable only while it returns true).
 --   { kind = "text", region = fontString, anchor = frame, point = "TOP", y = 0 or function, chars = 10 }
 -- A text's own rectangle can't be used: a FontString showing a secret value (the energy number)
 -- has a secret size and position even out of combat, and maths on them errors (seen 2026-10-04).
@@ -83,6 +85,36 @@ local function CircleHighlight(hit)
     return frame
 end
 
+-- Ring: the band filled (ring_bar, the swing ring's band, sized so its outer edge is `outer`) with
+-- thin rings at both edges, tinted blue, or gold when selected.
+local RING_BAR_OUTER = 127 / 256 -- ring_bar's band reaches this far out on its canvas (Swing.lua)
+local function RingHighlight(hit)
+    local frame = CreateFrame("Frame", nil, layer)
+    frame:SetAllPoints(hud)
+    local fill = frame:CreateTexture(nil, "ARTWORK")
+    fill:SetTexture(ns.MEDIA .. "ring_bar")
+    local fillSize = hit.outer / RING_BAR_OUTER
+    fill:SetSize(fillSize, fillSize)
+    fill:SetPoint("CENTER")
+    local edges = {}
+    for i, radius in ipairs({ hit.inner, hit.outer }) do
+        local edge = frame:CreateTexture(nil, "OVERLAY")
+        edge:SetTexture(ns.MEDIA .. "ring_thin")
+        edge:SetSize(2 * radius + 2, 2 * radius + 2)
+        edge:SetPoint("CENTER")
+        edges[i] = edge
+    end
+    function frame.SetState(state)
+        local colour = state == "selected" and GOLD or BLUE
+        fill:SetVertexColor(colour[1], colour[2], colour[3], state == "idle" and 0.15 or 0.35)
+        for _, edge in ipairs(edges) do
+            edge:SetVertexColor(colour[1], colour[2], colour[3], 1)
+        end
+        frame:SetAlpha(state == "idle" and IDLE_ALPHA or 1)
+    end
+    return frame
+end
+
 -- Text: Edit Mode's own nine-slice around the text's box, blue (with an additive copy on hover) or
 -- yellow. The frame is the box (see the top of the file), re-placed on every refresh, since the
 -- size and offsets follow settings.
@@ -136,22 +168,40 @@ local function Targets()
     for _, element in ipairs(ns.elements) do
         local hit = element.hit
         if hit then
-            local highlight = hit.kind == "circle" and CircleHighlight(hit) or TextHighlight(hit, element)
-            targets[#targets + 1] = { element = element, highlight = highlight }
+            local highlight
+            if hit.kind == "circle" then
+                highlight = CircleHighlight(hit)
+            elseif hit.kind == "ring" then
+                highlight = RingHighlight(hit)
+            else
+                highlight = TextHighlight(hit, element)
+            end
+            targets[#targets + 1] = { element = element, highlight = highlight, order = #targets }
         end
     end
-    local function Order(target)
+    -- Texts first, then by how far out the shape reaches; ties keep registration order.
+    local function Reach(target)
         local hit = target.element.hit
-        return hit.kind == "text" and 0 or hit.radius
+        return hit.kind == "text" and 0 or hit.outer or hit.radius
     end
-    table.sort(targets, function(a, b) return Order(a) < Order(b) end)
+    table.sort(targets, function(a, b)
+        local ra, rb = Reach(a), Reach(b)
+        if ra ~= rb then
+            return ra < rb
+        end
+        return a.order < b.order
+    end)
     return targets
 end
 
--- Whether a target is on screen: a text only while it (and its frame) is shown.
+-- Whether a target is on screen: a text only while it (and its frame) is shown; others while
+-- their `visible` says so, if they have one.
 local function Visible(target)
     local hit = target.element.hit
-    return hit.kind ~= "text" or hit.region:IsVisible()
+    if hit.kind == "text" then
+        return hit.region:IsVisible()
+    end
+    return not hit.visible or hit.visible() and true or false
 end
 
 -- Hit testing --------------------------------------------------------------------------------------
@@ -165,7 +215,11 @@ local function Contains(target)
     local cx, cy = hud:GetCenter()
     local x, y = GetCursorPosition()
     local dx, dy = x / scale - cx - (hit.x or 0), y / scale - cy - (hit.y or 0)
-    return dx * dx + dy * dy <= hit.radius * hit.radius
+    local distance = dx * dx + dy * dy
+    if hit.kind == "ring" then
+        return distance >= hit.inner * hit.inner and distance <= hit.outer * hit.outer
+    end
+    return distance <= hit.radius * hit.radius
 end
 
 -- The element under the cursor, or nil.

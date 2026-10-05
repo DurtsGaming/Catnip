@@ -30,8 +30,12 @@ ring:SetDrawBling(false)
 ring:SetHideCountdownNumbers(true)
 ns.swingRing = ring -- Cast.lua hides it (via alpha, so it keeps timing) while casting
 
+-- The swipe colour's alpha is the "Bar opacity" setting (the frame's own alpha belongs to Cast.lua).
+local ringOpacity = 1
+local ringColor = COLOR
 local function SetRingColor(color)
-    ring:SetSwipeColor(color[1], color[2], color[3], 1)
+    ringColor = color
+    ring:SetSwipeColor(color[1], color[2], color[3], ringOpacity)
 end
 
 SetRingColor(COLOR)
@@ -157,6 +161,14 @@ ns.RegisterElement({
 
 local IsCurrentSpell = (C_Spell and C_Spell.IsCurrentSpell) or IsCurrentSpell
 local maulQueued = false
+local maulSampled = false -- preview mode's Bear sample shows Maul queued, whatever the game says
+
+local function ShowMaul(queued)
+    local color = queued and MAUL_COLOR or COLOR
+    SetRingColor(color)
+    marker:SetShown(queued)
+    timeText:SetTextColor(color[1], color[2], color[3])
+end
 
 local function UpdateMaul()
     local queued = IsCurrentSpell("Maul")
@@ -167,12 +179,61 @@ local function UpdateMaul()
     if queued ~= maulQueued then
         maulQueued = queued
         ns.Debug("Maul queued:", queued)
-        local color = queued and MAUL_COLOR or COLOR
-        SetRingColor(color)
-        marker:SetShown(queued)
-        timeText:SetTextColor(color[1], color[2], color[3])
+        if not maulSampled then
+            ShowMaul(queued)
+        end
     end
 end
+
+-- Settings (Elements.lua). The ring and its black glow behind; the glow's own alpha belongs to
+-- StealthSmoke.lua's fade, so the setting goes in its vertex colour. Hidden in stealth (the smoke
+-- takes the spot) and under a cast (the cast bar is picked there).
+local function Percent(key, label, default)
+    return { key = key, type = "slider", label = label, min = 0, max = 100, step = 5, format = "%.0f%%", default = default }
+end
+local RING_OUTER = SIZE * 127 / 256 -- ring_bar's band: 20 of 256 pixels thick, out to 127
+local RING_INNER = SIZE * 107 / 256
+ns.SWING_BAND = { inner = RING_INNER, outer = RING_OUTER } -- Cast.lua's ring sits in the same band
+
+ns.RegisterElement({
+    id = "swing.ring",
+    zone = "swing",
+    name = "Swing ring",
+    hit = { kind = "ring", inner = RING_INNER, outer = RING_OUTER,
+        visible = function() return not ns.IsStealthMode() and not (ns.CastBarShown and ns.CastBarShown()) end },
+    states = { "cat", "bear" },
+    options = {
+        Percent("barOpacity", "Bar opacity", 100),
+        Percent("glowOpacity", "Background opacity", 75),
+    },
+    apply = function(get)
+        ringOpacity = get("barOpacity") / 100
+        SetRingColor(ringColor)
+        glow:SetVertexColor(0, 0, 0, get("glowOpacity") / 100)
+    end,
+    -- Bear shows Maul queued, so its amber look and orb can be seen; nil puts back the real state.
+    sample = function(state)
+        maulSampled = state ~= nil
+        if maulSampled then
+            ShowMaul(state == "bear")
+        else
+            ShowMaul(maulQueued)
+        end
+    end,
+})
+
+ns.RegisterElement({
+    id = "swing.maul",
+    zone = "swing",
+    name = "Maul orb",
+    hit = { kind = "circle", x = 0, y = MARKER_Y, radius = MARKER_SIZE / 2 + 3,
+        visible = function() return marker:IsShown() end },
+    states = { "bear" },
+    options = { Percent("opacity", "Opacity", 100) },
+    apply = function(get)
+        marker:SetAlpha(get("opacity") / 100)
+    end,
+})
 
 local events = CreateFrame("Frame")
 local hasSwingEvent = ns.TryRegisterEvent(events, "PLAYER_SWING")

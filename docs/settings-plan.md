@@ -10,7 +10,9 @@ Plan for letting players customize the HUD (opacity per element, text font and s
 | 2a. Preview hover and click (`Preview.lua`): outlines, hover tooltip, click opens the page, tree hover lights the element, open page's element in gold. Pickable: Resource circle (new element: fill, background and border opacity), Resource number, and the swing/cast texts while they show | Verified in-game 2026-10-04 (hover, click, tree hover, opacity sliders, off on tab switch / Edit Mode / combat, camera still turns over empty HUD area). Idle outlines faint enough; the cast time and name outlines overlap a little, which the owner is fine with |
 | 2b. Sample state and form switcher: always samples while the Rotation tab is open (owner's call, 2026-10-04), starting from the current form; "Preview as" at the top of the tree; Prowl via a stealth override (so every stealth-aware piece follows); samples for the resource circle and number, a looping swing (Cat, Bear), and a looping 2.5s cast (Caster; a separate Casting state was merged into Caster at the owner's request); Cast time/name pages and changing "Mana as" switch to Caster, Swing time to Cat | Verified in-game 2026-10-04. Fixed after: a real cast during a Bear preview showed the mana prediction bands over the sample (now hidden while sampled, **untested**) |
 | Choice controls: clicking the value opens a menu of all values (Blizzard's `MenuUtil`, fonts drawn in their font via `SetFontObject`); the arrows still step | Verified in-game 2026-10-04 (owner's request) |
-| 3. Opacity wrappers | Not started |
+| 3a. Per-element opacity, Swing ring zone: Swing ring (bar, background), Maul orb (Bear sample shows Maul queued), Stealth smoke, Cast bar; ring-shaped hit targets (`kind = "ring"`) and `visible` functions | Verified in-game 2026-10-04 |
+| 3b. Under the ring: Shifting Power / Growl arc, shift orbs | Not started |
+| 3c. Combo arc: combo points and rings (Rip, Rake, ticks need step 4's stand-ins) | Not started |
 | 4. AuraContainer stand-ins | Not started |
 
 ## Decisions (owner, 2026-10-04)
@@ -60,7 +62,7 @@ Edit Mode frames are rectangles, but the HUD is circles and rings that overlap, 
 
 1. **Element registry.** `ns.RegisterElement{ id, zone, name, frames, hit, highlight, states, options, apply, preview }`. Settings pages, preview, hover and click are all generated from this list, rather than writing every control by hand in Options.lua.
 2. **Storage.** `CatnipDB.elements[id][key]`, falling back to General, then to the option's default. Appearance is shared across Edit Mode layouts; only position, scale and opacity stay per layout, as they are now.
-3. **Opacity wrappers.** Many elements already set their own alpha (shift orb curves, smoke fades, the Shifting Power pulse gate), so a user opacity can't simply call `SetAlpha` on them. Each element gets a parent frame whose alpha belongs only to the setting (the `shiftingPowerPulseGate` pattern; alphas multiply). Textures drawn directly on `ns.hud` (backdrop, swing glow, smoke) move into frames first. Keep the frame levels in architecture.md's layering table. The biggest refactor here; done zone by zone.
+3. **Opacity.** First choice (2026-10-04): the colour's alpha (swipe colour, vertex colour), which multiplies with the frame and texture alpha the modules animate, so no new frames are needed (the Swing ring zone works this way). Wrappers only where that isn't possible. Many elements already set their own alpha (shift orb curves, smoke fades, the Shifting Power pulse gate), so a user opacity can't simply call `SetAlpha` on them. Each element gets a parent frame whose alpha belongs only to the setting (the `shiftingPowerPulseGate` pattern; alphas multiply). Textures drawn directly on `ns.hud` (backdrop, swing glow, smoke) move into frames first. Keep the frame levels in architecture.md's layering table. The biggest refactor here; done zone by zone.
 4. **Combat.** Our own frames' font and alpha can change in combat, but AuraContainer button art is fixed after setup. Settings that change those elements apply after a `/reload` or a rebuild out of combat (needs testing in-game).
 
 ## Open questions to verify
@@ -73,5 +75,5 @@ Edit Mode frames are rectangles, but the HUD is circles and rings that overlap, 
 
 1. Registry, storage and a generated settings page, starting with the three text elements (font, size) and the mana format. Small, and tests the whole pipeline.
 2. Preview mode: sample state, form switcher, mouse catcher with hit shapes, hover outlines, click to select, spotlight.
-3. Opacity wrappers, zone by zone.
+3. Opacity, zone by zone (colour alpha first, wrappers only where needed).
 4. Stand-ins for the AuraContainer elements.
