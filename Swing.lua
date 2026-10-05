@@ -51,6 +51,12 @@ timeText:SetPoint("TOP")
 
 local swingStart, swingDuration
 
+-- Latest swing length (plain number from PLAYER_SWING), or nil before the first swing. Gcd.lua
+-- paces the bear GCD to it.
+function ns.GetSwingDuration()
+    return swingDuration
+end
+
 info:SetScript("OnUpdate", function()
     local elapsed = GetTime() - swingStart
     if elapsed >= swingDuration then
