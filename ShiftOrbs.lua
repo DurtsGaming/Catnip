@@ -31,6 +31,14 @@
 -- with the bottom half in the orb's colour (HALF_FILL). Only for the first orb: never 1.5 orbs.
 -- Its curve is 1 between NEAR and one shift's worth, so it never overlaps a plain row; inside the
 -- rule it's hidden (plain Lua, so this works in combat too).
+--
+-- Mana prediction (ManaPrediction.lua, via ns.onManaPrediction): while a cast would cost orbs,
+-- those orbs take the resource circle's dark spend colour. If the cast is cancelled the dim fades
+-- out over the circle's 0.5s refill (a bottom-up refill, with or without the glow, was too much at
+-- this size, owner's call). Which orbs: orb i (counting from the left) is lost if mana - cost < i shifts'
+-- worth, i.e. mana < i * shift + cost. Each orb's overlay frame takes its alpha from a step curve
+-- that's 1 below that, so again the secret mana stays engine-side. The curves depend on the cast's
+-- cost, so they're made when a cast starts (kept per cost); if that fails in combat, no prediction.
 local addonName, ns = ...
 
 local COMBAT_ONLY = false -- off for now: the orbs show in and out of combat
@@ -68,20 +76,44 @@ holder:SetFrameLevel(hud:GetFrameLevel() + 2)
 holder:Hide()
 
 -- rows[n]: n orbs, centred on 6 o'clock. orbs: every coloured orb texture, for swapping the art.
--- ghostRow: the lone ghost orb, where the first orb appears.
-local rows, orbs = {}, {}
+-- ghostRow: the lone ghost orb, where the first orb appears. predictions: every orb's mana
+-- prediction overlay ({ frame, index, dim }), in every row.
+local rows, orbs, predictions = {}, {}, {}
 local currentArt = MANA_ART
 
-local function CreateOrb(row, x, y)
-    local orb = row:CreateTexture(nil, "ARTWORK")
-    orb:SetTexture(ns.MEDIA .. currentArt)
-    orb:SetSize(ORB_SIZE, ORB_SIZE)
-    orb:SetPoint("CENTER", row, "CENTER", x, y)
-    local border = row:CreateTexture(nil, "OVERLAY") -- same black rim as the combo points
+local function CreateBorder(parent, orb) -- same black rim as the combo points
+    local border = parent:CreateTexture(nil, "OVERLAY")
     border:SetTexture(ns.MEDIA .. "ring_small")
     border:SetVertexColor(0, 0, 0)
     border:SetSize(ORB_SIZE, ORB_SIZE)
     border:SetPoint("CENTER", orb)
+end
+
+-- Over orb `index` of a row: mana's orb tinted like ManaPrediction's dark band. The frame's alpha
+-- says whether the orb is lost (secret); the dim's own alpha fades it on a refund. A child frame
+-- draws over the row's rim, so it has its own.
+local function CreatePrediction(row, orb, index)
+    local frame = CreateFrame("Frame", nil, row)
+    frame:SetSize(ORB_SIZE, ORB_SIZE)
+    frame:SetPoint("CENTER", orb)
+    frame:SetAlpha(0)
+    local dim = frame:CreateTexture(nil, "ARTWORK")
+    dim:SetTexture(ns.MEDIA .. MANA_ART)
+    dim:SetVertexColor(unpack(ns.MANA_SPEND_COLOR))
+    dim:SetAllPoints()
+    CreateBorder(frame, orb)
+    predictions[#predictions + 1] = { frame = frame, index = index, dim = dim }
+end
+
+local function CreateOrb(row, x, y, index)
+    local orb = row:CreateTexture(nil, "ARTWORK")
+    orb:SetTexture(ns.MEDIA .. currentArt)
+    orb:SetSize(ORB_SIZE, ORB_SIZE)
+    orb:SetPoint("CENTER", row, "CENTER", x, y)
+    CreateBorder(row, orb)
+    if index then
+        CreatePrediction(row, orb, index)
+    end
     return orb
 end
 
@@ -96,7 +128,7 @@ for n = 1, MAX_ORBS do
     local row = CreateRow()
     for i = 1, n do
         local angle = -math.pi / 2 + (i - (n + 1) / 2) * STEP
-        orbs[#orbs + 1] = CreateOrb(row, RADIUS * math.cos(angle), RADIUS * math.sin(angle))
+        orbs[#orbs + 1] = CreateOrb(row, RADIUS * math.cos(angle), RADIUS * math.sin(angle), i)
     end
     rows[n] = row
 end
@@ -120,6 +152,8 @@ local ghostCurve -- 1 between NEAR and one shift's worth
 local affordCurve -- 1 from one shift's worth of mana up: gates ShiftingPower.lua's ready pulse
 local hasShiftingPower = false
 local inCombat = false -- from PLAYER_REGEN_DISABLED / _ENABLED
+local lostCurves = {} -- lostCurves[castCost][i]: 1 while orb i would be lost to that cast; reset in Rebuild
+local predictCost -- the cast's mana cost while ManaPrediction.lua shows a band, else nil
 
 -- The art for the current form and stealth state; nil (keep the current art) if the form is secret.
 local function OrbArt()
@@ -195,6 +229,7 @@ local function Rebuild()
         return
     end
     cost, maxMana = newCost, max
+    lostCurves = {}
     local fraction = cost / max
     -- 1 from `from` shifts' worth of mana up to `to` (nil: no upper end).
     local function Band(from, to)
@@ -231,6 +266,40 @@ local function UpdatePulseGate()
     end
 end
 
+-- lostCurves for a cast costing castCost, made on first use; nil if they can't be made
+local function LostCurves(castCost)
+    if not lostCurves[castCost] then
+        local ok, list = pcall(function()
+            local list = {}
+            for i = 1, MAX_ORBS do
+                local curve = C_CurveUtil.CreateCurve()
+                curve:SetType(Enum.LuaCurveType.Step)
+                curve:AddPoint(0, 1)
+                curve:AddPoint((i * cost + castCost) / maxMana, 0)
+                list[i] = curve
+            end
+            return list
+        end)
+        if not ok then
+            ns.Debug("shift orbs: can't make prediction curves:", list)
+            return nil
+        end
+        lostCurves[castCost] = list
+    end
+    return lostCurves[castCost]
+end
+
+local function UpdatePrediction()
+    local curves = predictCost and cost ~= nil and LostCurves(predictCost) or nil
+    for _, p in ipairs(predictions) do
+        if curves then
+            p.frame:SetAlpha(UnitPowerPercent("player", MANA, false, curves[p.index]))
+        else
+            p.frame:SetAlpha(0)
+        end
+    end
+end
+
 local function Update()
     UpdatePulseGate()
     local show = CAN_COUNT and (inCombat or not COMBAT_ONLY) and cost ~= nil
@@ -242,6 +311,7 @@ local function Update()
     for n, row in ipairs(rows) do
         row:SetAlpha(UnitPowerPercent("player", MANA, false, curves[n]))
     end
+    UpdatePrediction()
     -- The ghost only while regenerating. (The curve result may be secret, so no `and`/`or` on it:
     -- that would test it.)
     if ns.InFiveSecondRule() then
@@ -254,6 +324,20 @@ end
 local function RebuildAndUpdate()
     Rebuild()
     Update()
+end
+
+-- From ManaPrediction.lua: the cast's mana cost while a band shows (nil otherwise) and the dim's
+-- strength: 1 while casting, falling to 0 over a refund (called every frame then)
+function ns.onManaPrediction(castCost, strength)
+    if castCost ~= predictCost then
+        predictCost = castCost
+        UpdatePrediction()
+    end
+    if predictCost then
+        for _, p in ipairs(predictions) do
+            p.dim:SetAlpha(strength)
+        end
+    end
 end
 
 ns.OnStealthChanged(function(stealthed)

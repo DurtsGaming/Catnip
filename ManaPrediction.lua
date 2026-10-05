@@ -14,6 +14,9 @@
 -- whenever it's readable and kept. The cost comes from C_Spell.GetSpellPowerCost, readable in
 -- combat (FiveSecondRule.lua relies on it too). The bands fill just the gap between mana - cost
 -- and mana (see AnchorBands).
+--
+-- ShiftOrbs.lua dims the orbs the cast would cost, fading the dim out with a refund: it's told
+-- through ns.onManaPrediction(cost, strength) and borrows the spend colour.
 local addonName, ns = ...
 
 local MANA = Enum.PowerType.Mana
@@ -22,6 +25,7 @@ local SMOOTH = Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.Expon
 local SPEND_COLOR = { 0.45, 0.45, 0.6 } -- tints fill_mana darker, like Blizzard's cost band
 local GLOW_FILE = "Interface\\TargetingFrame\\UI-StatusBar-Glow" -- Blizzard's gain glow, drawn additively
 local GLOW_ALPHA = 0.75 -- as Blizzard's
+ns.MANA_SPEND_COLOR = SPEND_COLOR -- for ShiftOrbs.lua
 local REFUND_TIME = 0.5 -- Blizzard's gain glow runs 0.5s, linear
 -- A stop event starts the refund at once (Blizzard doesn't wait either). If our SUCCEEDED arrives
 -- this soon after, the stop came first on a cast that landed, so the refund is undone.
@@ -132,11 +136,31 @@ local function ShowingMana()
     return not ns.IsSecret(powerType) and powerType == MANA
 end
 
+local function RefundProgress()
+    return math.min((GetTime() - refundStart) / REFUND_TIME, 1)
+end
+
+-- Tells ShiftOrbs.lua the cost and how strong its dim is: 1 while the dark band shows, fading to
+-- 0 with the refund; no cost while neither band shows
+local function NotifyOrbs(band)
+    if not ns.onManaPrediction then
+        return
+    end
+    if band == spendBand then
+        ns.onManaPrediction(cost, 1)
+    elseif band == refundBand then
+        ns.onManaPrediction(cost, 1 - RefundProgress())
+    else
+        ns.onManaPrediction(nil)
+    end
+end
+
 -- The band for the current state, shown only while the circle shows mana
 local function ShowBand(band)
     local mana = ShowingMana()
     spendBand:SetShown(mana and band == spendBand)
     refundBand:SetShown(mana and band == refundBand)
+    NotifyOrbs(mana and band or nil)
 end
 
 local function UpdateBands()
@@ -158,20 +182,21 @@ end
 -- Cancelled: the fill climbs back up from mana - cost at a steady rate, as Blizzard's glow
 -- shrinks, uncovering the glowing band under it.
 local function RefundUpdate()
-    local t = (GetTime() - refundStart) / REFUND_TIME
+    local t = RefundProgress()
     if t >= 1 then
         Clear()
         return
     end
     ns.SetResourceOffset(cost * (1 - t), maxMana)
+    NotifyOrbs(ShowingMana() and refundBand or nil)
 end
 
 local function Refund()
     token = token + 1
     state = "refunding"
+    refundStart = GetTime()
     ShowBand(refundBand)
     UpdateBands()
-    refundStart = GetTime()
     driver:SetScript("OnUpdate", RefundUpdate)
 end
 
