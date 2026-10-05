@@ -13,6 +13,7 @@ Plan for letting players customize the HUD (opacity per element, text font and s
 | 3a. Per-element opacity, Swing ring zone: Swing ring (bar, background), Maul orb (Bear sample shows Maul queued), Stealth smoke, Cast bar; ring-shaped hit targets (`kind = "ring"`) and `visible` functions | Verified in-game 2026-10-04 |
 | 3b. Under the ring: Shifting Power arc (opacity, ready pulse on/off), Growl arc (opacity), Shift orbs (opacity, almost-ready orb on/off; previews all five, picked as one by their own circles, owner's request); part-ring hit targets (`angle`, `spread`); the arcs' samples are looping copies (`ns.ArcSampler`) while the real ones hide in `ns.cooldownArcHolder` | Verified in-game 2026-10-04 |
 | 3c + 4. Combo arc: Combo points (opacity, picked as one), Faerie Fire, Primal Bite, Rake and Rip rings (opacity each; Rake/Rip with their ticks). Real rings move into `ns.comboLive` (hidden in preview); Rake/Rip get stand-ins (same art on a plain Cooldown, looping) and FF/PB looping sample arcs, in `ns.comboSample`. Rake/Rip opacity is a gate frame around the AuraContainer, so no /reload needed | Verified in-game 2026-10-04 (a real Rake ring can't be checked yet: Rake isn't unlocked in the beta) |
+| 3d. Resource circle, the rest (list only unless noted): GCD pie, Five-second ring, Clearcasting (stand-in; picked at the top of the circle), Enrage tint (stand-in), Mana prediction (on/off and opacity; a sample band in Caster) | Verified in-game 2026-10-04 |
 
 ## Decisions (owner, 2026-10-04)
 

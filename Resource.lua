@@ -180,6 +180,7 @@ end
 -- snap: also jump the fill to the current value, skipping the smoothing (for when the range
 -- returns to normal in the same moment the mana is spent, so the fill doesn't dip and recover).
 local sample -- preview mode's sample { powerType, value, max } (below), shown instead of the real power
+ns.SAMPLE_MANA = 0.8 -- Caster's sample mana, as a fraction of max (ManaPrediction.lua places its band by it)
 
 -- Whether the circle shows preview mode's sample, not the real power (ManaPrediction.lua hides
 -- its bands then).
@@ -222,7 +223,10 @@ local function Update()
 
     if sample then
         bar:SetMinMaxValues(0, sample.max)
-        bar:SetValue(sample.value, SMOOTH)
+        -- Caster's sample shows a cast's cost taken off the fill, if the prediction is on
+        -- (ManaPrediction.lua draws its band over the gap); the number keeps the full value.
+        local spend = sample.powerType == Enum.PowerType.Mana and ns.SampleManaSpend and ns.SampleManaSpend() or 0
+        bar:SetValue(sample.value - spend * sample.max, SMOOTH)
         text:SetText(SampleText())
         if ns.onResourceUpdate then -- hides the mana prediction bands (ns.IsResourceSampled)
             ns.onResourceUpdate()
@@ -239,6 +243,8 @@ local function Update()
         ns.onResourceUpdate()
     end
 end
+
+ns.RefreshResource = Update -- for ManaPrediction.lua's settings, which change the Caster sample
 
 ns.OnLoad(function()
     ns.Debug("mana as percent:", CAN_SHOW_PERCENT, "| UnitPowerPercent:", UnitPowerPercent ~= nil,
@@ -275,7 +281,7 @@ ns.RegisterElement({
             if ns.IsSecret(max) or not max or max <= 0 then
                 max = 5000
             end
-            sample = { powerType = mana, value = math.floor(max * 0.8), max = max }
+            sample = { powerType = mana, value = math.floor(max * ns.SAMPLE_MANA), max = max }
         elseif state == "bear" then
             sample = { powerType = Enum.PowerType.Rage, value = 45, max = 100 }
         elseif state then -- cat, prowl

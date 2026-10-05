@@ -79,7 +79,21 @@ local function Notify()
     end
 end
 
+-- Preview mode (below): a made-up spend every SAMPLE_EVERY seconds in Caster, else none. Only
+-- the ring shows it; ns.InFiveSecondRule and its callbacks keep the real state.
+local SAMPLE_EVERY = RULE + 1.5
+local sampling, sampleSpend = false, nil
+
 local function Progress()
+    if sampling then
+        if not sampleSpend then
+            return 1
+        end
+        if GetTime() - sampleSpend >= SAMPLE_EVERY then
+            sampleSpend = GetTime()
+        end
+        return math.min((GetTime() - sampleSpend) / RULE, 1)
+    end
     if not lastSpend then
         return 1
     end
@@ -93,6 +107,25 @@ end
 
 holder:SetScript("OnUpdate", Update)
 Update()
+
+-- Settings (Elements.lua): Opacity is the holder's alpha (nothing else sets it). No hit shape: it
+-- lies on the resource circle's border, so it's picked from the list.
+ns.RegisterElement({
+    id = "resource.fsr",
+    zone = "resource",
+    name = "Five-second ring",
+    states = { "caster" },
+    options = {
+        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+    },
+    apply = function(get)
+        holder:SetAlpha(get("opacity") / 100)
+    end,
+    sample = function(state)
+        sampling = state ~= nil
+        sampleSpend = state == "caster" and GetTime() or nil
+    end,
+})
 
 -- Whether a spell has a mana cost (skinning, for one, has none). If it can't be read, assume so.
 local function CostsMana(spellID)
