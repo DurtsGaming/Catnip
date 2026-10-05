@@ -2,7 +2,8 @@
 ## Title: Catnip
 ## Notes: Druid addon for WoW Forever
 ## Author: Durts
-## Version: 0.1.0-beta.10
+## Version: 0.1.0-beta.11
+## X-Curse-Project-ID: 1729177
 ## SavedVariables: CatnipDB
 
 libs\LibEditMode\namespaced.lua
