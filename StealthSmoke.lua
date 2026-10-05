@@ -1,5 +1,5 @@
 -- Stealth mode's shadow smoke: while stealthed (Stealth.lua) we don't swing, so the swing timer's
--- black glow gives way to a periwinkle smoke ring where it was. A still dark base under
+-- black glow stays and a periwinkle smoke ring fills it. A still dark base under
 -- two rings of irregular clouds (uneven length, thickness and density, soft gaps) that turn at
 -- different speeds and opposite ways, so their overlaps keep shifting (the "Cloudy" mockup,
 -- 2026-10-04). Colours from the stealthed energy fill. All three are white textures from make_textures.py
@@ -10,7 +10,6 @@ local addonName, ns = ...
 
 local SMOKE_SIZE = 160 -- the textures' canvas in HUD units (SMOKE_UNITS in make_textures.py)
 local INTRO = 1.2 -- seconds the billow takes
-local GLOW_OUT = 0.6 -- seconds the swing glow takes to fade under it
 local START_SCALE = 0.75 -- the smoke starts this size (band ~46 units out instead of 61) and swells to full
 local BURST = 15 -- the clouds start turning this many times faster, easing back to their drift
 
@@ -18,7 +17,7 @@ local BURST = 15 -- the clouds start turning this many times faster, easing back
 local LAYERS = {
     -- PROWL_PERIWINKLE's dark end (make_textures.py, the stealthed energy fill), kept close together so
     -- the layers read flat rather than glowing. Was violet #1a0d2e / #5b3496 / #6f4cb0 (Prowl icon).
-    { "smoke_base", { 0x1c, 0x1a, 0x40 }, 0.7, 0 },
+    { "smoke_base", { 0x1c, 0x1a, 0x40 }, 0.4, 0 }, -- light, so the glow's black shows between the clouds
     { "smoke_a", { 0x3b, 0x35, 0x92 }, 0.85, 46, true },
     { "smoke_b", { 0x50, 0x4a, 0xad }, 0.3, 31, false },
 }
@@ -28,7 +27,7 @@ local layers = {} -- { texture, speed (radians per second, positive counter-cloc
 
 for i, layer in ipairs(LAYERS) do
     local file, colour, alpha, period, clockwise = unpack(layer)
-    -- Under the swing glow's sublevel (-1) and the resource backdrop, in order: base at the bottom.
+    -- Over the swing glow (sublevel -6) and under the resource backdrop (0), in order: base at the bottom.
     local texture = hud:CreateTexture(nil, "BACKGROUND", nil, i - 6)
     texture:SetTexture(ns.MEDIA .. file)
     texture:SetSize(SMOKE_SIZE, SMOKE_SIZE)
@@ -65,9 +64,6 @@ driver:SetScript("OnUpdate", function(_, elapsed)
             texture:SetRotation(layer.angle)
         end
     end
-    if ns.swingGlow then
-        ns.swingGlow:SetAlpha(1 - math.min(1, (GetTime() - startTime) / GLOW_OUT))
-    end
 end)
 
 ns.OnStealthChanged(function(stealthed)
@@ -83,9 +79,6 @@ ns.OnStealthChanged(function(stealthed)
         driver:Hide()
         for _, layer in ipairs(layers) do
             layer.texture:Hide()
-        end
-        if ns.swingGlow then
-            ns.swingGlow:SetAlpha(1)
         end
     end
 end)

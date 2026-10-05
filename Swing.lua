@@ -12,12 +12,11 @@ local MAUL_COLOR = { 1, 0.3, 0.5 }
 local hud = ns.hud
 
 -- #4 glow ring: the timer's black, feathered background (darkest along the band, fading out)
-local glow = hud:CreateTexture(nil, "BACKGROUND", nil, -1)
+local glow = hud:CreateTexture(nil, "BACKGROUND", nil, -6) -- under StealthSmoke.lua's smoke (-5 to -3)
 glow:SetTexture(ns.MEDIA .. "ring_glow")
 glow:SetSize(SIZE * GLOW_SCALE, SIZE * GLOW_SCALE)
 glow:SetPoint("CENTER")
 glow:SetVertexColor(0, 0, 0, 0.75)
-ns.swingGlow = glow -- StealthSmoke.lua fades it out while stealthed
 
 -- #7 bar ring, drawn by a Cooldown frame's swipe, which starts full and empties clockwise from
 -- 12 o'clock. SetCooldown rejects secrets from addon code, but PLAYER_SWING's duration is a plain
