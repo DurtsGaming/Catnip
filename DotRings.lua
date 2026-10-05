@@ -7,7 +7,7 @@
 -- The timing is secret, so SegmentedArc.lua (which needs it as a number) can't draw these: the
 -- segments are cut into the swipe texture instead (make_textures.py ring_rake, ring_rip_segments;
 -- change the count there and regenerate). No per-segment pulses, for the same reason.
--- A shaded red orb sits on each ring at 12 o'clock. It's on the button, so Blizzard shows and
+-- A red tick stands across each ring at 12 o'clock. It's on the button, so Blizzard shows and
 -- hides it with the DoT itself: a plain on/off for "is it still up", which the draining swipe makes
 -- hard to read near the end.
 local addonName, ns = ...
@@ -17,9 +17,10 @@ local DOTS = { -- Forever: each rank's aura has its own ID
     { label = "Rip", dot = 5, texture = "ring_rip_segments", spellIDs = { 1079, 9492, 9493, 9752, 9894, 9896 } },
 }
 local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- ~5.75px band (16px thick in 128), covering the dot's border ring; make_textures.py COMBO_RING_UNITS
-local BAND_OUTER = RING_SIZE * 63 / 128 -- the band's outer edge (63 out, 16 thick, in 128)
-local ORB_SIZE = 7 -- smaller than Swing.lua's Maul marker (12), to suit the thinner band
-local ORB_Y = BAND_OUTER + ORB_SIZE * 0.2 -- the orb's centre: perched on the ring, its lower part over the band
+local BAND_INNER = RING_SIZE * 47 / 128 -- the band's inner edge (63 out, 16 thick, in 128)
+local TICK_TOP = RING_SIZE * 63 / 128 + 3 -- the band's outer edge, plus how far the tick stands above it
+local TICK_WIDTH = 2.5
+local TICK_OUTLINE = 0.75
 
 local function StyleButton(button, texture)
     ns.HideAuraButtonArt(button)
@@ -33,28 +34,22 @@ local function StyleButton(button, texture)
     ring:SetHideCountdownNumbers(true)
     button:SetDurationCooldown(ring) -- Blizzard runs it with the aura's real (secret) timing
 
-    -- The "still up" orb, sitting on top of the ring at 12 o'clock, where the last segment ends. On its own frame
-    -- so it draws over the swipe. Shaded like Swing.lua's Maul marker: orb_dot carries the rings'
-    -- red gradient (drawn untinted), with a black rim and soft black backing.
-    local orb = CreateFrame("Frame", nil, button)
-    orb:SetSize(ORB_SIZE, ORB_SIZE)
-    orb:SetPoint("CENTER", button, "CENTER", 0, ORB_Y)
-    orb:SetFrameLevel(ring:GetFrameLevel() + 1)
+    -- The "still up" tick: a red bar shaded like the rings (tick_dot, drawn untinted) in a thin black
+    -- outline, standing across the band at 12 o'clock (where the last segment ends) from its inner
+    -- edge to a little above it. On its own frame so it draws over the swipe.
+    local tick = CreateFrame("Frame", nil, button)
+    tick:SetSize(TICK_WIDTH + 2 * TICK_OUTLINE, TICK_TOP - BAND_INNER + 2 * TICK_OUTLINE)
+    tick:SetPoint("BOTTOM", button, "CENTER", 0, BAND_INNER - TICK_OUTLINE)
+    tick:SetFrameLevel(ring:GetFrameLevel() + 1)
 
-    local shadow = orb:CreateTexture(nil, "ARTWORK", nil, 0)
-    shadow:SetTexture(ns.MEDIA .. "circle_soft")
-    shadow:SetSize(ORB_SIZE * 1.6, ORB_SIZE * 1.6)
-    shadow:SetPoint("CENTER")
-    shadow:SetVertexColor(0, 0, 0, 0.8)
+    local outline = tick:CreateTexture(nil, "ARTWORK", nil, 0)
+    outline:SetColorTexture(0, 0, 0, 1)
+    outline:SetAllPoints()
 
-    local fill = orb:CreateTexture(nil, "ARTWORK", nil, 1)
-    fill:SetTexture(ns.MEDIA .. "orb_dot")
-    fill:SetAllPoints()
-
-    local rim = orb:CreateTexture(nil, "OVERLAY")
-    rim:SetTexture(ns.MEDIA .. "ring_small")
-    rim:SetVertexColor(0, 0, 0)
-    rim:SetAllPoints()
+    local fill = tick:CreateTexture(nil, "ARTWORK", nil, 1)
+    fill:SetTexture(ns.MEDIA .. "tick_dot")
+    fill:SetPoint("TOPLEFT", TICK_OUTLINE, -TICK_OUTLINE)
+    fill:SetPoint("BOTTOMRIGHT", -TICK_OUTLINE, TICK_OUTLINE)
 end
 
 if ns.HAS_AURA_CONTAINER then

@@ -333,6 +333,16 @@ DOT_RED = [tuple(round(ch * 255) for ch in sample(DOT_STOPS, i / 11)) for i in r
 COMBO_RING_GAP = 2
 
 
+def tick_bar(size, stops):
+    """DotRings.lua's still-up tick, stretched thin in-game: `stops` bottom to top, with the rings'
+    tube shading across the width (soft_tube, like the band)."""
+    c = (size - 1) / 2
+    def colour(d, dx, dy):
+        u, v = (dx + c + 0.5) / size, (dy + c + 0.5) / size
+        return 1.0, tuple(ch * soft_tube(u) for ch in sample(stops, 1 - v))
+    return colour
+
+
 def coloured_ring(size, thickness, stops, segments=0):
     """A full ring coloured by angle clockwise from 12 o'clock (`stops`), with the tube shading
     across the band. With `segments`, gaps are cut at each boundary (one at 12 o'clock) for a
@@ -514,12 +524,13 @@ TEXTURES = {
     "orb_energy": (64, combo_fill(64)),                     # Cat Form
     "orb_prowl": (64, combo_fill(64, PROWL_PERIWINKLE)),    # stealthed, any form
     "orb_maul": (64, combo_fill(64, MAUL_PINK)),            # Swing.lua: Maul queued dot at 12 o'clock
-    "orb_dot": (64, combo_fill(64, DOT_RED)),               # DotRings.lua: on the last segment while the DoT is up
+    "orb_dot": (64, combo_fill(64, DOT_RED)),               # unused: DotRings.lua's old still-up orb (now a tick)
     "sp_orb": (64, sp_orb(64)),                             # Cat Form with Shifting Power: blue to yellow
     "sp_orb_prowl": (64, sp_orb(64, PROWL_PERIWINKLE)),     # the same, stealthed: blue to periwinkle
     "ring_faerie": (128, coloured_ring(128, 16, FAERIE_STOPS)),        # Faerie Fire cooldown ring; same band as ring_rip
     "ring_growl": (128, coloured_ring(128, 16, GROWL_STOPS)),          # Growl cooldown ring
     "ring_primal_bite": (128, coloured_ring(128, 16, PRIMAL_BITE_STOPS)),  # Primal Bite cooldown ring
+    "tick_dot": (64, tick_bar(64, DOT_STOPS[1:])),            # DotRings.lua still-up tick: red to orange-red up it
     "ring_rake": (128, coloured_ring(128, 16, DOT_STOPS, 3)),          # Rake DoT ring: 3 segments (9s, 3s ticks)
     "ring_rip_segments": (128, coloured_ring(128, 16, DOT_STOPS, 6)),  # Rip DoT ring: 6 segments (12s, 2s ticks)
     "fill_energy": (128, power_fill(128, FOREVER_ENERGY)),  # 1, resource fill in Cat Form
