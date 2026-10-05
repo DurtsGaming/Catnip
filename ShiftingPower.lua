@@ -3,8 +3,8 @@
 -- yellow, yellow. Each segment has a thin black outline; unfilled parts are clear inside it (a dim
 -- copy of their colour was tried and dropped).
 -- Each segment pulses briefly as it fills (at 4s, 8s, 12s of a 16s cooldown). At zero the arc
--- flashes and fades out, and a blue light pulses once inside the resource circle, if your mana
--- pays for a cast.
+-- flashes and fades out, and in Cat Form a blue light pulses once inside the resource circle, if
+-- your mana pays for a cast.
 --
 -- Growl's arc (GrowlArc.lua) shares the spot; it decides which shows (Growl in Bear Form, this one
 -- otherwise) by hiding this arc's parent (ns.shiftingPowerArcGate). The clock keeps running
@@ -96,7 +96,7 @@ ns.CreateSegmentedCooldown({
     onStart = HidePulse,
     onHide = HidePulse,
     onReady = function(animate)
-        if animate then
+        if animate and UnitPowerType("player") == Enum.PowerType.Energy then -- Cat Form only
             pulseOnce:Stop()
             pulse:Show()
             pulseOnce:Play()
