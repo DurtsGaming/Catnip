@@ -20,19 +20,26 @@ local LAYOUT = {
     Center = { atlas = "%s-NineSlice-Center", x = -8, y = 8, x1 = 8, y1 = -8 },
 }
 
--- Edit Mode's art on frame if this client has it, else a flat blue tint.
-local function ApplyLook(frame)
+-- Edit Mode's art on frame if this client has it, else a flat tint. selected: Edit Mode's yellow
+-- (the selected frame) instead of its blue. Also used by preview mode (Preview.lua).
+local function ApplyLook(frame, selected)
+    local kit = selected and TEXTURE_KIT:gsub("highlight$", "selected") or TEXTURE_KIT
     local hasAtlas = C_Texture and C_Texture.GetAtlasInfo
-        and C_Texture.GetAtlasInfo(TEXTURE_KIT .. "-NineSlice-Corner") ~= nil
+        and C_Texture.GetAtlasInfo(kit .. "-NineSlice-Corner") ~= nil
     if hasAtlas and NineSliceUtil and NineSliceUtil.ApplyLayout
-        and pcall(NineSliceUtil.ApplyLayout, frame, LAYOUT, TEXTURE_KIT) then
+        and pcall(NineSliceUtil.ApplyLayout, frame, LAYOUT, kit) then
         return
     end
-    ns.Debug("Unlock overlay: no Edit Mode art, using a flat tint")
+    ns.Debug("Edit Mode look: no " .. kit .. " art, using a flat tint")
     local tint = frame:CreateTexture(nil, "BACKGROUND")
     tint:SetAllPoints()
-    tint:SetColorTexture(0.2, 0.6, 1, 0.35)
+    if selected then
+        tint:SetColorTexture(1, 0.82, 0, 0.35)
+    else
+        tint:SetColorTexture(0.2, 0.6, 1, 0.35)
+    end
 end
+ns.ApplyEditModeLook = ApplyLook
 
 -- The hover brightening: the same look again, drawn additively over the first.
 local function CreateGlow(overlay)

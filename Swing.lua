@@ -76,17 +76,13 @@ local timeText = info:CreateFontString(nil, "OVERLAY")
 timeText:SetFont(STANDARD_TEXT_FONT, 14, "OUTLINE") -- until the saved font is applied
 timeText:SetPoint("TOP")
 
-ns.RegisterElement({
-    id = "text.swing",
-    zone = "text",
-    name = "Swing time",
-    options = ns.TextOptions(14),
-    apply = function(get)
-        ns.ApplyFont(timeText, get("font"), get("size"), get("outline"))
-    end,
-})
-
 local swingStart, swingDuration
+
+-- Preview mode (Preview.lua): while sampling, a made-up swing of SAMPLE_SWING seconds loops on the
+-- ring and text (in the forms that swing), and real swings are only noted, not drawn.
+local SAMPLE_SWING = 2.5
+local sampling = false
+local sampleStart -- the looping sample swing's start, while it shows
 
 -- Latest swing length (plain number from PLAYER_SWING), or nil before the first swing. Gcd.lua
 -- paces the bear GCD to it.
@@ -95,26 +91,69 @@ function ns.GetSwingDuration()
 end
 
 info:SetScript("OnUpdate", function()
-    local elapsed = GetTime() - swingStart
-    if elapsed >= swingDuration then
+    local start, duration = swingStart, swingDuration
+    if sampleStart then
+        if GetTime() - sampleStart >= SAMPLE_SWING then -- loop
+            sampleStart = GetTime()
+            ring:SetCooldown(sampleStart, SAMPLE_SWING)
+        end
+        start, duration = sampleStart, SAMPLE_SWING
+    end
+    local elapsed = GetTime() - start
+    if elapsed >= duration then
         info:Hide() -- swing ready
         return
     end
     timeText:SetShown(not (ns.IsCasting and ns.IsCasting()))
-    timeText:SetText(string.format("%.1f / %.1fs", elapsed, swingDuration))
+    timeText:SetText(string.format("%.1f / %.1fs", elapsed, duration))
 end)
 
 local function OnSwing(duration, weaponSlot)
     if ns.IsSecret(duration) or not duration or duration <= 0 then
-        ring:Clear()
-        info:Hide()
+        if not sampling then
+            ring:Clear()
+            info:Hide()
+        end
         return
     end
     local now = GetTime()
-    ring:SetCooldown(now, duration)
     swingStart, swingDuration = now, duration
-    info:Show()
+    if not sampling then
+        ring:SetCooldown(now, duration)
+        info:Show()
+    end
 end
+
+ns.RegisterElement({
+    id = "text.swing",
+    zone = "text",
+    name = "Swing time",
+    hit = { kind = "text", region = timeText, anchor = info, point = "TOP", chars = 10 }, -- "0.0 / 2.5s"
+    states = { "cat", "bear" }, -- opening its page switches the preview to Cat if needed
+    options = ns.TextOptions(14),
+    apply = function(get)
+        ns.ApplyFont(timeText, get("font"), get("size"), get("outline"))
+    end,
+    -- No swing while prowling, or in Caster, which shows a cast in the ring's place; nil puts back
+    -- the real swing, if one is still running.
+    sample = function(state)
+        sampling = state ~= nil
+        if state == "cat" or state == "bear" then
+            sampleStart = GetTime()
+            ring:SetCooldown(sampleStart, SAMPLE_SWING)
+            info:Show()
+            return
+        end
+        sampleStart = nil
+        if not sampling and swingStart and GetTime() - swingStart < swingDuration then
+            ring:SetCooldown(swingStart, swingDuration)
+            info:Show()
+        else
+            ring:Clear()
+            info:Hide()
+        end
+    end,
+})
 
 local IsCurrentSpell = (C_Spell and C_Spell.IsCurrentSpell) or IsCurrentSpell
 local maulQueued = false

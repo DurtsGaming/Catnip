@@ -37,6 +37,7 @@ mask:SetAllPoints(bar)
 -- the mask goes on that one too.
 local currentFile, maskedTexture
 local fillAlpha = 1 -- the fill's own alpha, lowered in stealth mode
+local fillOpacity = 1 -- the Resource circle's "Fill opacity" setting; multiplies fillAlpha
 local function SetFill(file, r, g, b)
     if file ~= currentFile then
         bar:SetStatusBarTexture(file)
@@ -46,7 +47,7 @@ local function SetFill(file, r, g, b)
             texture:AddMaskTexture(mask)
             maskedTexture = texture
         end
-        texture:SetAlpha(fillAlpha)
+        texture:SetAlpha(fillAlpha * fillOpacity)
     end
     bar:SetStatusBarColor(r, g, b)
 end
@@ -119,7 +120,7 @@ local function FadeFrom(file)
         return
     end
     ghostFill:SetTexture(file)
-    fadeAlpha:SetFromAlpha(fillAlpha) -- starts as bright as the fill it covers
+    fadeAlpha:SetFromAlpha(fillAlpha * fillOpacity) -- starts as bright as the fill it covers
     fade:Stop()
     ghost:Show()
     fade:Play()
@@ -132,7 +133,7 @@ alphaDriver:SetScript("OnUpdate", function(self)
     local t = math.min(1, (GetTime() - alphaStart) / FADE_TIME)
     local eased = 1 - (1 - t) ^ 2 -- ease out, like the crossfade
     fillAlpha = alphaFrom + (alphaTo - alphaFrom) * eased
-    bar:GetStatusBarTexture():SetAlpha(fillAlpha)
+    bar:GetStatusBarTexture():SetAlpha(fillAlpha * fillOpacity)
     if t >= 1 then
         self:Hide()
     end
@@ -178,8 +179,19 @@ end
 
 -- snap: also jump the fill to the current value, skipping the smoothing (for when the range
 -- returns to normal in the same moment the mana is spent, so the fill doesn't dip and recover).
+local sample -- preview mode's sample { powerType, value, max } (below), shown instead of the real power
+
+-- Whether the circle shows preview mode's sample, not the real power (ManaPrediction.lua hides
+-- its bands then).
+function ns.IsResourceSampled()
+    return sample ~= nil
+end
+
 function ns.SetResourceOffset(newOffset, maxMana, snap)
     offset, offsetMax = newOffset, maxMana
+    if sample then
+        return -- kept for when the preview ends
+    end
     local powerType = UnitPowerType("player")
     SetRange(powerType)
     if snap then
@@ -187,8 +199,16 @@ function ns.SetResourceOffset(newOffset, maxMana, snap)
     end
 end
 
+-- The sample's number: mana in the Resource number's format, else the value.
+local function SampleText()
+    if sample.powerType == Enum.PowerType.Mana and manaFormat == "percent" then
+        return string.format("%d%%", math.floor(sample.value / sample.max * 100 + 0.5))
+    end
+    return tostring(math.floor(sample.value))
+end
+
 local function Update()
-    local powerType = UnitPowerType("player")
+    local powerType = sample and sample.powerType or UnitPowerType("player")
     local knownType = not ns.IsSecret(powerType)
     local file = knownType and POWER_TEXTURES[powerType]
     if file and powerType == Enum.PowerType.Energy and ns.IsStealthMode() then
@@ -198,6 +218,16 @@ local function Update()
         SetFill(file, 1, 1, 1)
     else
         SetFill(FLAT_TEXTURE, unpack(DEFAULT_COLOR))
+    end
+
+    if sample then
+        bar:SetMinMaxValues(0, sample.max)
+        bar:SetValue(sample.value, SMOOTH)
+        text:SetText(SampleText())
+        if ns.onResourceUpdate then -- hides the mana prediction bands (ns.IsResourceSampled)
+            ns.onResourceUpdate()
+        end
+        return
     end
 
     -- Current and max power may be secret in combat; StatusBar and FontString accept secrets as-is.
@@ -215,15 +245,61 @@ ns.OnLoad(function()
         "| CurveConstants.ScaleTo100:", SCALE_TO_100 ~= nil)
 end)
 
--- Settings (Elements.lua): the number's font, size and outline, and how mana shows. A raw mana
+-- Settings (Elements.lua). The circle: opacity of the fill, the dark background and the black
+-- border, in percent. The hit circle (preview mode, Preview.lua) takes in the border.
+local function PercentSlider(key, label, default)
+    return { key = key, type = "slider", label = label, min = 0, max = 100, step = 5, format = "%.0f%%", default = default }
+end
+ns.RegisterElement({
+    id = "resource.circle",
+    zone = "resource",
+    name = "Resource circle",
+    hit = { kind = "circle", radius = SIZE / 2 + 3 },
+    options = {
+        PercentSlider("fillOpacity", "Fill opacity", 100),
+        PercentSlider("backgroundOpacity", "Background opacity", 40),
+        PercentSlider("borderOpacity", "Border opacity", 100),
+    },
+    apply = function(get)
+        fillOpacity = get("fillOpacity") / 100
+        bar:GetStatusBarTexture():SetAlpha(fillAlpha * fillOpacity)
+        backdrop:SetVertexColor(0, 0, 0, get("backgroundOpacity") / 100)
+        border:SetVertexColor(0, 0, 0, get("borderOpacity") / 100)
+    end,
+    -- Preview mode: a fixed fill per state (Prowl's periwinkle comes from the stealth preview), or
+    -- back to the real power (nil). Max mana is the real one when readable, so "Value" looks right.
+    sample = function(state)
+        local mana = Enum.PowerType.Mana
+        if state == "caster" then
+            local max = UnitPowerMax("player", mana)
+            if ns.IsSecret(max) or not max or max <= 0 then
+                max = 5000
+            end
+            sample = { powerType = mana, value = math.floor(max * 0.8), max = max }
+        elseif state == "bear" then
+            sample = { powerType = Enum.PowerType.Rage, value = 45, max = 100 }
+        elseif state then -- cat, prowl
+            sample = { powerType = Enum.PowerType.Energy, value = 70, max = 100 }
+        else
+            sample = nil
+            SetRange(UnitPowerType("player")) -- puts back the mana prediction's offset, if any
+        end
+        Update()
+    end,
+})
+
+-- The number's font, size and outline, and how mana shows. A raw mana
 -- value is secret in combat too, but SetText takes it as-is.
 local numberOptions = ns.TextOptions(20)
+-- states: changing it switches the preview to a state that shows mana (Preview.lua).
 numberOptions[#numberOptions + 1] = { key = "manaFormat", type = "choice", label = "Mana as", default = "percent",
-    values = { { value = "percent", text = "Percent" }, { value = "value", text = "Value" } } }
+    values = { { value = "percent", text = "Percent" }, { value = "value", text = "Value" } },
+    states = { "caster" } }
 ns.RegisterElement({
     id = "resource.number",
     zone = "resource",
     name = "Resource number",
+    hit = { kind = "text", region = text, anchor = textLayer, point = "CENTER", chars = 4 },
     options = numberOptions,
     apply = function(get)
         ns.ApplyFont(text, get("font"), get("size"), get("outline"))

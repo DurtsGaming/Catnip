@@ -7,7 +7,9 @@ Plan for letting players customize the HUD (opacity per element, text font and s
 | Step | State |
 |------|-------|
 | 1. Registry (`Elements.lua`), storage, Rotation tab tree with generated pages; text elements (Resource number, Swing time, Cast time, Cast name: font, size, outline), General font/outline, Resource number's "Mana as" Percent / Value | Verified in-game 2026-10-04: all four fonts load, outlines, sizes, inheriting and reset work, raw mana value updates in combat without errors |
-| 2. Preview mode, hover and click | Not started |
+| 2a. Preview hover and click (`Preview.lua`): outlines, hover tooltip, click opens the page, tree hover lights the element, open page's element in gold. Pickable: Resource circle (new element: fill, background and border opacity), Resource number, and the swing/cast texts while they show | Verified in-game 2026-10-04 (hover, click, tree hover, opacity sliders, off on tab switch / Edit Mode / combat, camera still turns over empty HUD area). Idle outlines faint enough; the cast time and name outlines overlap a little, which the owner is fine with |
+| 2b. Sample state and form switcher: always samples while the Rotation tab is open (owner's call, 2026-10-04), starting from the current form; "Preview as" at the top of the tree; Prowl via a stealth override (so every stealth-aware piece follows); samples for the resource circle and number, a looping swing (Cat, Bear), and a looping 2.5s cast (Caster; a separate Casting state was merged into Caster at the owner's request); Cast time/name pages and changing "Mana as" switch to Caster, Swing time to Cat | Verified in-game 2026-10-04. Fixed after: a real cast during a Bear preview showed the mana prediction bands over the sample (now hidden while sampled, **untested**) |
+| Choice controls: clicking the value opens a menu of all values (Blizzard's `MenuUtil`, fonts drawn in their font via `SetFontObject`); the arrows still step | Verified in-game 2026-10-04 (owner's request) |
 | 3. Opacity wrappers | Not started |
 | 4. AuraContainer stand-ins | Not started |
 

@@ -82,6 +82,8 @@ ns.RegisterElement({
     id = "text.castTime",
     zone = "text",
     name = "Cast time",
+    states = { "caster" }, -- opening its page switches the preview to Caster (casting a spell)
+    hit = { kind = "text", region = timeText, anchor = info, point = "TOP", chars = 10 }, -- "0.0 / 2.5s"
     options = ns.TextOptions(14),
     apply = function(get)
         ns.ApplyFont(timeText, get("font"), get("size"), get("outline"))
@@ -91,6 +93,10 @@ ns.RegisterElement({
     id = "text.castName",
     zone = "text",
     name = "Cast name",
+    states = { "caster" },
+    -- Under the time text, 2 below its line (its Size setting).
+    hit = { kind = "text", region = nameText, anchor = info, point = "TOP", chars = 14,
+        y = function() return -(ns.ElementOption("text.castTime", "size") + 2) end },
     options = ns.TextOptions(12),
     apply = function(get)
         ns.ApplyFont(nameText, get("font"), get("size"), get("outline"))
@@ -149,7 +155,28 @@ local function FormatFromObject()
     timeText:SetText(string.format("%.1fs", durationObject:GetRemainingDuration()))
 end
 
+local sampling = false -- preview mode (Preview.lua) is showing a sample state; real casts wait
+local SAMPLE_CAST = 2.5 -- the sample cast's length, in seconds
+local sampleStart -- the looping sample cast's start, while it shows
+
+-- The sample cast: fills the arcs and counts up over SAMPLE_CAST, then starts again.
+local function DrawSample()
+    local elapsed = GetTime() - sampleStart
+    if elapsed >= SAMPLE_CAST then
+        sampleStart = GetTime()
+        elapsed = 0
+    end
+    SetArcs(elapsed / SAMPLE_CAST)
+    timeText:SetText(string.format("%.1f / %.1fs", elapsed, SAMPLE_CAST))
+end
+
 info:SetScript("OnUpdate", function()
+    if sampling then
+        if sampleStart then
+            DrawSample()
+        end
+        return
+    end
     if useArcs then
         UpdateArcs()
     end
@@ -246,6 +273,9 @@ function ns.OnCastChanged(callback)
 end
 
 local function Refresh(reason)
+    if sampling then
+        return -- picked up when the preview ends
+    end
     local wasCasting = isCasting
     Update()
     if isCasting ~= wasCasting then -- skip the many events that change nothing (e.g. failed casts)
@@ -286,6 +316,33 @@ events:SetScript("OnEvent", function(_, event)
         RecheckSoon()
     end
 end)
+
+-- Preview mode's sample (Preview.lua's "Caster" state, which shows a spell being cast): a cast
+-- looping on the arcs and text (info's OnUpdate); in other states no cast. nil hands back to the
+-- real cast, if any.
+local SAMPLE_NAME = "Regrowth"
+
+local function Sample(state)
+    sampling = state ~= nil
+    sampleStart = nil
+    if not sampling then
+        Refresh("preview ended") -- redraws the real state, swing ring alpha included
+        return
+    end
+    local casting = state == "caster"
+    ring:Hide()
+    arcs:SetShown(casting)
+    info:SetShown(casting)
+    if ns.swingRing then
+        ns.swingRing:SetAlpha(casting and 0 or 1)
+    end
+    if casting then
+        sampleStart = GetTime()
+        nameText:SetText(SAMPLE_NAME)
+        DrawSample()
+    end
+end
+ns.GetElement("text.castTime").sample = Sample
 
 ns.OnLoad(function()
     ns.Debug("cast bar method:", UnitCastingDuration and "duration object" or "UnitCastingInfo times")

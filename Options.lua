@@ -634,11 +634,14 @@ local function AnchorGrid(label, get, set)
 end
 
 -- A choice between a few values, laid out like a slider: the label above, then < [value] >. The
--- arrows (or clicking the value; right-click goes back) step through `values` ({ value, text },
--- wrapping round). `text` may be a function, re-read on every refresh. With fontOf, the value is
+-- arrows step through `values` ({ value, text }, wrapping round); clicking the value opens a menu
+-- of them all. `text` may be a function, re-read on every refresh. With fontOf, the value is
 -- drawn in the font fontOf(entry) names (a key of ns.FONTS), so the font list previews itself.
-local function Choice(label, values, get, set, fontOf)
-    local holder = CreateFrame("Frame", nil, Host())
+local CHOICE_HEIGHT = 38
+
+-- The control itself, on `parent`, for the caller to place (CHOICE_HEIGHT tall).
+local function ChoiceWidget(parent, label, values, get, set, fontOf)
+    local holder = CreateFrame("Frame", nil, parent)
     local name = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     name:SetPoint("TOPLEFT")
     name:SetText(label)
@@ -652,7 +655,6 @@ local function Choice(label, values, get, set, fontOf)
     box:SetPoint("LEFT", less, "RIGHT", 2, 0)
     box:SetPoint("RIGHT", more, "LEFT", -2, 0)
     box:SetHeight(20)
-    box:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     AddHover(box, Box(box, WELL, TRACK_EDGE), TRACK_EDGE)
     local valueText = box:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     valueText:SetPoint("LEFT", 6, 0)
@@ -673,17 +675,53 @@ local function Choice(label, values, get, set, fontOf)
     end
     less:SetScript("OnClick", function() Step(-1) end)
     more:SetScript("OnClick", function() Step(1) end)
-    box:SetScript("OnClick", function(_, button) Step(button == "RightButton" and -1 or 1) end)
+
+    local function Text(entry)
+        return type(entry.text) == "function" and entry.text() or entry.text
+    end
+
+    -- Clicking the value opens Blizzard's menu (as EllesmereUI does on Forever) listing every
+    -- value, the current one marked; font names are drawn in their font. Without MenuUtil it steps.
+    box:SetScript("OnClick", function(self)
+        if not (MenuUtil and MenuUtil.CreateContextMenu) then
+            Step(1)
+            return
+        end
+        MenuUtil.CreateContextMenu(self, function(_, root)
+            for _, entry in ipairs(values) do
+                local radio = root:CreateRadio(Text(entry),
+                    function() return values[Index()] == entry end,
+                    function()
+                        set(entry.value)
+                        return MenuResponse and MenuResponse.Close
+                    end)
+                if fontOf and radio.AddInitializer then
+                    -- SetFontObject, not SetFont: the menu forbids SetFont on its labels.
+                    radio:AddInitializer(function(button)
+                        local label = button.fontString
+                        if label then
+                            local size = math.floor((select(2, label:GetFont())) or 12)
+                            label:SetFontObject(ns.FontObject(fontOf(entry), size))
+                        end
+                    end)
+                end
+            end
+        end)
+    end)
 
     refreshers[#refreshers + 1] = function()
         local entry = values[Index()]
         if fontOf then
             ns.ApplyFont(valueText, fontOf(entry), 13, "none")
         end
-        valueText:SetText(type(entry.text) == "function" and entry.text() or entry.text)
+        valueText:SetText(Text(entry))
         valueText:SetTextColor(unpack(GOLD))
     end
-    Place(holder, 38, 10)
+    return holder
+end
+
+local function Choice(label, values, get, set, fontOf)
+    Place(ChoiceWidget(Host(), label, values, get, set, fontOf), CHOICE_HEIGHT, 10)
 end
 
 -- A red button on its own row, at its natural width.
@@ -718,6 +756,7 @@ local function ElementControls(element)
                 value = nil
             end
             ns.SetElementOption(id, key, value)
+            ns.Preview.FitStates(option.states) -- e.g. "Mana as" switches the preview to Caster
         end
         if option.type == "slider" then
             Slider(option.label, option.min, option.max, option.step or 1, option.format or "%.0f", Get, Set)
@@ -733,7 +772,10 @@ local function ElementControls(element)
                     values[#values + 1] = entry
                 end
                 Get = function() return ns.ElementStored(id, key) end
-                Set = function(value) ns.SetElementOption(id, key, value) end
+                Set = function(value)
+                    ns.SetElementOption(id, key, value)
+                    ns.Preview.FitStates(option.states)
+                end
             end
             Choice(option.label, values, Get, Set, option.fontPreview and function(entry)
                 return entry.value or ns.ElementOption(id, key)
@@ -756,10 +798,16 @@ local function HalfHeight() return math.floor(UIParent:GetHeight() / 2) end
 -- General / Rotation / Cooldown: side tabs. Pages start under the header.
 topTabs = TabGroup(SideTab, window, canvas, -HEADER)
 -- The Rotation tab's tree needs a wider window: widen it if it's narrower than that.
+-- Preview mode (Preview.lua) runs while the window is open on that tab.
+local function UpdatePreview()
+    ns.Preview.SetWanted(window:IsShown() and hasTree)
+end
 function topTabs.onSelect(tab)
     hasTree = tab.hasTree or false
     window:SetSize(ClampSize(window:GetSize()))
+    UpdatePreview()
 end
+window:HookScript("OnHide", UpdatePreview) -- and on show, in the OnShow script at the end
 
 -- General tab ------------------------------------------------------------------------------------
 
@@ -822,6 +870,13 @@ local TREE_INSET = art.EDGE_INSET + 8 -- inside the panel's painted edge
 local treeY = -TREE_INSET
 local treeIndent = 0
 
+-- Top of the tree: what the HUD shows while this tab is open (Preview.lua's sample states).
+local previewAs = ChoiceWidget(tree, "Preview as", ns.Preview.STATES, ns.Preview.GetState, ns.Preview.SetState)
+previewAs:SetPoint("TOPLEFT", TREE_INSET - 4, treeY)
+previewAs:SetPoint("TOPRIGHT", -(TREE_INSET - 4), treeY)
+previewAs:SetHeight(CHOICE_HEIGHT)
+treeY = treeY - CHOICE_HEIGHT - 12
+
 local function TreeHeader(text)
     local header = tree:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     header:SetPoint("TOPLEFT", TREE_INSET, treeY - 4)
@@ -855,17 +910,29 @@ local function TreeRow(parent, name)
         fill:SetShown(selected)
         row.text:SetTextColor(unpack(selected and WHITE or MUTED))
     end
-    row:SetScript("OnEnter", function() hover:Show() end)
-    row:SetScript("OnLeave", function() hover:Hide() end)
+    -- Hovering a row lights its element up on the HUD in preview mode (row.elementId, set below).
+    row:SetScript("OnEnter", function()
+        hover:Show()
+        ns.Preview.SetListHover(row.elementId)
+    end)
+    row:SetScript("OnLeave", function()
+        hover:Hide()
+        ns.Preview.SetListHover(nil)
+    end)
     return row
 end
 
 rotation.subs = TabGroup(TreeRow, tree, detail, 0)
+-- The open page's element is the selected one in preview mode.
+function rotation.subs.onSelect(tab)
+    ns.Preview.SetSelected(tab.elementId)
+end
 local elementTabs = {} -- element id -> its tree row (tab)
 
 -- An element's page: a panel named after it with its controls, and a reset button.
 local function ElementPage(element)
     local tab = rotation.subs.Add(element.name)
+    tab.elementId = element.id
     elementTabs[element.id] = tab
     Section(element.name)
     ElementControls(element)
@@ -875,6 +942,7 @@ end
 
 -- General: the HUD's own scale, opacity and position, then the defaults other elements inherit.
 local hudPage = rotation.subs.Add("General")
+hudPage.elementId = "general"
 elementTabs.general = hudPage
 
 Section("HUD")
@@ -1237,7 +1305,13 @@ topTabs.Select(general)
 window:SetScript("OnShow", function()
     Refresh()
     UpdateCanvas()
+    UpdatePreview()
 end)
+ns.Preview.onStateChanged = function() -- the "Preview as" control follows switches made elsewhere
+    if window:IsShown() then
+        Refresh()
+    end
+end
 ns.OnSettingsChanged(function()
     if window:IsShown() then
         Refresh()

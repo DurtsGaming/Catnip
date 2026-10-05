@@ -145,6 +145,24 @@ function ns.ApplyFont(fontString, font, size, outline)
     end
 end
 
+-- A Font object for a font key at a size, made once and reused. For text we can't call SetFont on:
+-- Blizzard's menu (MenuUtil) forbids SetFont on its labels (seen 2026-10-04) but takes SetFontObject.
+local fontObjects = {}
+local fontObjectCount = 0
+function ns.FontObject(font, size)
+    local file = fontFiles[font] or STANDARD_TEXT_FONT
+    local key = file .. ":" .. size
+    if not fontObjects[key] then
+        fontObjectCount = fontObjectCount + 1
+        local object = CreateFont("CatnipFont" .. fontObjectCount) -- this client requires a (global) name
+        if not pcall(object.SetFont, object, file, size, "") or not object:GetFont() then
+            object:SetFont(STANDARD_TEXT_FONT, size, "")
+        end
+        fontObjects[key] = object
+    end
+    return fontObjects[key]
+end
+
 -- The options every text element shares: font and outline (from General unless set), and size.
 function ns.TextOptions(defaultSize)
     return {

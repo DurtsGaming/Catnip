@@ -132,6 +132,9 @@ local function ManaCost(spellID)
 end
 
 local function ShowingMana()
+    if ns.IsResourceSampled() then
+        return false -- preview mode's sample fill isn't the real mana (Preview.lua)
+    end
     local powerType = UnitPowerType("player")
     return not ns.IsSecret(powerType) and powerType == MANA
 end
