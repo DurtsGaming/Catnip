@@ -30,8 +30,12 @@ ring:SetDrawBling(false)
 ring:SetHideCountdownNumbers(true)
 ns.swingRing = ring -- Cast.lua hides it (via alpha, so it keeps timing) while casting
 
+-- The swipe colour's alpha is the "Bar opacity" setting (the frame's own alpha belongs to Cast.lua).
+local ringOpacity = 1
+local ringColor = COLOR
 local function SetRingColor(color)
-    ring:SetSwipeColor(color[1], color[2], color[3], 1)
+    ringColor = color
+    ring:SetSwipeColor(color[1], color[2], color[3], ringOpacity)
 end
 
 SetRingColor(COLOR)
@@ -73,10 +77,16 @@ info:SetPoint("TOP", hud, "CENTER", 0, -ns.TIME_TEXT_OFFSET)
 info:Hide()
 
 local timeText = info:CreateFontString(nil, "OVERLAY")
-timeText:SetFont(STANDARD_TEXT_FONT, 14, "OUTLINE")
+timeText:SetFont(STANDARD_TEXT_FONT, 14, "OUTLINE") -- until the saved font is applied
 timeText:SetPoint("TOP")
 
 local swingStart, swingDuration
+
+-- Preview mode (Preview.lua): while sampling, a made-up swing of SAMPLE_SWING seconds loops on the
+-- ring and text (in the forms that swing), and real swings are only noted, not drawn.
+local SAMPLE_SWING = 2.5
+local sampling = false
+local sampleStart -- the looping sample swing's start, while it shows
 
 -- Latest swing length (plain number from PLAYER_SWING), or nil before the first swing. Gcd.lua
 -- paces the bear GCD to it.
@@ -85,29 +95,80 @@ function ns.GetSwingDuration()
 end
 
 info:SetScript("OnUpdate", function()
-    local elapsed = GetTime() - swingStart
-    if elapsed >= swingDuration then
+    local start, duration = swingStart, swingDuration
+    if sampleStart then
+        if GetTime() - sampleStart >= SAMPLE_SWING then -- loop
+            sampleStart = GetTime()
+            ring:SetCooldown(sampleStart, SAMPLE_SWING)
+        end
+        start, duration = sampleStart, SAMPLE_SWING
+    end
+    local elapsed = GetTime() - start
+    if elapsed >= duration then
         info:Hide() -- swing ready
         return
     end
     timeText:SetShown(not (ns.IsCasting and ns.IsCasting()))
-    timeText:SetText(string.format("%.1f / %.1fs", elapsed, swingDuration))
+    timeText:SetText(string.format("%.1f / %.1fs", elapsed, duration))
 end)
 
 local function OnSwing(duration, weaponSlot)
     if ns.IsSecret(duration) or not duration or duration <= 0 then
-        ring:Clear()
-        info:Hide()
+        if not sampling then
+            ring:Clear()
+            info:Hide()
+        end
         return
     end
     local now = GetTime()
-    ring:SetCooldown(now, duration)
     swingStart, swingDuration = now, duration
-    info:Show()
+    if not sampling then
+        ring:SetCooldown(now, duration)
+        info:Show()
+    end
 end
+
+ns.RegisterElement({
+    id = "text.swing",
+    zone = "text",
+    name = "Swing time",
+    hit = { kind = "text", region = timeText, anchor = info, point = "TOP", chars = 10 }, -- "0.0 / 2.5s"
+    states = { "cat", "bear" }, -- opening its page switches the preview to Cat if needed
+    options = ns.TextOptions(14),
+    apply = function(get)
+        ns.ApplyFont(timeText, get("font"), get("size"), get("outline"))
+    end,
+    -- No swing while prowling, or in Caster, which shows a cast in the ring's place; nil puts back
+    -- the real swing, if one is still running.
+    sample = function(state)
+        sampling = state ~= nil
+        if state == "cat" or state == "bear" then
+            sampleStart = GetTime()
+            ring:SetCooldown(sampleStart, SAMPLE_SWING)
+            info:Show()
+            return
+        end
+        sampleStart = nil
+        if not sampling and swingStart and GetTime() - swingStart < swingDuration then
+            ring:SetCooldown(swingStart, swingDuration)
+            info:Show()
+        else
+            ring:Clear()
+            info:Hide()
+        end
+    end,
+})
 
 local IsCurrentSpell = (C_Spell and C_Spell.IsCurrentSpell) or IsCurrentSpell
 local maulQueued = false
+local maulSampled = false -- preview mode's Bear sample shows Maul queued, whatever the game says
+
+local function ShowMaul(queued)
+    local color = queued and MAUL_COLOR or COLOR
+    SetRingColor(color)
+    marker:SetShown(queued)
+    timeText:SetTextColor(color[1], color[2], color[3])
+end
 
 local function UpdateMaul()
     local queued = IsCurrentSpell("Maul")
@@ -118,12 +179,61 @@ local function UpdateMaul()
     if queued ~= maulQueued then
         maulQueued = queued
         ns.Debug("Maul queued:", queued)
-        local color = queued and MAUL_COLOR or COLOR
-        SetRingColor(color)
-        marker:SetShown(queued)
-        timeText:SetTextColor(color[1], color[2], color[3])
+        if not maulSampled then
+            ShowMaul(queued)
+        end
     end
 end
+
+-- Settings (Elements.lua). The ring and its black glow behind; the glow's own alpha belongs to
+-- StealthSmoke.lua's fade, so the setting goes in its vertex colour. Hidden in stealth (the smoke
+-- takes the spot) and under a cast (the cast bar is picked there).
+local function Percent(key, label, default)
+    return { key = key, type = "slider", label = label, min = 0, max = 100, step = 5, format = "%.0f%%", default = default }
+end
+local RING_OUTER = SIZE * 127 / 256 -- ring_bar's band: 20 of 256 pixels thick, out to 127
+local RING_INNER = SIZE * 107 / 256
+ns.SWING_BAND = { inner = RING_INNER, outer = RING_OUTER } -- Cast.lua's ring sits in the same band
+
+ns.RegisterElement({
+    id = "swing.ring",
+    zone = "swing",
+    name = "Swing ring",
+    hit = { kind = "ring", inner = RING_INNER, outer = RING_OUTER,
+        visible = function() return not ns.IsStealthMode() and not (ns.CastBarShown and ns.CastBarShown()) end },
+    states = { "cat", "bear" },
+    options = {
+        Percent("barOpacity", "Bar opacity", 100),
+        Percent("glowOpacity", "Background opacity", 75),
+    },
+    apply = function(get)
+        ringOpacity = get("barOpacity") / 100
+        SetRingColor(ringColor)
+        glow:SetVertexColor(0, 0, 0, get("glowOpacity") / 100)
+    end,
+    -- Bear shows Maul queued, so its amber look and orb can be seen; nil puts back the real state.
+    sample = function(state)
+        maulSampled = state ~= nil
+        if maulSampled then
+            ShowMaul(state == "bear")
+        else
+            ShowMaul(maulQueued)
+        end
+    end,
+})
+
+ns.RegisterElement({
+    id = "swing.maul",
+    zone = "swing",
+    name = "Maul orb",
+    hit = { kind = "circle", x = 0, y = MARKER_Y, radius = MARKER_SIZE / 2 + 3,
+        visible = function() return marker:IsShown() end },
+    states = { "bear" },
+    options = { Percent("opacity", "Opacity", 100) },
+    apply = function(get)
+        marker:SetAlpha(get("opacity") / 100)
+    end,
+})
 
 local events = CreateFrame("Frame")
 local hasSwingEvent = ns.TryRegisterEvent(events, "PLAYER_SWING")

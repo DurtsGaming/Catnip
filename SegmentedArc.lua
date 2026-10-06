@@ -262,3 +262,43 @@ function ns.CreateSegmentedArc(options)
 
     return arc
 end
+
+-- Preview mode's looping run of an arc (a sample copy, not one a cooldown drives): fills over
+-- `seconds` with its pulses, finishes (flash and fade; onReady() is called then), rests, and
+-- starts again. Returns Start() and Stop().
+local SAMPLE_REST = 1.2 -- seconds between the finish and the next run, so the fade-out shows
+function ns.ArcSampler(arc, seconds, onReady)
+    local driver = CreateFrame("Frame")
+    driver:Hide()
+    local started, finishedAt
+    driver:SetScript("OnUpdate", function()
+        local now = GetTime()
+        if finishedAt then
+            if now - finishedAt >= SAMPLE_REST then
+                finishedAt, started = nil, now
+                arc.Start(0)
+            end
+            return
+        end
+        local progress = (now - started) / seconds
+        if progress >= 1 then
+            finishedAt = now
+            arc.Finish()
+            if onReady then
+                onReady()
+            end
+        else
+            arc.SetProgress(progress)
+        end
+    end)
+    local function Start()
+        started, finishedAt = GetTime(), nil
+        arc.Start(0)
+        driver:Show()
+    end
+    local function Stop()
+        driver:Hide()
+        arc.Hide()
+    end
+    return Start, Stop
+end

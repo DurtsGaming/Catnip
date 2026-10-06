@@ -132,6 +132,9 @@ local function ManaCost(spellID)
 end
 
 local function ShowingMana()
+    if ns.IsResourceSampled() then
+        return false -- preview mode's sample fill isn't the real mana (Preview.lua)
+    end
     local powerType = UnitPowerType("player")
     return not ns.IsSecret(powerType) and powerType == MANA
 end
@@ -213,8 +216,13 @@ local function Spent()
     end)
 end
 
+local enabled = true -- the "Show mana cost prediction" setting (below)
+
 local function OnStart(spellID)
     Clear()
+    if not enabled then
+        return
+    end
     ReadMaxMana()
     local spellCost = ManaCost(spellID)
     -- Clearcasting makes the next spell free (true only when we know it's up)
@@ -323,6 +331,56 @@ events:SetScript("OnEvent", function(_, event, ...)
         ReadMaxMana()
     end
 end)
+
+-- Settings and preview mode -------------------------------------------------------------------------
+
+-- Preview mode's Caster sample: SAMPLE_COST of max mana about to be spent, as a still dark band
+-- between the lowered sample fill and ns.SAMPLE_MANA (Resource.lua). Plain numbers, so the band
+-- is placed directly rather than anchored to the fills.
+local SAMPLE_COST = 0.15
+local sampleBand = CreateBand(SPEND_COLOR)
+sampleBand:SetSize(SIZE, SIZE * SAMPLE_COST)
+sampleBand:SetPoint("BOTTOM", ns.hud, "CENTER", 0, SIZE * (ns.SAMPLE_MANA - SAMPLE_COST - 0.5))
+local sampleShown = false
+
+-- How much of max mana the Caster sample takes off the fill (Resource.lua): the cost while the
+-- band shows, else none.
+function ns.SampleManaSpend()
+    return (sampleShown and enabled) and SAMPLE_COST or 0
+end
+
+-- Opacity is the bands' alpha (they're only shown and hidden otherwise). Turning it off ends a
+-- prediction in progress; the shift orbs' dim goes with it (ns.onManaPrediction).
+ns.RegisterElement({
+    id = "resource.prediction",
+    zone = "resource",
+    name = "Mana prediction",
+    states = { "caster" },
+    options = {
+        { key = "enabled", type = "checkbox", label = "Show mana cost prediction", default = true },
+        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+    },
+    apply = function(get)
+        enabled = get("enabled")
+        if not enabled and state ~= "idle" then
+            Clear()
+        end
+        local alpha = get("opacity") / 100
+        for _, band in ipairs({ spendBand, refundBand, sampleBand }) do
+            band:SetAlpha(alpha)
+        end
+        sampleBand:SetShown(sampleShown and enabled)
+        if ns.RefreshResource and UnitExists("player") then
+            ns.RefreshResource()
+        end
+    end,
+    sample = function(previewState)
+        sampleShown = previewState == "caster"
+        sampleBand:SetShown(sampleShown and enabled)
+        -- Resource.lua's sample runs before this one (it registered first); redraw it with the cost.
+        ns.RefreshResource()
+    end,
+})
 
 -- After Resource.lua redraws (e.g. it switched to showing mana as a cast took us out of Cat
 -- Form): its fill texture may be a new object, and the bands' visibility may change.

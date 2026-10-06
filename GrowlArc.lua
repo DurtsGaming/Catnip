@@ -18,20 +18,24 @@ local addonName, ns = ...
 local CANVAS = 164 -- as ShiftingPower.lua
 local SPAN = math.pi / 4.2 -- either side of 6 o'clock
 
-local gate = CreateFrame("Frame", nil, ns.hud)
+local gate = CreateFrame("Frame", nil, ns.cooldownArcHolder) -- ShiftingPower.lua's; preview mode hides it
 gate:SetAllPoints()
 
-local arc = ns.CreateSegmentedArc({
-    parent = gate,
-    size = CANVAS,
-    level = 3, -- the gate is one above the HUD: level with Shifting Power's arc
-    art = "growl_arc",
-    outline = "sp_arc_outline", -- same shape
-    outlineColor = { 0, 0, 0 },
-    from = 1.5 * math.pi - SPAN, -- left end
-    span = 2 * SPAN,
-    segments = 4, -- drawn into the art
-})
+local function ArcOptions(parent)
+    return {
+        parent = parent,
+        size = CANVAS,
+        level = 3, -- the gate is one above the HUD: level with Shifting Power's arc
+        art = "growl_arc",
+        outline = "sp_arc_outline", -- same shape
+        outlineColor = { 0, 0, 0 },
+        from = 1.5 * math.pi - SPAN, -- left end
+        span = 2 * SPAN,
+        segments = 4, -- drawn into the art
+    }
+end
+
+local arc = ns.CreateSegmentedArc(ArcOptions(gate))
 
 -- Priority ------------------------------------------------------------------------------------------
 
@@ -73,4 +77,38 @@ ns.CreateSegmentedCooldown({
     command = "growl", -- /catnip growl [seconds]
     learnFromReady = true, -- nothing resets it early, so the ready flag gives the length in combat too
     arc = arc,
+})
+
+-- Preview mode and settings -------------------------------------------------------------------------
+
+-- A copy of the arc that preview mode loops (ns.ArcSampler) in Bear Form, 2s a segment, while the
+-- real one is hidden with ShiftingPower.lua's holder.
+local sampleGate = CreateFrame("Frame", nil, ns.hud)
+sampleGate:SetAllPoints()
+local sampleArc = ns.CreateSegmentedArc(ArcOptions(sampleGate))
+local StartSample, StopSample = ns.ArcSampler(sampleArc, 8)
+
+ns.RegisterElement({
+    id = "under.growl",
+    zone = "under",
+    name = "Growl arc",
+    hit = { kind = "ring", inner = ns.ARC_HIT.inner, outer = ns.ARC_HIT.outer, angle = ns.ARC_HIT.angle,
+        spread = ns.ARC_HIT.spread,
+        visible = function() return arc.frame:IsVisible() or sampleArc.frame:IsVisible() end },
+    states = { "bear" },
+    options = {
+        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+    },
+    apply = function(get) -- the gates' alpha; UpdatePriority only shows and hides `gate`
+        local alpha = get("opacity") / 100
+        gate:SetAlpha(alpha)
+        sampleGate:SetAlpha(alpha)
+    end,
+    sample = function(state)
+        if state == "bear" then
+            StartSample()
+        else
+            StopSample()
+        end
+    end,
 })

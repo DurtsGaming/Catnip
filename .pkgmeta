@@ -1,0 +1,15 @@
+# Read by the BigWigsMods packager (CurseForge upload in .github/workflows/release.yml).
+# Keep the ignore list in step with the export-ignore lines in .gitattributes.
+package-as: Catnip
+
+ignore:
+  - docs
+  - tools
+  - CLAUDE.md
+  - README.md
+  - libs/LibEditMode/README.md
+  - .claude
+  - .github
+  - .gitattributes
+  - .gitignore
+  - .pkgmeta

@@ -12,8 +12,10 @@ local COLOR = { 0.9, 0.1, 0.1, 0.35 }
 local group = CreateFrame("Frame", nil, ns.hud)
 group:SetAllPoints()
 
+local sampling = false -- preview mode: the stand-in shows instead (below)
+
 local function UpdateForm()
-    group:SetShown(UnitPowerType("player") == Enum.PowerType.Rage)
+    group:SetShown(not sampling and UnitPowerType("player") == Enum.PowerType.Rage)
 end
 
 local events = CreateFrame("Frame")
@@ -44,3 +46,36 @@ else
         ns.Print("this client has no AuraContainer, so the Enrage tint is unavailable.")
     end)
 end
+
+-- Preview mode's stand-in: the same red disc, in Bear Form, at the container's level.
+local standIn = CreateFrame("Frame", nil, ns.hud)
+standIn:SetSize(SIZE, SIZE)
+standIn:SetPoint("CENTER")
+standIn:SetFrameLevel(ns.hud:GetFrameLevel() + 1)
+standIn:Hide()
+local standInTint = standIn:CreateTexture(nil, "ARTWORK")
+standInTint:SetTexture(ns.MEDIA .. "circle_feather")
+standInTint:SetAllPoints()
+standInTint:SetVertexColor(COLOR[1], COLOR[2], COLOR[3], COLOR[4])
+
+-- Settings (Elements.lua): Opacity is the group's alpha (it holds the container, whose buttons
+-- can't be touched after setup) and the stand-in's. No hit shape: it lies behind the circle's
+-- fill, so it's picked from the list.
+ns.RegisterElement({
+    id = "resource.enrage",
+    zone = "resource",
+    name = "Enrage tint",
+    states = { "bear" },
+    options = {
+        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+    },
+    apply = function(get)
+        group:SetAlpha(get("opacity") / 100)
+        standIn:SetAlpha(get("opacity") / 100)
+    end,
+    sample = function(state)
+        sampling = state ~= nil
+        standIn:SetShown(state == "bear")
+        UpdateForm()
+    end,
+})

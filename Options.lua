@@ -33,6 +33,10 @@ local SIDE_TAB_TOP = 58
 local SIDE_TAB_STEP = 57
 local SIDE_TAB_TUCK = 2
 local SCROLL_STEP = 40
+-- The Rotation tab's element tree (left of its pages); the window's minimum width grows by this
+-- much on that tab, so its pages keep the usual width.
+local TREE_WIDTH = 150
+local TREE_ROW = 20
 
 local function RGB(r, g, b, a) return { r / 255, g / 255, b / 255, a or 1 } end
 local WHITE = { 1, 1, 1, 1 }
@@ -124,10 +128,13 @@ scroll.bar:SetPoint("BOTTOMRIGHT", -2, 18) -- clear of the resize grip
 local UpdateCanvas -- defined with the tabs; fits the page to the window, then the scrollbar
 body:SetScript("OnSizeChanged", function() UpdateCanvas() end)
 
--- A size that fits: width MIN_WIDTH..MAX_WIDTH, height MIN_HEIGHT up to a little less than the screen.
+-- A size that fits: width MIN_WIDTH (plus the tree on the Rotation tab) up to MAX_WIDTH, height
+-- MIN_HEIGHT up to a little less than the screen.
+local hasTree = false -- whether the selected side tab has the element tree
 local function ClampSize(width, height)
     local maxHeight = math.max(MIN_HEIGHT, UIParent:GetHeight() - 40)
-    return math.max(MIN_WIDTH, math.min(MAX_WIDTH, width)), math.max(MIN_HEIGHT, math.min(maxHeight, height))
+    local minWidth = hasTree and MIN_WIDTH + TREE_WIDTH or MIN_WIDTH
+    return math.max(minWidth, math.min(MAX_WIDTH, width)), math.max(MIN_HEIGHT, math.min(maxHeight, height))
 end
 
 -- Resize grip: drag the bottom-right corner. Our own drag rather than StartSizing, which made the
@@ -195,7 +202,7 @@ function UpdateCanvas()
         return -- still building
     end
     local shown = ShownTab(topTabs.selected)
-    local height = shown.height or 0
+    local height = math.max(shown.height or 0, topTabs.selected.treeHeight or 0)
     local stretch = shown.page.stretch
     if stretch then
         local extra = math.max(0, math.floor(body:GetHeight() - HEADER - height))
@@ -291,6 +298,9 @@ local function TabGroup(makeTab, buttonParent, pageParent, pageTop)
             other.page:SetShown(selected)
             other.selected = selected
             other.SetSelected(selected)
+        end
+        if group.onSelect then
+            group.onSelect(tab)
         end
         scroll.ScrollTo(0)
         UpdateCanvas()
@@ -623,6 +633,157 @@ local function AnchorGrid(label, get, set)
     Place(holder, GRID_SIZE)
 end
 
+-- A choice between a few values, laid out like a slider: the label above, then < [value] >. The
+-- arrows step through `values` ({ value, text }, wrapping round); clicking the value opens a menu
+-- of them all. `text` may be a function, re-read on every refresh. With fontOf, the value is
+-- drawn in the font fontOf(entry) names (a key of ns.FONTS), so the font list previews itself.
+local CHOICE_HEIGHT = 38
+
+-- The control itself, on `parent`, for the caller to place (CHOICE_HEIGHT tall).
+local function ChoiceWidget(parent, label, values, get, set, fontOf)
+    local holder = CreateFrame("Frame", nil, parent)
+    local name = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    name:SetPoint("TOPLEFT")
+    name:SetText(label)
+
+    local less = Arrow(holder, -1)
+    less:SetPoint("BOTTOMLEFT")
+    local more = Arrow(holder, 1)
+    more:SetPoint("BOTTOMRIGHT")
+
+    local box = CreateFrame("Button", nil, holder)
+    box:SetPoint("LEFT", less, "RIGHT", 2, 0)
+    box:SetPoint("RIGHT", more, "LEFT", -2, 0)
+    box:SetHeight(20)
+    AddHover(box, Box(box, WELL, TRACK_EDGE), TRACK_EDGE)
+    local valueText = box:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    valueText:SetPoint("LEFT", 6, 0)
+    valueText:SetPoint("RIGHT", -6, 0)
+    valueText:SetWordWrap(false)
+
+    local function Index()
+        local current = get()
+        for i, entry in ipairs(values) do
+            if entry.value == current then
+                return i
+            end
+        end
+        return 1
+    end
+    local function Step(direction)
+        set(values[(Index() - 1 + direction) % #values + 1].value)
+    end
+    less:SetScript("OnClick", function() Step(-1) end)
+    more:SetScript("OnClick", function() Step(1) end)
+
+    local function Text(entry)
+        return type(entry.text) == "function" and entry.text() or entry.text
+    end
+
+    -- Clicking the value opens Blizzard's menu (as EllesmereUI does on Forever) listing every
+    -- value, the current one marked; font names are drawn in their font. Without MenuUtil it steps.
+    box:SetScript("OnClick", function(self)
+        if not (MenuUtil and MenuUtil.CreateContextMenu) then
+            Step(1)
+            return
+        end
+        MenuUtil.CreateContextMenu(self, function(_, root)
+            for _, entry in ipairs(values) do
+                local radio = root:CreateRadio(Text(entry),
+                    function() return values[Index()] == entry end,
+                    function()
+                        set(entry.value)
+                        return MenuResponse and MenuResponse.Close
+                    end)
+                if fontOf and radio.AddInitializer then
+                    -- SetFontObject, not SetFont: the menu forbids SetFont on its labels.
+                    radio:AddInitializer(function(button)
+                        local label = button.fontString
+                        if label then
+                            local size = math.floor((select(2, label:GetFont())) or 12)
+                            label:SetFontObject(ns.FontObject(fontOf(entry), size))
+                        end
+                    end)
+                end
+            end
+        end)
+    end)
+
+    refreshers[#refreshers + 1] = function()
+        local entry = values[Index()]
+        if fontOf then
+            ns.ApplyFont(valueText, fontOf(entry), 13, "none")
+        end
+        valueText:SetText(Text(entry))
+        valueText:SetTextColor(unpack(GOLD))
+    end
+    return holder
+end
+
+local function Choice(label, values, get, set, fontOf)
+    Place(ChoiceWidget(Host(), label, values, get, set, fontOf), CHOICE_HEIGHT, 10)
+end
+
+-- A red button on its own row, at its natural width.
+local function Button(text, onClick)
+    local holder = CreateFrame("Frame", nil, Host())
+    local button = CreateFrame("Button", nil, holder, "UIPanelButtonTemplate")
+    button:SetText(text)
+    button:SetSize(button:GetFontString():GetStringWidth() + 32, 22)
+    button:SetPoint("LEFT")
+    button:SetScript("OnClick", onClick)
+    Place(holder, 22)
+end
+
+local function ChoiceText(values, value)
+    for _, entry in ipairs(values) do
+        if entry.value == value then
+            return entry.text
+        end
+    end
+    return tostring(value)
+end
+
+-- The controls for an element's options (Elements.lua). Values equal to the default are stored as
+-- nil, so a later change of default reaches them. An inherited choice gets a first entry "General
+-- (<its value>)" that stores nil.
+local function ElementControls(element)
+    for _, option in ipairs(element.options or {}) do
+        local id, key = element.id, option.key
+        local function Get() return ns.ElementOption(id, key) end
+        local function Set(value)
+            if value == option.default then
+                value = nil
+            end
+            ns.SetElementOption(id, key, value)
+            ns.Preview.FitStates(option.states) -- e.g. "Mana as" switches the preview to Caster
+        end
+        if option.type == "slider" then
+            Slider(option.label, option.min, option.max, option.step or 1, option.format or "%.0f", Get, Set)
+        elseif option.type == "checkbox" then
+            Checkbox(option.label, Get, Set)
+        elseif option.type == "choice" then
+            local values = option.values
+            if option.inherit then
+                values = { { text = function()
+                    return "General (" .. ChoiceText(option.values, ns.ElementOption("general", option.inherit)) .. ")"
+                end } }
+                for _, entry in ipairs(option.values) do
+                    values[#values + 1] = entry
+                end
+                Get = function() return ns.ElementStored(id, key) end
+                Set = function(value)
+                    ns.SetElementOption(id, key, value)
+                    ns.Preview.FitStates(option.states)
+                end
+            end
+            Choice(option.label, values, Get, Set, option.fontPreview and function(entry)
+                return entry.value or ns.ElementOption(id, key)
+            end)
+        end
+    end
+end
+
 -- Edit Mode button (Blizzard's red button), right of the tabs: unlocks the widgets and shows the
 -- Edit Mode panel (EditMode.lua). The settings window stays open alongside it.
 local editMode = CreateFrame("Button", nil, canvas, "UIPanelButtonTemplate") -- scrolls with the tabs
@@ -636,6 +797,17 @@ local function HalfHeight() return math.floor(UIParent:GetHeight() / 2) end
 
 -- General / Rotation / Cooldown: side tabs. Pages start under the header.
 topTabs = TabGroup(SideTab, window, canvas, -HEADER)
+-- The Rotation tab's tree needs a wider window: widen it if it's narrower than that.
+-- Preview mode (Preview.lua) runs while the window is open on that tab.
+local function UpdatePreview()
+    ns.Preview.SetWanted(window:IsShown() and hasTree)
+end
+function topTabs.onSelect(tab)
+    hasTree = tab.hasTree or false
+    window:SetSize(ClampSize(window:GetSize()))
+    UpdatePreview()
+end
+window:HookScript("OnHide", UpdatePreview) -- and on show, in the OnShow script at the end
 
 -- General tab ------------------------------------------------------------------------------------
 
@@ -678,7 +850,100 @@ EndTab(general)
 
 -- Rotation tab: the HUD (the Rotation Frame) --------------------------------------------------------
 
+-- Two panes: a tree of the HUD's elements (General first, then each zone's elements under its
+-- name, from Elements.lua) on the left, and the selected element's page on the right. The tree
+-- rows are the tabs of a TabGroup, so each element's page is built like any sub-tab's.
 local rotation = topTabs.Add("Rotation")
+rotation.hasTree = true
+
+local tree = CreateFrame("Frame", nil, rotation.page)
+tree:SetPoint("TOPLEFT", PAD, -PAD)
+tree:SetWidth(TREE_WIDTH - PAD)
+art.Panel(tree)
+
+local detail = CreateFrame("Frame", nil, rotation.page) -- holds the pages, right of the tree
+detail:SetPoint("TOPLEFT", TREE_WIDTH, 0)
+detail:SetPoint("TOPRIGHT")
+detail:SetHeight(1)
+
+local TREE_INSET = art.EDGE_INSET + 8 -- inside the panel's painted edge
+local treeY = -TREE_INSET
+local treeIndent = 0
+
+-- Top of the tree: what the HUD shows while this tab is open (Preview.lua's sample states).
+local previewAs = ChoiceWidget(tree, "Preview as", ns.Preview.STATES, ns.Preview.GetState, ns.Preview.SetState)
+previewAs:SetPoint("TOPLEFT", TREE_INSET - 4, treeY)
+previewAs:SetPoint("TOPRIGHT", -(TREE_INSET - 4), treeY)
+previewAs:SetHeight(CHOICE_HEIGHT)
+treeY = treeY - CHOICE_HEIGHT - 12
+
+local function TreeHeader(text)
+    local header = tree:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    header:SetPoint("TOPLEFT", TREE_INSET, treeY - 4)
+    header:SetPoint("TOPRIGHT", -TREE_INSET, treeY - 4)
+    header:SetJustifyH("LEFT")
+    header:SetText(text)
+    treeY = treeY - TREE_ROW
+end
+
+-- A makeTab for TabGroup: an element's row in the tree, under the last header (indented).
+local function TreeRow(parent, name)
+    local row = CreateFrame("Button", nil, parent)
+    row:SetHeight(TREE_ROW)
+    row:SetPoint("TOPLEFT", TREE_INSET - 4 + treeIndent, treeY)
+    row:SetPoint("TOPRIGHT", -(TREE_INSET - 4), treeY)
+    treeY = treeY - TREE_ROW
+    local fill = row:CreateTexture(nil, "BACKGROUND")
+    fill:SetAllPoints()
+    fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.15)
+    local hover = row:CreateTexture(nil, "BACKGROUND", nil, 1)
+    hover:SetAllPoints()
+    hover:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.07)
+    hover:Hide()
+    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    row.text:SetPoint("LEFT", 4, 0)
+    row.text:SetPoint("RIGHT", -4, 0)
+    row.text:SetJustifyH("LEFT")
+    row.text:SetWordWrap(false)
+    row.text:SetText(name)
+    function row.SetSelected(selected)
+        fill:SetShown(selected)
+        row.text:SetTextColor(unpack(selected and WHITE or MUTED))
+    end
+    -- Hovering a row lights its element up on the HUD in preview mode (row.elementId, set below).
+    row:SetScript("OnEnter", function()
+        hover:Show()
+        ns.Preview.SetListHover(row.elementId)
+    end)
+    row:SetScript("OnLeave", function()
+        hover:Hide()
+        ns.Preview.SetListHover(nil)
+    end)
+    return row
+end
+
+rotation.subs = TabGroup(TreeRow, tree, detail, 0)
+-- The open page's element is the selected one in preview mode.
+function rotation.subs.onSelect(tab)
+    ns.Preview.SetSelected(tab.elementId)
+end
+local elementTabs = {} -- element id -> its tree row (tab)
+
+-- An element's page: a panel named after it with its controls, and a reset button.
+local function ElementPage(element)
+    local tab = rotation.subs.Add(element.name)
+    tab.elementId = element.id
+    elementTabs[element.id] = tab
+    Section(element.name)
+    ElementControls(element)
+    Button("Reset to defaults", function() ns.ResetElement(element.id) end)
+    EndTab(tab)
+end
+
+-- General: the HUD's own scale, opacity and position, then the defaults other elements inherit.
+local hudPage = rotation.subs.Add("General")
+hudPage.elementId = "general"
+elementTabs.general = hudPage
 
 Section("HUD")
 
@@ -700,7 +965,36 @@ Slider("Vertical position", function() return -HalfHeight() end, HalfHeight, 1, 
     function() return ns.db.y end,
     function(y) ns.SetHudPosition(ns.db.x, y) end)
 
-EndTab(rotation)
+Section("Text")
+Hint("Fonts and outline for all text, unless an element picks its own.")
+ElementControls(ns.GetElement("general"))
+Button("Reset to defaults", function() ns.ResetElement("general") end)
+
+EndTab(hudPage)
+
+-- Each zone's elements, under the zone's name, by their `order` (e.g. the combo point they sit on),
+-- else as registered; zones without any are left out.
+for _, zone in ipairs(ns.ZONES) do
+    local list = {}
+    for index, element in ipairs(ns.elements) do
+        if element.zone == zone.id then
+            list[#list + 1] = { element = element, key = element.order or 1000 + index }
+        end
+    end
+    table.sort(list, function(a, b) return a.key < b.key end)
+    for i, entry in ipairs(list) do
+        if i == 1 then
+            TreeHeader(zone.name)
+            treeIndent = 8
+        end
+        ElementPage(entry.element)
+    end
+end
+treeY = treeY - TREE_INSET + 4
+tree:SetHeight(-treeY)
+rotation.treeHeight = PAD + tree:GetHeight() + PAD
+
+rotation.subs.Select(hudPage)
 
 -- Cooldown tab: Abilities and Layout sub-tabs ----------------------------------------------------
 
@@ -1016,7 +1310,13 @@ topTabs.Select(general)
 window:SetScript("OnShow", function()
     Refresh()
     UpdateCanvas()
+    UpdatePreview()
 end)
+ns.Preview.onStateChanged = function() -- the "Preview as" control follows switches made elsewhere
+    if window:IsShown() then
+        Refresh()
+    end
+end
 ns.OnSettingsChanged(function()
     if window:IsShown() then
         Refresh()
@@ -1038,15 +1338,27 @@ ns.commands.edit = function()
     ns.OpenEditMode()
 end
 
--- Opens the settings at a widget's position and size controls: "hud" (Rotation) or "cooldowns"
--- (Cooldown → Layout). Used by clicking a widget in unlock mode.
+-- Opens the settings at a widget's position and size controls: "hud" (Rotation → General) or
+-- "cooldowns" (Cooldown → Layout). Used by clicking a widget in unlock mode.
 function ns.OpenSettings(where)
     if where == "cooldowns" then
         topTabs.Select(cooldowns)
         cooldowns.subs.Select(layout)
     else
         topTabs.Select(rotation)
+        rotation.subs.Select(hudPage)
     end
+    window:Show()
+end
+
+-- Opens the settings at an element's page (an id from Elements.lua).
+function ns.OpenElementSettings(id)
+    local tab = elementTabs[id]
+    if not tab then
+        return
+    end
+    topTabs.Select(rotation)
+    rotation.subs.Select(tab)
     window:Show()
 end
 

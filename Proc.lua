@@ -23,7 +23,15 @@ function ns.IsClearcasting()
     if InCombatLockdown() then
         return nil
     end
-    return C_UnitAuras.GetPlayerAuraBySpellID(CLEARCASTING) ~= nil
+    -- Battlegrounds keep auras secret out of combat too
+    if C_Secrets and C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret() then
+        return nil
+    end
+    local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, CLEARCASTING)
+    if not ok or ns.IsSecret(aura) then
+        return nil
+    end
+    return aura ~= nil
 end
 
 -- An additive texture filling frame, with an alpha pulse. Returns the pulse to play.
@@ -72,9 +80,17 @@ local function CreateCrescentFrame(parent)
     end
 end
 
+-- The real crescent (AuraContainer or fallback) lives in liveGate, preview mode's stand-in in
+-- sampleGate; their alpha is the Opacity setting (the container's buttons can't be touched after
+-- setup, so this applies live). Preview mode hides liveGate while sampling.
+local liveGate = CreateFrame("Frame", nil, ns.hud)
+liveGate:SetAllPoints()
+local sampleGate = CreateFrame("Frame", nil, ns.hud)
+sampleGate:SetAllPoints()
+
 -- Fallback without AuraContainer: the Cooldown Manager.
 local function SetupCooldownManagerFallback()
-    local anchor = CreateFrame("Frame", nil, ns.hud)
+    local anchor = CreateFrame("Frame", nil, liveGate)
     anchor:SetSize(SIZE, SIZE)
     anchor:SetPoint("CENTER")
     anchor:SetFrameLevel(ns.hud:GetFrameLevel() + 10)
@@ -114,6 +130,7 @@ if ns.HAS_AURA_CONTAINER then
         width = SIZE,
         height = SIZE,
         level = 10, -- above the resource fill and GCD pie
+        parent = liveGate,
         initialize = function(button)
             ns.HideAuraButtonArt(button)
             CreateCrescentFrame(button)
@@ -122,3 +139,32 @@ if ns.HAS_AURA_CONTAINER then
 else
     SetupCooldownManagerFallback()
 end
+
+-- Preview mode's stand-in: the same crescent, shown in Cat Form (where Omen of Clarity procs).
+local standIn = CreateFrame("Frame", nil, sampleGate)
+standIn:SetSize(SIZE, SIZE)
+standIn:SetPoint("CENTER", ns.hud)
+standIn:SetFrameLevel(ns.hud:GetFrameLevel() + 10)
+standIn:Hide()
+CreateCrescentFrame(standIn)
+
+-- Picked by the crescent's area, the top of the resource circle (over the circle's own hit).
+ns.RegisterElement({
+    id = "resource.proc",
+    zone = "resource",
+    name = "Clearcasting",
+    hit = { kind = "circle", x = 0, y = SIZE * 0.36, radius = SIZE * 0.14,
+        visible = function() return standIn:IsVisible() end },
+    states = { "cat" },
+    options = {
+        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+    },
+    apply = function(get)
+        liveGate:SetAlpha(get("opacity") / 100)
+        sampleGate:SetAlpha(get("opacity") / 100)
+    end,
+    sample = function(state)
+        liveGate:SetShown(state == nil)
+        standIn:SetShown(state == "cat")
+    end,
+})

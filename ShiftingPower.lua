@@ -29,21 +29,33 @@ local PULSE_IN, PULSE_OUT = 0.01, 0.5 -- a quick pop (a 1.2s fade felt slow)
 
 local hud = ns.hud
 
-local arcGate = CreateFrame("Frame", nil, hud)
+-- Both cooldown arcs' gates (this one's and GrowlArc.lua's) sit in this holder, at the HUD's own
+-- level so the gates stay one above it. Preview mode hides it while its sample arcs show; the
+-- clocks keep running.
+local liveArcs = CreateFrame("Frame", nil, hud)
+liveArcs:SetAllPoints()
+liveArcs:SetFrameLevel(hud:GetFrameLevel())
+ns.cooldownArcHolder = liveArcs
+
+local arcGate = CreateFrame("Frame", nil, liveArcs)
 arcGate:SetAllPoints()
 ns.shiftingPowerArcGate = arcGate
 
-local arc = ns.CreateSegmentedArc({
-    parent = arcGate,
-    size = CANVAS,
-    level = 3, -- the gate is one above the HUD, so 4 above it as before
-    art = "sp_arc",
-    outline = "sp_arc_outline", -- a black rim around each segment, like the combo points
-    outlineColor = { 0, 0, 0 }, -- in its own colours it read as a neon glow
-    from = 1.5 * math.pi - SPAN, -- left end
-    span = 2 * SPAN,
-    segments = SEGMENTS, -- the gaps are in the art
-})
+local function ArcOptions(parent)
+    return {
+        parent = parent,
+        size = CANVAS,
+        level = 3, -- the gate is one above the HUD, so 4 above it as before
+        art = "sp_arc",
+        outline = "sp_arc_outline", -- a black rim around each segment, like the combo points
+        outlineColor = { 0, 0, 0 }, -- in its own colours it read as a neon glow
+        from = 1.5 * math.pi - SPAN, -- left end
+        span = 2 * SPAN,
+        segments = SEGMENTS, -- the gaps are in the art
+    }
+end
+
+local arc = ns.CreateSegmentedArc(ArcOptions(arcGate))
 ns.shiftingPowerArc = arc -- GrowlArc.lua watches it (onShownChanged)
 
 -- Ready pulse ---------------------------------------------------------------------------------------
@@ -83,6 +95,15 @@ local function HidePulse()
     pulse:Hide()
 end
 
+local function PlayPulse()
+    if not ns.ElementOption("under.sp", "readyPulse") then
+        return -- turned off in the settings
+    end
+    pulseOnce:Stop()
+    pulse:Show()
+    pulseOnce:Play()
+end
+
 -- Timing --------------------------------------------------------------------------------------------
 
 ns.CreateSegmentedCooldown({
@@ -97,9 +118,49 @@ ns.CreateSegmentedCooldown({
     onHide = HidePulse,
     onReady = function(animate)
         if animate and UnitPowerType("player") == Enum.PowerType.Energy then -- Cat Form only
-            pulseOnce:Stop()
-            pulse:Show()
-            pulseOnce:Play()
+            PlayPulse()
+        end
+    end,
+})
+
+-- Preview mode and settings -------------------------------------------------------------------------
+
+-- A copy of the arc that preview mode runs in a loop (ns.ArcSampler), 2s a segment, with the
+-- ready pulse at the end, while the real one (in liveArcs) is hidden.
+local SAMPLE_SECONDS = 8
+local sampleGate = CreateFrame("Frame", nil, hud)
+sampleGate:SetAllPoints()
+local sampleArc = ns.CreateSegmentedArc(ArcOptions(sampleGate))
+local StartSample, StopSample = ns.ArcSampler(sampleArc, SAMPLE_SECONDS, PlayPulse)
+
+-- The arc's hit band: its 3.8-unit band at radius 71 and outline, with some room either side (the
+-- swing ring ends at 66.5, the shift orbs start at 77.6).
+ns.ARC_HIT = { inner = 67, outer = 76, angle = -math.pi / 2, spread = SPAN + 0.03 }
+
+ns.RegisterElement({
+    id = "under.sp",
+    zone = "under",
+    name = "Shifting Power arc",
+    hit = { kind = "ring", inner = ns.ARC_HIT.inner, outer = ns.ARC_HIT.outer, angle = ns.ARC_HIT.angle,
+        spread = ns.ARC_HIT.spread,
+        visible = function() return arc.frame:IsVisible() or sampleArc.frame:IsVisible() end },
+    states = { "cat", "prowl" },
+    options = {
+        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "readyPulse", type = "checkbox", label = "Blue pulse in the circle when ready", default = true },
+    },
+    apply = function(get) -- the gates' alpha: nothing else sets it (GrowlArc.lua only shows and hides them)
+        local alpha = get("opacity") / 100
+        arcGate:SetAlpha(alpha)
+        sampleGate:SetAlpha(alpha)
+    end,
+    -- Cat Form (and Prowl, still Cat Form) runs the sample; Bear shows Growl's (GrowlArc.lua).
+    sample = function(state)
+        liveArcs:SetShown(state == nil)
+        if state == "cat" or state == "prowl" then
+            StartSample()
+        else
+            StopSample()
         end
     end,
 })

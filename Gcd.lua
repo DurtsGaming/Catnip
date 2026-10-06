@@ -144,7 +144,12 @@ local function UpdateFromFlag()
     end
 end
 
+local sampling = false -- preview mode's looping sweep is showing (below); real GCDs wait
+
 local function Update()
+    if sampling then
+        return
+    end
     if useDurationObject and not IsPaced() and UpdateFromDurationObject() then
         sweepEnd = 0
         return
@@ -167,6 +172,46 @@ events:SetScript("OnEvent", function(_, event, _, _, spellID)
         CheckTalents()
     end
 end)
+
+-- Settings and preview mode (Elements.lua, Preview.lua). Opacity scales the shade's own alpha (the
+-- swipe colour). No hit shape: the pie covers the whole circle, so it's picked from the list.
+-- The sample sweeps every SAMPLE_EVERY seconds: 1.0s in Cat Form (and Prowl), 1.5s otherwise.
+local SAMPLE_EVERY = 2.5
+local sampleLength
+local sampleDriver = CreateFrame("Frame")
+sampleDriver:Hide()
+local sampleStart = 0
+sampleDriver:SetScript("OnUpdate", function()
+    if GetTime() - sampleStart >= SAMPLE_EVERY then
+        sampleStart = GetTime()
+        ball:SetCooldown(sampleStart, sampleLength)
+    end
+end)
+
+ns.RegisterElement({
+    id = "resource.gcd",
+    zone = "resource",
+    name = "GCD pie",
+    options = {
+        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+    },
+    apply = function(get)
+        ball:SetSwipeColor(SHADE[1], SHADE[2], SHADE[3], SHADE[4] * get("opacity") / 100)
+    end,
+    sample = function(state)
+        sampling = state ~= nil
+        if sampling then
+            sampleLength = (state == "cat" or state == "prowl") and 1 or GCD_LENGTH
+            sampleStart = 0 -- sweep at once
+            sampleDriver:Show()
+        else
+            sampleDriver:Hide()
+            ball:Clear()
+            sweepEnd = 0
+            Update() -- a real GCD, if one is running
+        end
+    end,
+})
 
 ns.OnLoad(function()
     CheckTalents()

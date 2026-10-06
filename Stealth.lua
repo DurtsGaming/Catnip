@@ -8,15 +8,37 @@
 local addonName, ns = ...
 
 local stealthed = false
+local override -- preview mode's state (Preview.lua: true while previewing Prowl, else false), or nil
 local callbacks = {}
 
 function ns.IsStealthMode()
+    if override ~= nil then
+        return override
+    end
     return stealthed
 end
 
 -- fn(stealthed) runs whenever stealth mode turns on or off.
 function ns.OnStealthChanged(fn)
     callbacks[#callbacks + 1] = fn
+end
+
+-- Tells the callbacks if stealth mode differs from `before`.
+local function Notify(before)
+    local now = ns.IsStealthMode()
+    if now ~= before then
+        for _, fn in ipairs(callbacks) do
+            fn(now)
+        end
+    end
+end
+
+-- Preview mode shows stealth mode on or off whatever the game says (true/false), then hands back to
+-- the game (nil). Everything that restyles for stealth follows, as if it had really changed.
+function ns.SetStealthPreview(value)
+    local before = ns.IsStealthMode()
+    override = value
+    Notify(before)
 end
 
 local function Update()
@@ -31,11 +53,10 @@ local function Update()
     if now == stealthed then
         return
     end
+    local before = ns.IsStealthMode()
     stealthed = now
     ns.Debug("stealth mode:", now)
-    for _, fn in ipairs(callbacks) do
-        fn(now)
-    end
+    Notify(before) -- nothing changes on screen while preview mode overrides it
 end
 
 local events = CreateFrame("Frame")

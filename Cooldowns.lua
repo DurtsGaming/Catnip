@@ -318,15 +318,19 @@ local IGNORED_BUFFS = { [16870] = true } -- Clearcasting: procs on its own, coul
 
 -- After a tracked ability is cast (out of combat), find our buff on us or debuff on the target that
 -- started with it. Nothing to learn if one of them has the ability's own spell ID: that already matches.
+-- Auras can be secret out of combat too (battlegrounds), and then reading them errors instead.
 local function LearnBuff(spellID, castTime)
     if InCombatLockdown() or not C_UnitAuras.GetAuraDataByIndex then
+        return
+    end
+    if C_Secrets and C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret() then
         return
     end
     local best, bestGap
     for _, watch in ipairs({ { "player", "HELPFUL" }, { "target", "HARMFUL" } }) do
         for index = 1, 40 do
-            local aura = C_UnitAuras.GetAuraDataByIndex(watch[1], index, watch[2])
-            if not aura or ns.IsSecret(aura) then
+            local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, watch[1], index, watch[2])
+            if not ok or not aura or ns.IsSecret(aura) then
                 break
             end
             local auraID, duration, expires = aura.spellId, aura.duration, aura.expirationTime

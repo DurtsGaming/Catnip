@@ -124,11 +124,17 @@ local function CreateRow()
     return row
 end
 
+-- Orb i of a row of n, from the HUD's centre.
+local function OrbOffset(i, n)
+    local angle = -math.pi / 2 + (i - (n + 1) / 2) * STEP
+    return RADIUS * math.cos(angle), RADIUS * math.sin(angle)
+end
+
 for n = 1, MAX_ORBS do
     local row = CreateRow()
     for i = 1, n do
-        local angle = -math.pi / 2 + (i - (n + 1) / 2) * STEP
-        orbs[#orbs + 1] = CreateOrb(row, RADIUS * math.cos(angle), RADIUS * math.sin(angle), i)
+        local x, y = OrbOffset(i, n)
+        orbs[#orbs + 1] = CreateOrb(row, x, y, i)
     end
     rows[n] = row
 end
@@ -155,9 +161,16 @@ local inCombat = false -- from PLAYER_REGEN_DISABLED / _ENABLED
 local lostCurves = {} -- lostCurves[castCost][i]: 1 while orb i would be lost to that cast; reset in Rebuild
 local predictCost -- the cast's mana cost while ManaPrediction.lua shows a band, else nil
 
+-- Settings (the element below) and preview mode's sample state (Preview.lua), nil when live.
+local opacity, showGhost = 1, true
+local sampleState
+local SAMPLE_POWER = { cat = Enum.PowerType.Energy, prowl = Enum.PowerType.Energy,
+    bear = Enum.PowerType.Rage, caster = MANA }
+local SAMPLE_ORBS = { cat = MAX_ORBS, prowl = MAX_ORBS, bear = MAX_ORBS, caster = 0 } -- caster: the ghost
+
 -- The art for the current form and stealth state; nil (keep the current art) if the form is secret.
 local function OrbArt()
-    local powerType = UnitPowerType("player")
+    local powerType = sampleState and SAMPLE_POWER[sampleState] or UnitPowerType("player")
     if ns.IsSecret(powerType) then
         return nil
     end
@@ -290,6 +303,9 @@ local function LostCurves(castCost)
 end
 
 local function UpdatePrediction()
+    if sampleState then
+        return -- the sample has no prediction (ShowSample clears it)
+    end
     local curves = predictCost and cost ~= nil and LostCurves(predictCost) or nil
     for _, p in ipairs(predictions) do
         if curves then
@@ -300,7 +316,29 @@ local function UpdatePrediction()
     end
 end
 
+-- Preview mode: a fixed count per form, shown whatever the mana; no prediction; the ready pulse
+-- free to show (ShiftingPower.lua's sample plays it).
+local function ShowSample()
+    if ns.shiftingPowerPulseGate then
+        ns.shiftingPowerPulseGate:SetAlpha(1)
+    end
+    holder:Show()
+    UpdateArt()
+    local count = SAMPLE_ORBS[sampleState]
+    for n, row in ipairs(rows) do
+        row:SetAlpha(n == count and 1 or 0)
+    end
+    for _, p in ipairs(predictions) do
+        p.frame:SetAlpha(0)
+    end
+    ghostRow:SetAlpha((count == 0 and showGhost) and 1 or 0)
+end
+
 local function Update()
+    if sampleState then
+        ShowSample()
+        return
+    end
     UpdatePulseGate()
     local show = CAN_COUNT and (inCombat or not COMBAT_ONLY) and cost ~= nil
     holder:SetShown(show and true or false)
@@ -312,9 +350,9 @@ local function Update()
         row:SetAlpha(UnitPowerPercent("player", MANA, false, curves[n]))
     end
     UpdatePrediction()
-    -- The ghost only while regenerating. (The curve result may be secret, so no `and`/`or` on it:
-    -- that would test it.)
-    if ns.InFiveSecondRule() then
+    -- The ghost only while regenerating, and if it's turned on. (The curve result may be secret, so
+    -- no `and`/`or` on it: that would test it.)
+    if ns.InFiveSecondRule() or not showGhost then
         ghostRow:SetAlpha(0)
     else
         ghostRow:SetAlpha(UnitPowerPercent("player", MANA, false, ghostCurve))
@@ -340,10 +378,54 @@ function ns.onManaPrediction(castCost, strength)
     end
 end
 
-ns.OnStealthChanged(function(stealthed)
-    holder:SetAlpha(stealthed and STEALTH_ALPHA or 1) -- the rows set their own alpha
+-- The holder's alpha: stealth mode's dimming times the Opacity setting (the rows set their own).
+local function ApplyHolderAlpha()
+    holder:SetAlpha((ns.IsStealthMode() and STEALTH_ALPHA or 1) * opacity)
+end
+
+ns.OnStealthChanged(function()
+    ApplyHolderAlpha()
     Update()
 end)
+
+-- Settings (Elements.lua). The hit is the orbs themselves, picked as one: the sample's row (or
+-- the ghost, where the first orb goes), else all five spots (the real count is secret in combat).
+local function OrbCentres()
+    local count = sampleState and SAMPLE_ORBS[sampleState] or MAX_ORBS
+    if count == 0 then
+        return { { 0, -RADIUS } }
+    end
+    local centres = {}
+    for i = 1, count do
+        centres[i] = { OrbOffset(i, count) }
+    end
+    return centres
+end
+
+ns.RegisterElement({
+    id = "under.orbs",
+    zone = "under",
+    name = "Shift orbs",
+    hit = { kind = "circles", radius = ORB_SIZE / 2, centres = OrbCentres, -- outlines just meet
+        visible = function() return holder:IsVisible() end },
+    options = {
+        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        -- Previewed in Caster, whose sample has no orbs yet.
+        { key = "ghost", type = "checkbox", label = "Almost-ready orb", default = true, states = { "caster" } },
+    },
+    apply = function(get)
+        opacity = get("opacity") / 100
+        showGhost = get("ghost")
+        ApplyHolderAlpha()
+        if UnitExists("player") then
+            Update()
+        end
+    end,
+    sample = function(state)
+        sampleState = state
+        Update()
+    end,
+})
 
 ns.OnFiveSecondRuleChanged(Update)
 

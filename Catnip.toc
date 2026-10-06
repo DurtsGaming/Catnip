@@ -2,13 +2,15 @@
 ## Title: Catnip
 ## Notes: Druid addon for WoW Forever
 ## Author: Durts
-## Version: 0.1.0-beta.9
+## Version: 0.1.0-beta.12
+## X-Curse-Project-ID: 1729177
 ## SavedVariables: CatnipDB
 
 libs\LibEditMode\namespaced.lua
 libs\LibEditMode\embed.xml
 
 Catnip.lua
+Elements.lua
 Stealth.lua
 UnlockOverlay.lua
 Layout.lua
@@ -30,15 +32,16 @@ Enrage.lua
 SegmentedArc.lua
 SegmentedCooldown.lua
 ShiftingPower.lua
+GrowlArc.lua
 ShiftOrbs.lua
 CooldownRings.lua
-GrowlArc.lua
 CooldownItems.lua
 Cooldowns.lua
 EditMode.lua
 EditModeSnap.lua
 BlizzardEditMode.lua
 EditModeLayouts.lua
+Preview.lua
 OptionsArt.lua
 OptionsScroll.lua
 Options.lua

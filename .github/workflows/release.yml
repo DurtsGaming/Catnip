@@ -27,3 +27,19 @@ jobs:
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then prerelease="--prerelease"; fi
           gh release create "$GITHUB_REF_NAME" "Catnip-${GITHUB_REF_NAME}.zip" \
             --title "Catnip $GITHUB_REF_NAME" --generate-notes $prerelease
+
+  # Uploads the same tag to CurseForge (project ID from ## X-Curse-Project-ID in Catnip.toc,
+  # game version from ## Interface). Tags with "alpha" or "beta" upload as that release type.
+  # Packing rules are in .pkgmeta. Skipped until the CF_API_KEY secret is set.
+  curseforge:
+    runs-on: ubuntu-latest
+    env:
+      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.CF_API_KEY != ''
+        with:
+          fetch-depth: 0
+
+      - uses: BigWigsMods/packager@v2
+        if: env.CF_API_KEY != ''
