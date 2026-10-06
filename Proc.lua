@@ -23,7 +23,15 @@ function ns.IsClearcasting()
     if InCombatLockdown() then
         return nil
     end
-    return C_UnitAuras.GetPlayerAuraBySpellID(CLEARCASTING) ~= nil
+    -- Battlegrounds keep auras secret out of combat too
+    if C_Secrets and C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret() then
+        return nil
+    end
+    local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, CLEARCASTING)
+    if not ok or ns.IsSecret(aura) then
+        return nil
+    end
+    return aura ~= nil
 end
 
 -- An additive texture filling frame, with an alpha pulse. Returns the pulse to play.
