@@ -70,6 +70,8 @@ Patch 12.1.0 widget; the main tool for buffs and debuffs. Learned from the Blood
 - Retail's GCD dummy spell 61304 **doesn't exist in Forever**. Forever reports the GCD on **Classic's GCD spell 29515** (from [EllesmereUI PR #2240](https://github.com/EllesmereGaming/EllesmereUI/pull/2240)).
 - In combat, start and duration are secret, but `isActive`/`isOnGCD` are readable. So: when `isActive`, `C_Spell.GetSpellCooldownDuration(29515)` → `SetCooldownFromDurationObject`. Backup if that's ever rejected: on `isOnGCD`, run our own sweep of the Classic length (1.0s energy abilities, 1.5s otherwise).
 - Can't scale anything to the GCD or attack speed in combat: the numbers are secret.
+- Order (seen 2026-10-08, Rejuvenation): the GCD's `SPELL_UPDATE_COOLDOWN` arrives before the cast's `UNIT_SPELLCAST_SUCCEEDED`, which came 0.12s after the GCD's start.
+- Out of combat the GCD's start and duration are plain numbers (**verified** 2026-10-08: duration 0.99 for Rejuvenation with Gift of the Earthmother, so the talent does shorten the real GCD). `Gcd.lua` sweeps with them, and learns each instant spell's GCD length from them (`CatnipDB.gcdLengths`) for use in combat.
 
 ### Swing timer (verified)
 
@@ -123,6 +125,7 @@ The Cooldown Manager viewers (`BuffIconCooldownViewer`, `BuffBarCooldownViewer`,
 - A cast-event timer for Rip (guessed the duration, lost track on target switches); replaced by AuraContainer.
 - Updating frames attached to AuraContainer buttons (forbidden).
 - `C_UnitAuras.GetPlayerAuraBySpellID` in combat (returns nil, not a secret or an error, even while the buff is up: it looks exactly like "not up"; seen again 2026-10-03 with Mark of the Wild and Thorns).
+- Detecting the Gift of the Earthmother talent with `ns.FindKnownSpell("Gift of the Earthmother")` (2026-10-08): the pie never shortened, so the lookup almost certainly came back nil: a passive talent adds no spell to the spellbook (Shifting Power is found because it does). SpellTuner (installed locally, `Spells/Tabs.lua`) probed Forever's talent API: `GetTalentInfo` is absent and `C_SpecializationInfo.GetTalentInfo` returns nil, so it reads talents only from the spells they add and skips passive ones. EllesmereUI's `C_Traits` talent checks are retail-only (its talent reminders are off on Forever; it uses `C_Traits` there only for the Adventure Legacy tree). Untried: `IsPlayerSpell(id)` with the talent's own spell ID (unknown; talentsforever.com's data may have it). Replaced by learning each spell's GCD.
 - Shortening the GCD pie during Nature's Grace (2026-10-04): the buff isn't readable in combat (see above) and crits can't be seen, so the pie keeps the full length.
 - Sorting the cooldown box active-first from Lua: no Druid aura is readable in combat (`ShouldSpellAuraBeSecret` is true for all, 2026-10-03). The remaining route is AuraContainer groups, which Blizzard lays out itself (see the AuraContainer section).
 - A vertical `Slider` as a scrollbar (2026-10-04): a player reported dragging it moved the wrong way up/down (unverified why; we never checked which end the minimum sits at in this client). `OptionsScroll.lua` now does its own thumb and drag maths instead.

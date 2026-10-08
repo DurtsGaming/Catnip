@@ -79,7 +79,6 @@ for _, ring in ipairs(RINGS) do
         defaultLength = ring.defaultLength,
         lengthKey = ring.lengthKey,
         command = ring.command, -- /catnip <command> [seconds], in Cat or Bear Form
-        learnFromReady = true, -- nothing resets these early, so the ready flag gives the length in combat too
         arc = ns.CreateSegmentedArc(ArcOptions(gate)),
     })
 

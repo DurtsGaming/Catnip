@@ -3,9 +3,11 @@
 --
 -- Cooldown timing is secret in combat, so the arc runs on our own clock, like FiveSecondRule.lua:
 -- it starts when our cast of the spell succeeds (our casts' spell IDs are readable) and runs for the
--- cooldown's length, learned from the real numbers out of combat (CatnipDB[spec.lengthKey]). The
--- ready flag (isActive, via ns.CooldownState) ends it early if the cooldown resets, and holds the
--- arc full if our clock runs out first.
+-- cooldown's length (CatnipDB[spec.lengthKey]). The ready flag (isActive, via ns.CooldownState) ends
+-- it early if the cooldown is shorter or resets, and holds the arc full if our clock runs out first.
+-- The length is learned from every cast, so a talent change is picked up after one cast: out of
+-- combat from the real numbers, in combat from when the ready flag turns on (to the half second; a
+-- little long if the GCD hid the moment, and too short after a reset, until the next cast fixes it).
 --
 -- spec:
 --   label          for debug output
@@ -14,8 +16,6 @@
 --   castAllowed    optional function(): false to ignore a cast (e.g. a form without the cooldown)
 --   defaultLength  seconds, until the real length is learned
 --   lengthKey      CatnipDB key the learned length is kept under
---   learnFromReady also learn the length in combat, from when the ready flag turns on (only for
---                  spells nothing resets early, or a reset would teach a short length)
 --   arc            from ns.CreateSegmentedArc
 --   onStart, onReady(animate), onHide   optional callbacks
 --   command        "/catnip <command> [seconds]" runs a preview
@@ -163,14 +163,12 @@ function ns.CreateSegmentedCooldown(spec)
         return ns.CooldownState(TimingID(), nil)
     end
 
-    -- Ready now, by the flag: with learnFromReady, the time since the cast is the cooldown's length
-    -- (to the half second; it was read within POLL of the end).
+    -- Ready now, by the flag: the time since the cast is the cooldown's length (to the half second;
+    -- it was read within POLL of the end, unless the GCD hid it).
     local function ReadyByFlag()
-        if spec.learnFromReady then
-            local elapsed = GetTime() - castAt
-            if elapsed > 1.5 then
-                Learn(math.floor(elapsed * 2 + 0.5) / 2)
-            end
+        local elapsed = GetTime() - castAt
+        if elapsed > 1.5 then
+            Learn(math.floor(elapsed * 2 + 0.5) / 2)
         end
         BecomeReady(true)
     end

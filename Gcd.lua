@@ -73,17 +73,31 @@ local function SwingLength()
     end
 end
 
--- Gift of the Earthmother (talent): these spells' GCD is 0.5s shorter. We only see the GCD start,
--- so the cast event tells us which spell it was; the two arrive in either order (unverified), so
--- whichever comes second applies the short length. Nature's Grace (a 10% shorter GCD for 3s after
--- a crit) can't be seen: no Druid buff is readable in combat.
-local EARTHMOTHER = { "Gift of the Earthmother" }
-local EARTHMOTHER_SPELLS = { ["Rejuvenation"] = true, ["Swiftmend"] = true, ["Wild Growth"] = true }
-local EARTHMOTHER_LENGTH = GCD_LENGTH - 0.5
-local PAIR_WINDOW = 0.2 -- seconds between the GCD start and its cast event to count as one cast
-local hasEarthmother = false
+-- Some spells have a shorter GCD, e.g. Rejuvenation, Swiftmend and Wild Growth (1.0s) with the Gift
+-- of the Earthmother talent. Detecting the talent by name failed (2026-10-08: a passive talent adds
+-- no spell to the spellbook), so instead each spell's GCD is learned: out of combat the GCD's
+-- duration is readable (verified: 0.99 for Rejuvenation), so an instant cast records it (CatnipDB.gcdLengths, by spell name, rounded
+-- to 0.5s so Nature's Grace's 10% doesn't stick). Out of combat the sweep uses the real duration.
+-- In combat we only see the GCD start, so the cast event says which spell it was; the two arrive in
+-- either order (the GCD first, seen 2026-10-08), and whichever comes second applies the learned
+-- length. Nature's Grace (a 10% shorter GCD for 3s after a crit) can't be seen in combat: no Druid
+-- buff is readable then.
+-- Seconds between the GCD start and its cast event to count as one cast. The cast event came 0.12s
+-- after the GCD start (2026-10-08), so leave room for lag; no GCD is shorter than 1s.
+local PAIR_WINDOW = 0.4
 local sweepStart = 0
-local shortCastTime = 0 -- GetTime() of the last cast with a short GCD
+local sweepLength = 0
+local castTime = 0 -- GetTime() of the last cast event
+local castLength -- its learned GCD length, if any
+
+-- The GCD's real start and duration, or nil when secret (in combat) or not running.
+local function ReadableGcd()
+    local info = C_Spell.GetSpellCooldown(REFERENCE_SPELL)
+    local start, duration = info and info.startTime, info and info.duration
+    if start and duration and not ns.IsSecret(start) and not ns.IsSecret(duration) and duration > 0 then
+        return start, duration
+    end
+end
 
 local function DrawSweep(start, length)
     local swing, source = SwingLength()
@@ -93,7 +107,7 @@ local function DrawSweep(start, length)
     else
         ball:SetCooldown(start, length)
     end
-    sweepStart, sweepEnd = start, start + length
+    sweepStart, sweepEnd, sweepLength = start, start + length, length
     ns.Debug("GCD sweep:", length, "s, swing", swing, "from", source)
 end
 
@@ -104,26 +118,39 @@ local function StartSweep()
         sweepStart, sweepEnd = now, now + 1
         return
     end
-    local short = now - shortCastTime < PAIR_WINDOW
-    DrawSweep(now, short and EARTHMOTHER_LENGTH or GCD_LENGTH)
+    local start, duration = ReadableGcd()
+    if start then
+        DrawSweep(start, duration)
+    else
+        local paired = now - castTime < PAIR_WINDOW and castLength
+        DrawSweep(now, paired or GCD_LENGTH)
+    end
 end
 
 local function OnCast(spellID)
-    if not hasEarthmother or not spellID or ns.IsSecret(spellID) then
+    if not spellID or ns.IsSecret(spellID) or not ns.db then
         return
     end
-    if not EARTHMOTHER_SPELLS[C_Spell.GetSpellName(spellID)] then
+    local name = C_Spell.GetSpellName(spellID)
+    if not name or ns.IsSecret(name) then
         return
     end
     local now = GetTime()
-    shortCastTime = now
-    if IsPaced() and now < sweepEnd and now - sweepStart < PAIR_WINDOW then
-        DrawSweep(sweepStart, EARTHMOTHER_LENGTH) -- the GCD started first; shorten it
+    -- Learn: a GCD that started just now is this cast's (an instant). A cast with a cast time
+    -- started its GCD when the cast began, so it's skipped.
+    local start, duration = ReadableGcd()
+    if start and now - start < PAIR_WINDOW then
+        local length = math.floor(duration * 2 + 0.5) / 2
+        if ns.db.gcdLengths[name] ~= length then
+            ns.db.gcdLengths[name] = length
+            ns.Debug("GCD learned:", name, length, "s")
+        end
     end
-end
-
-local function CheckTalents()
-    hasEarthmother = ns.FindKnownSpell(EARTHMOTHER) ~= nil
+    castTime, castLength = now, ns.db.gcdLengths[name]
+    if castLength and castLength ~= sweepLength and not start and IsPaced()
+        and now < sweepEnd and now - sweepStart < PAIR_WINDOW then
+        DrawSweep(sweepStart, castLength) -- the GCD started first; fix its length
+    end
 end
 
 local function UpdateFromFlag()
@@ -160,16 +187,11 @@ end
 local events = CreateFrame("Frame")
 events:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
-events:RegisterEvent("SPELLS_CHANGED")
-ns.TryRegisterEvent(events, "PLAYER_TALENT_UPDATE")
-ns.TryRegisterEvent(events, "TRAIT_CONFIG_UPDATED")
 events:SetScript("OnEvent", function(_, event, _, _, spellID)
     if event == "SPELL_UPDATE_COOLDOWN" then
         Update()
-    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
-        OnCast(spellID)
     else
-        CheckTalents()
+        OnCast(spellID)
     end
 end)
 
@@ -214,8 +236,7 @@ ns.RegisterElement({
 })
 
 ns.OnLoad(function()
-    CheckTalents()
+    ns.db.gcdLengths = ns.db.gcdLengths or {}
     ns.Debug("GCD reference spell:", C_Spell.GetSpellName(REFERENCE_SPELL), REFERENCE_SPELL,
-        "| method:", useDurationObject and "duration object" or "isActive backup",
-        "| Gift of the Earthmother:", hasEarthmother)
+        "| method:", useDurationObject and "duration object" or "isActive backup")
 end)

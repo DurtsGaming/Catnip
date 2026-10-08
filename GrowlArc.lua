@@ -75,7 +75,6 @@ ns.CreateSegmentedCooldown({
     defaultLength = 8, -- ~8s seen 2026-10-04 (Classic's 10s ran long); learned from the first cast
     lengthKey = "growlLength",
     command = "growl", -- /catnip growl [seconds]
-    learnFromReady = true, -- nothing resets it early, so the ready flag gives the length in combat too
     arc = arc,
 })
 
