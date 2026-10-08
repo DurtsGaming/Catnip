@@ -19,8 +19,7 @@ local addonName, ns = ...
 
 local GCD_LENGTH = 1.5 -- Classic GCD outside cat form; not hasted
 
-local REFERENCE_SPELL = 29515 -- Forever's GCD spell
-ns.GCD_SPELL = REFERENCE_SPELL -- Cooldowns.lua tells real cooldowns from the GCD with it
+local REFERENCE_SPELL = ns.GCD_SPELL -- Forever's GCD spell (SpellTiming.lua)
 local SHADE = { 1, 1, 1, 0.3 }
 
 local ball = CreateFrame("Cooldown", nil, ns.hud, "CooldownFrameTemplate")
@@ -76,12 +75,13 @@ end
 -- Some spells have a shorter GCD, e.g. Rejuvenation, Swiftmend and Wild Growth (1.0s) with the Gift
 -- of the Earthmother talent. Detecting the talent by name failed (2026-10-08: a passive talent adds
 -- no spell to the spellbook), so instead each spell's GCD is learned: out of combat the GCD's
--- duration is readable (verified: 0.99 for Rejuvenation), so an instant cast records it (CatnipDB.gcdLengths, by spell name, rounded
--- to 0.5s so Nature's Grace's 10% doesn't stick). Out of combat the sweep uses the real duration.
+-- duration is readable (verified: 0.99 for Rejuvenation), so an instant cast records it
+-- (ns.LearnLength "gcd", SpellTiming.lua). Out of combat the sweep uses the real duration.
 -- In combat we only see the GCD start, so the cast event says which spell it was; the two arrive in
 -- either order (the GCD first, seen 2026-10-08), and whichever comes second applies the learned
 -- length. Nature's Grace (a 10% shorter GCD for 3s after a crit) can't be seen in combat: no Druid
 -- buff is readable then.
+
 -- Seconds between the GCD start and its cast event to count as one cast. The cast event came 0.12s
 -- after the GCD start (2026-10-08), so leave room for lag; no GCD is shorter than 1s.
 local PAIR_WINDOW = 0.4
@@ -92,9 +92,8 @@ local castLength -- its learned GCD length, if any
 
 -- The GCD's real start and duration, or nil when secret (in combat) or not running.
 local function ReadableGcd()
-    local info = C_Spell.GetSpellCooldown(REFERENCE_SPELL)
-    local start, duration = info and info.startTime, info and info.duration
-    if start and duration and not ns.IsSecret(start) and not ns.IsSecret(duration) and duration > 0 then
+    local start, duration = ns.ReadCooldown(REFERENCE_SPELL)
+    if start and duration > 0 then
         return start, duration
     end
 end
@@ -128,7 +127,7 @@ local function StartSweep()
 end
 
 local function OnCast(spellID)
-    if not spellID or ns.IsSecret(spellID) or not ns.db then
+    if not spellID or ns.IsSecret(spellID) then
         return
     end
     local name = C_Spell.GetSpellName(spellID)
@@ -140,13 +139,9 @@ local function OnCast(spellID)
     -- started its GCD when the cast began, so it's skipped.
     local start, duration = ReadableGcd()
     if start and now - start < PAIR_WINDOW then
-        local length = math.floor(duration * 2 + 0.5) / 2
-        if ns.db.gcdLengths[name] ~= length then
-            ns.db.gcdLengths[name] = length
-            ns.Debug("GCD learned:", name, length, "s")
-        end
+        ns.LearnLength("gcd", name, duration)
     end
-    castTime, castLength = now, ns.db.gcdLengths[name]
+    castTime, castLength = now, ns.LearnedLength("gcd", name)
     if castLength and castLength ~= sweepLength and not start and IsPaced()
         and now < sweepEnd and now - sweepStart < PAIR_WINDOW then
         DrawSweep(sweepStart, castLength) -- the GCD started first; fix its length
@@ -236,7 +231,6 @@ ns.RegisterElement({
 })
 
 ns.OnLoad(function()
-    ns.db.gcdLengths = ns.db.gcdLengths or {}
     ns.Debug("GCD reference spell:", C_Spell.GetSpellName(REFERENCE_SPELL), REFERENCE_SPELL,
         "| method:", useDurationObject and "duration object" or "isActive backup")
 end)

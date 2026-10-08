@@ -10,6 +10,7 @@ libs\LibEditMode\namespaced.lua
 libs\LibEditMode\embed.xml
 
 Catnip.lua
+SpellTiming.lua
 Elements.lua
 Stealth.lua
 UnlockOverlay.lua

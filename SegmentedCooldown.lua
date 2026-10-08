@@ -3,19 +3,19 @@
 --
 -- Cooldown timing is secret in combat, so the arc runs on our own clock, like FiveSecondRule.lua:
 -- it starts when our cast of the spell succeeds (our casts' spell IDs are readable) and runs for the
--- cooldown's length (CatnipDB[spec.lengthKey]). The ready flag (isActive, via ns.CooldownState) ends
+-- cooldown's length, learned under the spell's name (ns.LearnedLength "cooldown", SpellTiming.lua;
+-- spec.defaultLength until then). The ready flag (isActive, via ns.CooldownState) ends
 -- it early if the cooldown is shorter or resets, and holds the arc full if our clock runs out first.
 -- The length is learned from every cast, so a talent change is picked up after one cast: out of
 -- combat from the real numbers, in combat from when the ready flag turns on (to the half second; a
 -- little long if the GCD hid the moment, and too short after a reset, until the next cast fixes it).
 --
 -- spec:
---   label          for debug output
+--   label          the spell's name: debug output, and the key its learned length is saved under
 --   names          spellbook names to look for, first known wins; nothing shows while none is known
 --   castNames      set of spell names whose successful casts start the clock
 --   castAllowed    optional function(): false to ignore a cast (e.g. a form without the cooldown)
 --   defaultLength  seconds, until the real length is learned
---   lengthKey      CatnipDB key the learned length is kept under
 --   arc            from ns.CreateSegmentedArc
 --   onStart, onReady(animate), onHide   optional callbacks
 --   command        "/catnip <command> [seconds]" runs a preview
@@ -49,7 +49,7 @@ function ns.CreateSegmentedCooldown(spec)
     end
 
     local function Length()
-        return ns.db and ns.db[spec.lengthKey] or spec.defaultLength
+        return ns.LearnedLength("cooldown", spec.label) or spec.defaultLength
     end
 
     local function StartCooling(start, duration)
@@ -81,24 +81,8 @@ function ns.CreateSegmentedCooldown(spec)
         Call(spec.onHide)
     end
 
-    -- The cooldown's real start and length, when they're readable (out of combat).
-    local function ReadCooldown()
-        local info = C_Spell.GetSpellCooldown(TimingID())
-        if not info then
-            return nil
-        end
-        local start, duration = info.startTime, info.duration
-        if start == nil or duration == nil or ns.IsSecret(start) or ns.IsSecret(duration) then
-            return nil
-        end
-        return start, duration
-    end
-
     local function Learn(duration)
-        if ns.db and duration ~= ns.db[spec.lengthKey] then
-            ns.db[spec.lengthKey] = duration
-            ns.Debug(spec.label .. ": cooldown is", duration, "s")
-        end
+        return ns.LearnLength("cooldown", spec.label, duration)
     end
 
     local function Timing()
@@ -119,7 +103,7 @@ function ns.CreateSegmentedCooldown(spec)
             Hide()
             return
         end
-        local start, duration = ReadCooldown()
+        local start, duration = ns.ReadCooldown(TimingID())
         if start then
             if duration > 1.5 and start > 0 then -- longer than a GCD: the real cooldown
                 Learn(duration)
@@ -132,9 +116,6 @@ function ns.CreateSegmentedCooldown(spec)
             return
         end
         -- In combat: only the flag. Unsure reads keep what we have.
-        if not ns.CooldownState then -- Cooldowns.lua loads after us
-            return
-        end
         local onCooldown, sure = ns.CooldownState(TimingID(), state ~= "ready")
         if not sure then
             if state == "hidden" then
@@ -157,18 +138,18 @@ function ns.CreateSegmentedCooldown(spec)
 
     -- The ready flag: onCooldown, sure (see ns.CooldownState); unsure without it.
     local function ReadyFlag()
-        if not (TimingID() and ns.CooldownState) then
+        if not TimingID() then
             return nil, false
         end
         return ns.CooldownState(TimingID(), nil)
     end
 
-    -- Ready now, by the flag: the time since the cast is the cooldown's length (to the half second;
-    -- it was read within POLL of the end, unless the GCD hid it).
+    -- Ready now, by the flag: the time since the cast is the cooldown's length (read within POLL of
+    -- the end, unless the GCD hid it).
     local function ReadyByFlag()
         local elapsed = GetTime() - castAt
         if elapsed > 1.5 then
-            Learn(math.floor(elapsed * 2 + 0.5) / 2)
+            Learn(elapsed)
         end
         BecomeReady(true)
     end

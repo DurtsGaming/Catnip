@@ -231,44 +231,7 @@ local function CreateSlot(entry)
 end
 
 -- State ---------------------------------------------------------------------------------------------
-
-local function GcdRunning()
-    local info = C_Spell.GetSpellCooldown(ns.GCD_SPELL)
-    local active = info and info.isActive
-    return active == true -- secret or missing counts as not running
-end
-
--- Is the ability on a real cooldown (not just the GCD)? Returns (onCooldown, sure): when sure is
--- false we couldn't tell and kept `previous`, and the timer shouldn't be restarted from this read.
--- isOnGCD isn't trustworthy: EllesmereUI found it nil outside SPELL_UPDATE_COOLDOWN, and here it
--- seems to turn on for every spell whenever any spell starts the GCD (seen 2026-10-01: Enrage's
--- icon vanished on the next cast). So an active cooldown with no GCD running counts as real; while
--- the GCD runs, only isOnGCD == false is believed.
-local function CooldownState(spellID, previous)
-    local info = C_Spell.GetSpellCooldown(spellID)
-    if not info then
-        return false, true
-    end
-    local active, onGCD = info.isActive, info.isOnGCD
-    if ns.IsSecret(active) then
-        return previous, false
-    end
-    if active == nil then -- older field set: fall back to the numbers, readable out of combat
-        local duration = info.duration
-        if duration == nil or ns.IsSecret(duration) then
-            return previous, false
-        end
-        return duration > 1.5, true
-    end
-    if not active then
-        return false, true
-    end
-    if onGCD == false or not GcdRunning() then
-        return true, true
-    end
-    return previous, false
-end
-ns.CooldownState = CooldownState -- ShiftingPower.lua's ready flag
+-- Whether a spell is on cooldown: ns.CooldownState (SpellTiming.lua).
 
 -- While the GCD hides what's really on cooldown, look again once it's over (its end fires no event).
 local recheckPending = false
@@ -465,7 +428,7 @@ local function Update()
         if isItem then
             onCooldown, sure, start, duration = Items.CooldownState(entry, slot.onCooldown)
         else
-            onCooldown, sure = CooldownState(current, slot.onCooldown)
+            onCooldown, sure = ns.CooldownState(current, slot.onCooldown)
             if not sure then
                 RecheckAfterGcd()
             end
@@ -475,7 +438,7 @@ local function Update()
             local info = current and C_Spell.GetSpellCooldown(current)
             ns.Debug("Cooldowns:", EntryName(entry), onCooldown and "on cooldown" or "ready",
                 "| sure:", sure, "isActive:", info and info.isActive, "isOnGCD:", info and info.isOnGCD,
-                "GCD running:", GcdRunning(), "in combat:", InCombatLockdown())
+                "GCD running:", ns.GcdRunning(), "in combat:", InCombatLockdown())
         end
         if onCooldown and sure then
             if not isItem then

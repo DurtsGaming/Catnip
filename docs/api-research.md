@@ -71,7 +71,7 @@ Patch 12.1.0 widget; the main tool for buffs and debuffs. Learned from the Blood
 - In combat, start and duration are secret, but `isActive`/`isOnGCD` are readable. So: when `isActive`, `C_Spell.GetSpellCooldownDuration(29515)` → `SetCooldownFromDurationObject`. Backup if that's ever rejected: on `isOnGCD`, run our own sweep of the Classic length (1.0s energy abilities, 1.5s otherwise).
 - Can't scale anything to the GCD or attack speed in combat: the numbers are secret.
 - Order (seen 2026-10-08, Rejuvenation): the GCD's `SPELL_UPDATE_COOLDOWN` arrives before the cast's `UNIT_SPELLCAST_SUCCEEDED`, which came 0.12s after the GCD's start.
-- Out of combat the GCD's start and duration are plain numbers (**verified** 2026-10-08: duration 0.99 for Rejuvenation with Gift of the Earthmother, so the talent does shorten the real GCD). `Gcd.lua` sweeps with them, and learns each instant spell's GCD length from them (`CatnipDB.gcdLengths`) for use in combat.
+- Out of combat the GCD's start and duration are plain numbers (**verified** 2026-10-08: duration 0.99 for Rejuvenation with Gift of the Earthmother, so the talent does shorten the real GCD). `Gcd.lua` sweeps with them, and learns each instant spell's GCD length from them (`CatnipDB.lengths.gcd`, SpellTiming.lua) for use in combat.
 
 ### Swing timer (verified)
 

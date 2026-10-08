@@ -28,7 +28,6 @@ local RINGS = {
         castNames = { ["Faerie Fire (Feral)"] = true, ["Faerie Fire"] = true },
         castAllowed = InFeralForm, -- the caster version has no cooldown
         defaultLength = 6,
-        lengthKey = "ffLength",
         command = "ff",
     },
     {
@@ -40,7 +39,6 @@ local RINGS = {
         names = { "Primal Bite" },
         castNames = { ["Primal Bite"] = true },
         defaultLength = 6, -- a guess; learned from the first cast
-        lengthKey = "pbLength",
         command = "pb",
     },
 }
@@ -77,7 +75,6 @@ for _, ring in ipairs(RINGS) do
         castNames = ring.castNames,
         castAllowed = ring.castAllowed,
         defaultLength = ring.defaultLength,
-        lengthKey = ring.lengthKey,
         command = ring.command, -- /catnip <command> [seconds], in Cat or Bear Form
         arc = ns.CreateSegmentedArc(ArcOptions(gate)),
     })

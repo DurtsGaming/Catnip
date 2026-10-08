@@ -111,7 +111,6 @@ ns.CreateSegmentedCooldown({
     names = { "Shifting Power" },
     castNames = { ["Shifting Power"] = true },
     defaultLength = 16,
-    lengthKey = "spLength",
     arc = arc,
     command = "sp", -- /catnip sp [seconds]
     onStart = HidePulse,
