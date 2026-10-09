@@ -34,7 +34,7 @@ local SIDE_TAB_STEP = 57
 local SIDE_TAB_TUCK = 2
 local SCROLL_STEP = 40
 -- The Rotation tab's element list (left of its pages); the window's minimum width grows by this
--- much on that tab, so its pages keep the usual width.
+-- much on that tab, so its pages keep the usual width, and on the Cooldown tab too (its frame controls).
 local TREE_WIDTH = 236
 local ELEMENT_ROW = 28 -- an element's row in that list: icon and name
 
@@ -165,9 +165,10 @@ body:SetScript("OnSizeChanged", function() UpdateCanvas() end)
 -- A size that fits: width MIN_WIDTH (plus the tree on the Rotation tab) up to MAX_WIDTH, height
 -- MIN_HEIGHT up to a little less than the screen.
 local hasTree = false -- whether the selected side tab has the element tree
+local wide = false -- whether it needs the wider window (Rotation and Cooldown: their frame controls)
 local function ClampSize(width, height)
     local maxHeight = math.max(MIN_HEIGHT, UIParent:GetHeight() - 40)
-    local minWidth = hasTree and MIN_WIDTH + TREE_WIDTH or MIN_WIDTH
+    local minWidth = wide and MIN_WIDTH + TREE_WIDTH or MIN_WIDTH
     return math.max(minWidth, math.min(MAX_WIDTH, width)), math.max(MIN_HEIGHT, math.min(maxHeight, height))
 end
 
@@ -1003,15 +1004,135 @@ end
 local function HalfWidth() return math.floor(UIParent:GetWidth() / 2) end
 local function HalfHeight() return math.floor(UIParent:GetHeight() / 2) end
 
+-- A frame over part of `parent` that catches the mouse while shown, passing the wheel on so the
+-- page still scrolls. Hidden to start.
+local function ScrollBlocker(parent, level)
+    local blocker = CreateFrame("Frame", nil, parent)
+    blocker:SetFrameLevel(level)
+    blocker:EnableMouse(true)
+    blocker:EnableMouseWheel(true)
+    blocker:SetScript("OnMouseWheel", function(_, delta)
+        scroll.ScrollTo(scroll.Target() - delta * SCROLL_STEP, true)
+    end)
+    blocker:Hide()
+    return blocker
+end
+
+-- Frame controls, the panel across the top of the Rotation and Cooldown tabs: a switch turning the
+-- frame on or off with Reset... and Move in Edit Mode on its right, then sliders in pairs. While the
+-- switch is off, only it can be used (owner, 2026-10-09): the sliders dim, a blocker over them
+-- catches the mouse, and both buttons are disabled. Reset... opens a confirmation, dropping down
+-- over the page, before calling spec.reset.
+-- spec: name (the switch's label, and "Reset <name>" on the confirmation), isOn, setOn, resetText,
+-- reset, and sliders: SliderWidget's arguments after the parent, filling each row left then right.
+-- The panel sits at the top of `parent`; returns it, with the confirmation as panel.confirm.
+local function FramePanel(parent, spec)
+    local INSET = art.EDGE_INSET + PANEL_PAD
+    local SWITCH_ROW = 30
+    local GAP = 22 -- between the two sliders of a row
+    local CONFIRM_INSET = art.EDGE_INSET + 10
+    local CONFIRM_WIDTH = 236
+
+    local panel = CreateFrame("Frame", nil, parent)
+    panel:SetPoint("TOPLEFT", PAD, -PAD)
+    panel:SetPoint("TOPRIGHT", -PAD, -PAD)
+    panel:SetHeight(2 * INSET + SWITCH_ROW + math.ceil(#spec.sliders / 2) * (10 + SLIDER_HEIGHT))
+    art.Panel(panel)
+
+    local switch = Switch(panel, spec.name, "Enabled", "Disabled", spec.isOn, spec.setOn)
+    switch:SetPoint("TOPLEFT", INSET, -INSET)
+
+    local editButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    editButton:SetText("Move in Edit Mode")
+    editButton:SetSize(editButton:GetFontString():GetStringWidth() + 32, 22)
+    editButton:SetPoint("TOPRIGHT", -INSET, -(INSET + (SWITCH_ROW - 22) / 2))
+    editButton:SetScript("OnClick", function() ns.OpenEditMode() end)
+
+    local resetButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    resetButton:SetText("Reset...")
+    resetButton:SetSize(resetButton:GetFontString():GetStringWidth() + 32, 22)
+    resetButton:SetPoint("RIGHT", editButton, "LEFT", -6, 0)
+
+    local confirm = CreateFrame("Frame", nil, parent)
+    confirm:SetWidth(CONFIRM_WIDTH)
+    confirm:SetFrameLevel(parent:GetFrameLevel() + 60) -- over the rest of the page
+    confirm:EnableMouse(true) -- clicks stop here, not on what's under it
+    confirm:SetPoint("TOPRIGHT", resetButton, "BOTTOMRIGHT", 0, -6)
+    art.Panel(confirm)
+    confirm:Hide()
+    local confirmTitle = confirm:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    confirmTitle:SetPoint("TOPLEFT", CONFIRM_INSET, -CONFIRM_INSET)
+    confirmTitle:SetText("Reset " .. spec.name)
+    local confirmText = confirm:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    confirmText:SetPoint("TOPLEFT", confirmTitle, "BOTTOMLEFT", 0, -6)
+    confirmText:SetWidth(CONFIRM_WIDTH - 2 * CONFIRM_INSET)
+    confirmText:SetJustifyH("LEFT")
+    confirmText:SetTextColor(unpack(MUTED))
+    confirmText:SetText(spec.resetText)
+    local everything = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
+    everything:SetText("Everything back to defaults")
+    everything:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
+    everything:SetPoint("TOPLEFT", confirmText, "BOTTOMLEFT", 0, -10)
+    everything:SetScript("OnClick", function()
+        confirm:Hide()
+        spec.reset()
+    end)
+    local cancel = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
+    cancel:SetText("Cancel")
+    cancel:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
+    cancel:SetPoint("TOPLEFT", everything, "BOTTOMLEFT", 0, -4)
+    cancel:SetScript("OnClick", function() confirm:Hide() end)
+    confirm:SetHeight(2 * CONFIRM_INSET + 14 + 6 + math.max(12, confirmText:GetStringHeight()) + 10 + 22 + 4 + 22)
+    resetButton:SetScript("OnClick", function() confirm:SetShown(not confirm:IsShown()) end)
+    panel.confirm = confirm
+
+    -- Sliders in pairs under the switch: the left one ending short of the middle, the right one
+    -- starting past it.
+    local sliders = {}
+    for i, args in ipairs(spec.sliders) do
+        local top = -(INSET + SWITCH_ROW + 10 + (math.ceil(i / 2) - 1) * (SLIDER_HEIGHT + 10))
+        local slider = SliderWidget(panel, unpack(args))
+        if i % 2 == 0 then
+            slider:SetPoint("TOPLEFT", panel, "TOP", GAP / 2, top)
+            slider:SetPoint("TOPRIGHT", -INSET, top)
+        else
+            slider:SetPoint("TOPLEFT", INSET, top)
+            slider:SetPoint("TOPRIGHT", panel, "TOP", -GAP / 2, top)
+        end
+        slider:SetHeight(SLIDER_HEIGHT)
+        sliders[#sliders + 1] = slider
+    end
+
+    local blocker = ScrollBlocker(parent, panel:GetFrameLevel() + 20)
+    blocker:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -(INSET + SWITCH_ROW + 4))
+    blocker:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT")
+    refreshers[#refreshers + 1] = function()
+        local on = spec.isOn() and true or false
+        for _, slider in ipairs(sliders) do
+            slider:SetAlpha(on and 1 or 0.45)
+        end
+        blocker:SetShown(not on)
+        editButton:SetEnabled(on)
+        resetButton:SetEnabled(on)
+        if not on then
+            confirm:Hide()
+        end
+    end
+    return panel
+end
+
 -- General / Rotation / Cooldown: side tabs. Pages start under the header.
 topTabs = TabGroup(SideTab, window, canvas, -HEADER)
 -- The Rotation tab's tree needs a wider window: widen it if it's narrower than that.
 -- Preview mode (Preview.lua) runs while the window is open on that tab.
 local function UpdatePreview()
     ns.Preview.SetWanted(window:IsShown() and hasTree)
+    -- And the cooldown box's preview (Cooldowns.lua) while it's on the Cooldown tab.
+    ns.Cooldowns.SetSettingsPreview(window:IsShown() and topTabs.selected and topTabs.selected.cooldownPreview)
 end
 function topTabs.onSelect(tab)
     hasTree = tab.hasTree or false
+    wide = tab.wide or false
     window:SetSize(ClampSize(window:GetSize()))
     UpdatePreview()
 end
@@ -1068,112 +1189,39 @@ local elementTabs = {} -- element id -> its row (tab); ns.OpenElementSettings re
 -- The tab is built in a block of its own so its many locals end with it: a Lua function, this
 -- file's main chunk included, can hold at most 200 at once.
 do
-    rotation.hasTree = true
+    rotation.hasTree, rotation.wide = true, true
 
-    -- HUD controls: three rows, the switch (and Edit Mode), then scale and opacity, then position.
-    local HUD_INSET = art.EDGE_INSET + PANEL_PAD
-    local HUD_ROW = 30 -- the switch's row
-    local HUD_GAP = 22 -- between the two sliders of a row
-    local hudHeight = 2 * HUD_INSET + HUD_ROW + 2 * (10 + SLIDER_HEIGHT)
-
-    local hudPanel = CreateFrame("Frame", nil, rotation.page)
-    hudPanel:SetPoint("TOPLEFT", PAD, -PAD)
-    hudPanel:SetPoint("TOPRIGHT", -PAD, -PAD)
-    hudPanel:SetHeight(hudHeight)
-    art.Panel(hudPanel)
-
-    local hudSwitch = Switch(hudPanel, "Rotation Frame", "Enabled", "Disabled",
-        function() return ns.db.hudEnabled end, ns.SetHudEnabled)
-    hudSwitch:SetPoint("TOPLEFT", HUD_INSET, -HUD_INSET)
-
-    local editButton = CreateFrame("Button", nil, hudPanel, "UIPanelButtonTemplate")
-    editButton:SetText("Move in Edit Mode")
-    editButton:SetSize(editButton:GetFontString():GetStringWidth() + 32, 22)
-    editButton:SetPoint("TOPRIGHT", -HUD_INSET, -(HUD_INSET + (HUD_ROW - 22) / 2))
-    editButton:SetScript("OnClick", function() ns.OpenEditMode() end)
-
-    -- Reset...: beside Edit Mode, with the frame-wide controls. It opens a confirmation (dropping
-    -- down over the panes) before putting every element and the HUD controls, position included,
-    -- back to their defaults.
-    local resetButton = CreateFrame("Button", nil, hudPanel, "UIPanelButtonTemplate")
-    resetButton:SetText("Reset...")
-    resetButton:SetSize(resetButton:GetFontString():GetStringWidth() + 32, 22)
-    resetButton:SetPoint("RIGHT", editButton, "LEFT", -6, 0)
-
-    local CONFIRM_INSET = art.EDGE_INSET + 10
-    local CONFIRM_WIDTH = 236
-    local confirm = CreateFrame("Frame", nil, rotation.page)
-    confirm:SetWidth(CONFIRM_WIDTH)
-    confirm:SetFrameLevel(rotation.page:GetFrameLevel() + 60) -- over the panes
-    confirm:EnableMouse(true) -- clicks stop here, not on what's under it
-    confirm:SetPoint("TOPRIGHT", resetButton, "BOTTOMRIGHT", 0, -6)
-    art.Panel(confirm)
-    confirm:Hide()
-    local confirmTitle = confirm:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    confirmTitle:SetPoint("TOPLEFT", CONFIRM_INSET, -CONFIRM_INSET)
-    confirmTitle:SetText("Reset Rotation Frame")
-    local confirmText = confirm:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    confirmText:SetPoint("TOPLEFT", confirmTitle, "BOTTOMLEFT", 0, -6)
-    confirmText:SetWidth(CONFIRM_WIDTH - 2 * CONFIRM_INSET)
-    confirmText:SetJustifyH("LEFT")
-    confirmText:SetTextColor(unpack(MUTED))
-    confirmText:SetText("Every element's settings, Scale, Overall opacity, position and the Rotation Frame switch go back to their defaults.")
-    local everything = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
-    everything:SetText("Everything back to defaults")
-    everything:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
-    everything:SetPoint("TOPLEFT", confirmText, "BOTTOMLEFT", 0, -10)
-    everything:SetScript("OnClick", function()
-        confirm:Hide()
-        ns.ResetAllElements()
-        ns.ResetHudLook()
-        ns.ResetHudPosition()
-    end)
-    local cancel = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
-    cancel:SetText("Cancel")
-    cancel:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
-    cancel:SetPoint("TOPLEFT", everything, "BOTTOMLEFT", 0, -4)
-    cancel:SetScript("OnClick", function() confirm:Hide() end)
-    confirm:SetHeight(2 * CONFIRM_INSET + 14 + 6 + math.max(12, confirmText:GetStringHeight()) + 10 + 22 + 4 + 22)
-    resetButton:SetScript("OnClick", function() confirm:SetShown(not confirm:IsShown()) end)
-
-    -- Sliders in pairs under the switch, `row` 1 or 2: the left one ending short of the middle, the
-    -- right one starting past it. Dimmed while the HUD is off, but still usable.
-    local hudSliders = {}
-    local function HudSlider(row, right, ...)
-        local top = -(HUD_INSET + HUD_ROW + 10 + (row - 1) * (SLIDER_HEIGHT + 10))
-        local slider = SliderWidget(hudPanel, ...)
-        if right then
-            slider:SetPoint("TOPLEFT", hudPanel, "TOP", HUD_GAP / 2, top)
-            slider:SetPoint("TOPRIGHT", -HUD_INSET, top)
-        else
-            slider:SetPoint("TOPLEFT", HUD_INSET, top)
-            slider:SetPoint("TOPRIGHT", hudPanel, "TOP", -HUD_GAP / 2, top)
-        end
-        slider:SetHeight(SLIDER_HEIGHT)
-        hudSliders[#hudSliders + 1] = slider
-    end
-    refreshers[#refreshers + 1] = function()
-        for _, slider in ipairs(hudSliders) do
-            slider:SetAlpha(ns.db.hudEnabled and 1 or 0.45)
-        end
-    end
-
+    -- HUD controls: the switch with Reset... and Edit Mode, then scale and opacity, then position.
     -- Scale and opacity in percent, so the steps are whole numbers. Opacity fades the whole HUD; each
-    -- element's own opacity multiplies with it.
-    HudSlider(1, false, "Scale", ns.MIN_SCALE * 100, ns.MAX_SCALE * 100, ns.SCALE_STEP * 100, "%.0f%%",
-        function() return ns.db.scale * 100 end,
-        function(percent) ns.SetHudScale(percent / 100) end)
-    HudSlider(1, true, "Overall opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
-        function() return ns.db.hudAlpha * 100 end,
-        function(percent) ns.SetHudAlpha(percent / 100) end)
-    -- Position: an offset from the screen centre (0 / 0 is dead centre, range half the screen), or
-    -- dragged in Edit Mode.
-    HudSlider(2, false, "Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
-        function() return ns.db.x end,
-        function(x) ns.SetHudPosition(x, ns.db.y) end)
-    HudSlider(2, true, "Vertical position", function() return -HalfHeight() end, HalfHeight, 1, "%.0f",
-        function() return ns.db.y end,
-        function(y) ns.SetHudPosition(ns.db.x, y) end)
+    -- element's own opacity multiplies with it. Position: an offset from the screen centre (0 / 0 is
+    -- dead centre, range half the screen), or dragged in Edit Mode.
+    local HUD_INSET = art.EDGE_INSET + PANEL_PAD -- the preview strip's, matching the HUD controls'
+    local hudPanel = FramePanel(rotation.page, {
+        name = "Rotation Frame",
+        isOn = function() return ns.db.hudEnabled end,
+        setOn = ns.SetHudEnabled,
+        resetText = "Every element's settings, Scale, Overall opacity, position and the Rotation Frame switch go back to their defaults.",
+        reset = function()
+            ns.ResetAllElements()
+            ns.ResetHudLook()
+            ns.ResetHudPosition()
+        end,
+        sliders = {
+            { "Scale", ns.MIN_SCALE * 100, ns.MAX_SCALE * 100, ns.SCALE_STEP * 100, "%.0f%%",
+                function() return ns.db.scale * 100 end,
+                function(percent) ns.SetHudScale(percent / 100) end },
+            { "Overall opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
+                function() return ns.db.hudAlpha * 100 end,
+                function(percent) ns.SetHudAlpha(percent / 100) end },
+            { "Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
+                function() return ns.db.x end,
+                function(x) ns.SetHudPosition(x, ns.db.y) end },
+            { "Vertical position", function() return -HalfHeight() end, HalfHeight, 1, "%.0f",
+                function() return ns.db.y end,
+                function(y) ns.SetHudPosition(ns.db.x, y) end },
+        },
+    })
+    local hudHeight = hudPanel:GetHeight()
 
     -- The preview strip, across the window under the HUD controls: what the HUD shows while this tab
     -- is open (Preview.lua's sample states). A form, and beside it a Stealth toggle laying stealth's
@@ -1276,24 +1324,10 @@ do
     detail:SetPoint("TOPRIGHT", 0, -rotation.pageTop)
     detail:SetHeight(1)
 
-    -- While the Rotation Frame is off, only its switch can be used (owner, 2026-10-09): the sliders
-    -- and both panes dim, a blocker over them catches the mouse (passing the wheel on, so the page
-    -- still scrolls), and Reset... and Edit Mode are disabled.
-    local function Blocker(level)
-        local blocker = CreateFrame("Frame", nil, rotation.page)
-        blocker:SetFrameLevel(level)
-        blocker:EnableMouse(true)
-        blocker:EnableMouseWheel(true)
-        blocker:SetScript("OnMouseWheel", function(_, delta)
-            scroll.ScrollTo(scroll.Target() - delta * SCROLL_STEP, true)
-        end)
-        blocker:Hide()
-        return blocker
-    end
-    local sliderBlocker = Blocker(hudPanel:GetFrameLevel() + 20)
-    sliderBlocker:SetPoint("TOPLEFT", hudPanel, "TOPLEFT", 0, -(HUD_INSET + HUD_ROW + 4))
-    sliderBlocker:SetPoint("BOTTOMRIGHT", hudPanel, "BOTTOMRIGHT")
-    local paneBlocker = Blocker(rotation.page:GetFrameLevel() + 40) -- under Reset...'s confirmation (+60)
+    -- While the Rotation Frame is off, only its switch can be used (owner, 2026-10-09): as well as
+    -- FramePanel's sliders, the preview strip and both panes dim, and a blocker over them catches
+    -- the mouse.
+    local paneBlocker = ScrollBlocker(rotation.page, rotation.page:GetFrameLevel() + 40) -- under Reset...'s confirmation (+60)
     paneBlocker:SetPoint("TOPLEFT", previewPanel, "TOPLEFT") -- the preview strip too
     paneBlocker:SetPoint("BOTTOMRIGHT", rotation.page, "BOTTOMRIGHT")
 
@@ -1303,15 +1337,9 @@ do
         previewPanel:SetAlpha(alpha)
         tree:SetAlpha(alpha)
         detail:SetAlpha(alpha)
-        sliderBlocker:SetShown(not on)
         paneBlocker:SetShown(not on)
-        editButton:SetEnabled(on)
-        resetButton:SetEnabled(on)
         for _, button in ipairs(paneButtons) do
             button:SetEnabled(on)
-        end
-        if not on then
-            confirm:Hide()
         end
         -- Repaint the rows and zone buttons, whose gold selection shows only while on.
         for _, tab in ipairs(rotation.subs and rotation.subs.tabs or {}) do
@@ -1533,7 +1561,7 @@ do
         end
         zoneTitle:SetText(zone.name)
         zone.list:SetHeight(math.max(1, zone.height))
-        confirm:Hide()
+        hudPanel.confirm:Hide()
         local treeHeight = -listTop + zone.height + TREE_INSET
         tree:SetHeight(treeHeight)
         rotation.treeHeight = rotation.pageTop + PAD + treeHeight + PAD
@@ -1552,11 +1580,45 @@ end
 -- Cooldown tab: Abilities and Layout sub-tabs ----------------------------------------------------
 
 local cooldowns = topTabs.Add("Cooldown")
+cooldowns.wide, cooldowns.cooldownPreview = true, true
 
--- Abilities / Layout: bookmarks standing on their page's first panel, right of the portrait, up in
--- the header (so above the panels: page, panel, controls).
-cooldowns.subs = TabGroup(BookmarkTabs(cooldowns.page, art.PORTRAIT - 8, PAD + art.EDGE_INSET, TAB_HEIGHT,
-    cooldowns.page:GetFrameLevel() + 10), cooldowns.page, cooldowns.page, 0)
+-- Frame controls across the top, as on the Rotation tab (owner, 2026-10-09): the switch, Reset...
+-- and Edit Mode, then size and position (size up to the whole screen; position as an offset from
+-- the screen centre, like the HUD's). Opacity stays in Layout, with the icons.
+do
+    local function SetCooldownBox(changes)
+        local db = ns.db
+        ns.Cooldowns.SetLayout(changes.x or db.cdX, changes.y or db.cdY,
+            changes.width or db.cdWidth, changes.height or db.cdHeight)
+    end
+    local cdPanel = FramePanel(cooldowns.page, {
+        name = "Cooldown Frame",
+        isOn = function() return ns.db.cdEnabled end,
+        setOn = ns.Cooldowns.SetEnabled,
+        resetText = "Width, Height, position, Opacity, Alignment and the Cooldown Frame switch go back to their defaults. Tracked abilities stay.",
+        reset = ns.Cooldowns.ResetLayout,
+        sliders = {
+            { "Width", ns.Cooldowns.MIN_SIZE, function() return math.floor(UIParent:GetWidth()) end, 1, "%.0f",
+                function() return ns.db.cdWidth end,
+                function(width) SetCooldownBox({ width = width }) end },
+            { "Height", ns.Cooldowns.MIN_SIZE, function() return math.floor(UIParent:GetHeight()) end, 1, "%.0f",
+                function() return ns.db.cdHeight end,
+                function(height) SetCooldownBox({ height = height }) end },
+            { "Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
+                function() return ns.db.cdX end,
+                function(x) SetCooldownBox({ x = x }) end },
+            { "Vertical position", function() return -HalfHeight() end, HalfHeight, 1, "%.0f",
+                function() return ns.db.cdY end,
+                function(y) SetCooldownBox({ y = y }) end },
+        },
+    })
+    -- Room above the sub-pages: the frame controls, then the bookmarks' height.
+    cooldowns.pageTop = PAD + cdPanel:GetHeight() + TAB_HEIGHT
+end
+
+-- Abilities / Layout: bookmarks standing on their page's first panel, under the frame controls.
+cooldowns.subs = TabGroup(BookmarkTabs(cooldowns.page, PAD + 10, cooldowns.pageTop + PAD + art.EDGE_INSET,
+    TAB_HEIGHT, cooldowns.page:GetFrameLevel() + 10), cooldowns.page, cooldowns.page, -cooldowns.pageTop)
 
 -- Abilities ----------------------------------------------------------------------------------------
 
@@ -1660,13 +1722,16 @@ local function CreateRow()
     box:SetPoint("LEFT", 2, 0)
     row.setChecked = setChecked
     local hoverEnter, hoverLeave = row:GetScript("OnEnter"), row:GetScript("OnLeave")
+    -- Hovering a row also outlines its icon in the cooldown box's preview.
     row:SetScript("OnEnter", function(self)
         hoverEnter(self)
         highlight:Show()
+        ns.Cooldowns.SetPreviewHighlight(self.entry)
     end)
     row:SetScript("OnLeave", function(self)
         hoverLeave(self)
         highlight:Hide()
+        ns.Cooldowns.SetPreviewHighlight(nil)
     end)
 
     -- The icon in a thin bronze frame.
@@ -1809,33 +1874,6 @@ EndTab(abilities)
 
 local layout = cooldowns.subs.Add("Layout")
 
-Section("Position")
-
-Checkbox("Show Cooldown Frame", function() return ns.db.cdEnabled end, ns.Cooldowns.SetEnabled)
-
--- Size up to the whole screen; position as an offset from the screen centre, like the HUD's.
-local function ScreenWidth() return math.floor(UIParent:GetWidth()) end
-local function ScreenHeight() return math.floor(UIParent:GetHeight()) end
-local function SetCooldownBox(changes)
-    local db = ns.db
-    ns.Cooldowns.SetLayout(changes.x or db.cdX, changes.y or db.cdY,
-        changes.width or db.cdWidth, changes.height or db.cdHeight)
-end
-Slider("Width", ns.Cooldowns.MIN_SIZE, ScreenWidth, 1, "%.0f",
-    function() return ns.db.cdWidth end,
-    function(width) SetCooldownBox({ width = width }) end)
-Slider("Height", ns.Cooldowns.MIN_SIZE, ScreenHeight, 1, "%.0f",
-    function() return ns.db.cdHeight end,
-    function(height) SetCooldownBox({ height = height }) end)
-Hint("In Edit Mode, drag the box to move it, or click it for a button back here.")
-Button("Move in Edit Mode", function() ns.OpenEditMode() end)
-Slider("Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
-    function() return ns.db.cdX end,
-    function(x) SetCooldownBox({ x = x }) end)
-Slider("Vertical position", function() return -HalfHeight() end, HalfHeight, 1, "%.0f",
-    function() return ns.db.cdY end,
-    function(y) SetCooldownBox({ y = y }) end)
-
 Section("Icons")
 
 Slider("Opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
@@ -1899,12 +1937,11 @@ ns.commands.edit = function()
 end
 
 -- Opens the settings at a widget's position and size controls: "hud" (the Rotation tab, scrolled
--- to the HUD controls at its top) or "cooldowns" (Cooldown → Layout). Used by clicking a widget in
--- unlock mode.
+-- to the HUD controls at its top) or "cooldowns" (the Cooldown tab, likewise). Used by clicking a
+-- widget in unlock mode.
 function ns.OpenSettings(where)
     if where == "cooldowns" then
-        topTabs.Select(cooldowns)
-        cooldowns.subs.Select(layout)
+        topTabs.Select(cooldowns) -- scrolls to the top
     else
         topTabs.Select(rotation) -- scrolls to the top
     end

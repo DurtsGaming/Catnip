@@ -29,7 +29,7 @@ local LEARN_DELAY = 0.3 -- after a cast, when to look for the buff it gave
 local LEARN_WINDOW = 0.5 -- how close to the cast the buff must have started, in seconds
 local ICON_CROP = 0.08 -- trims the border baked into spell icons
 local MIN_SIZE = 24
-local DEFAULTS = { cdX = 0, cdY = -330, cdWidth = 220, cdHeight = 48, cdAlign = "TOP", cdAlpha = 1, cdEnabled = true }
+local DEFAULTS = { cdX = 0, cdY = -500, cdWidth = 240, cdHeight = 138, cdAlign = "TOP", cdAlpha = 1, cdEnabled = true }
 
 for key, value in pairs(DEFAULTS) do
     ns.defaults[key] = value
@@ -80,21 +80,11 @@ local function CreateTimer(frame)
     return timer
 end
 
--- The buff's look, on the AuraContainer button Blizzard shows while the buff is up. Must be static
--- after this runs (the button becomes off-limits to our code), so the moving dashes are a FlipBook
--- animation: square_dashed holds 16 frames, each with the dashes a little further clockwise.
-local function StyleActiveButton(button)
-    ns.HideAuraButtonArt(button)
-    -- Always full strength, ignoring the box's Opacity: at partial opacity every layer is see-through,
-    -- so the grey cooldown icon underneath would show through. We can't hide that one instead: in
-    -- combat we never learn that the buff is up.
-    if button.SetIgnoreParentAlpha then
-        button:SetIgnoreParentAlpha(true)
-    end
-
-    button:SetIcon(CreateIcon(button)) -- Blizzard fills in the buff's icon
-
-    local spinner = CreateFrame("Frame", nil, button)
+-- Thin yellow dashes running clockwise round `frame`, just outside it: a FlipBook animation
+-- (square_dashed holds 16 frames, each with the dashes a little further clockwise), started once and
+-- left looping. Returns the frame holding them.
+local function AddDashes(frame)
+    local spinner = CreateFrame("Frame", nil, frame)
     spinner:SetSize(SLOT * OUTLINE, SLOT * OUTLINE)
     spinner:SetPoint("CENTER")
     local outline = spinner:CreateTexture(nil, "OVERLAY")
@@ -110,9 +100,28 @@ local function StyleActiveButton(button)
     frames:SetFlipBookFrameWidth(0) -- 0: worked out from rows and columns
     frames:SetFlipBookFrameHeight(0)
     frames:SetDuration(STEP_SECONDS)
-    -- Started once and left looping: frames on these buttons can't take OnShow/OnHide handlers
-    -- ("blocked by secret aspects", seen 2026-10-01). Blood in the Water does the same.
+    -- Started once and left looping: frames on AuraContainer buttons can't take OnShow/OnHide
+    -- handlers ("blocked by secret aspects", seen 2026-10-01). Blood in the Water does the same.
     spin:Play()
+    return spinner
+end
+
+-- Full strength, ignoring the box's Opacity: at partial opacity every layer is see-through, so the
+-- grey cooldown icon underneath would show through. We can't hide that one instead: in combat we
+-- never learn that the buff is up.
+local function IgnoreBoxOpacity(frame)
+    if frame.SetIgnoreParentAlpha then
+        frame:SetIgnoreParentAlpha(true)
+    end
+end
+
+-- The buff's look, on the AuraContainer button Blizzard shows while the buff is up. Must be static
+-- after this runs (the button becomes off-limits to our code), hence AddDashes' looping animation.
+local function StyleActiveButton(button)
+    ns.HideAuraButtonArt(button)
+    IgnoreBoxOpacity(button)
+    button:SetIcon(CreateIcon(button)) -- Blizzard fills in the buff's icon
+    local spinner = AddDashes(button)
 
     local timer = CreateTimer(button)
     timer:SetFrameLevel(spinner:GetFrameLevel() + 1) -- number above the outline
@@ -322,6 +331,151 @@ local function LearnBuff(spellID, castTime)
     end
 end
 
+-- Preview -----------------------------------------------------------------------------------------
+-- While the settings window is open on the Cooldown tab (out of combat), or either Edit Mode is
+-- open, the box shows samples instead of the real icons (owner, 2026-10-09): every tracked icon in
+-- priority order (one placeholder when none are), most on cooldown and every fourth from the second
+-- active (never a cooldown-only one), each with a looping timer. They're our own frames, so the
+-- active look, drawn on an AuraContainer for real, can show too. The real icons hide meanwhile,
+-- their AuraContainers with them. In the settings window a faint blue outline marks the box, and
+-- hovering an Abilities row outlines its icon.
+
+local PLACEHOLDER_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
+local HIGHLIGHT_COLOR = { 116 / 255, 192 / 255, 1 } -- the HUD preview's hover blue (Preview.lua)
+local samples = {} -- sample icons, by position
+local sampleCount = 0 -- how many show (0 while not sampling)
+local settingsWanted = false -- the settings window is open on the Cooldown tab
+local highlighted -- the entry whose Abilities row is hovered
+
+local function Sampling()
+    return previewing or unlocked or (settingsWanted and not InCombatLockdown())
+end
+
+-- A square outline of `thickness` round `frame` (four textures), in `color`.
+local function Outline(frame, thickness, color, alpha)
+    local edges = {}
+    for _, side in ipairs({ { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true },
+        { "TOPLEFT", "BOTTOMLEFT", false }, { "TOPRIGHT", "BOTTOMRIGHT", false } }) do
+        local edge = frame:CreateTexture(nil, "OVERLAY")
+        edge:SetColorTexture(color[1], color[2], color[3], alpha)
+        edge:SetPoint(side[1])
+        edge:SetPoint(side[2])
+        if side[3] then
+            edge:SetHeight(thickness)
+        else
+            edge:SetWidth(thickness)
+        end
+        edges[#edges + 1] = edge
+    end
+    return edges
+end
+
+-- The box's outline in the settings preview, full strength whatever the box's Opacity.
+local boxOutline = CreateFrame("Frame", nil, widget)
+boxOutline:SetAllPoints()
+IgnoreBoxOpacity(boxOutline)
+Outline(boxOutline, 1, HIGHLIGHT_COLOR, 0.5)
+boxOutline:Hide()
+
+-- Runs `timer` round and round over `duration` seconds, `elapsed` of it already gone.
+local function Loop(timer, duration, elapsed)
+    timer.loop = duration
+    timer:SetCooldown(GetTime() - elapsed, duration)
+end
+
+local function StopLoop(timer)
+    timer.loop = nil
+    timer:Clear()
+end
+
+local function LoopingTimer(frame)
+    local timer = CreateTimer(frame)
+    timer:SetScript("OnCooldownDone", function(self)
+        if self.loop then
+            self:SetCooldown(GetTime(), self.loop)
+        end
+    end)
+    return timer
+end
+
+local function CreateSample()
+    local sample = CreateFrame("Frame", nil, widget)
+    sample:SetSize(SLOT, SLOT)
+    sample:SetFrameLevel(widget:GetFrameLevel() + 1)
+    sample:Hide()
+    -- On cooldown: the grey icon and its time left, as a real icon.
+    sample.icon = CreateIcon(sample)
+    sample.icon:SetDesaturated(true)
+    sample.timer = LoopingTimer(sample)
+    -- Active: StyleActiveButton's look over it, the icon in colour.
+    sample.active = CreateFrame("Frame", nil, sample)
+    sample.active:SetAllPoints()
+    sample.active:SetFrameLevel(sample:GetFrameLevel() + 5)
+    IgnoreBoxOpacity(sample.active)
+    sample.activeIcon = CreateIcon(sample.active)
+    local spinner = AddDashes(sample.active)
+    sample.activeTimer = LoopingTimer(sample.active)
+    sample.activeTimer:SetFrameLevel(spinner:GetFrameLevel() + 1)
+    -- The hovered Abilities row's icon: a blue square round it, outside the dashes.
+    sample.highlight = CreateFrame("Frame", nil, sample)
+    sample.highlight:SetSize(SLOT * 1.2, SLOT * 1.2)
+    sample.highlight:SetPoint("CENTER")
+    sample.highlight:SetFrameLevel(sample:GetFrameLevel() + 10)
+    IgnoreBoxOpacity(sample.highlight)
+    Outline(sample.highlight, 3, HIGHLIGHT_COLOR, 1)
+    return sample
+end
+
+local function CooldownOnly(entry)
+    return not Items.IsItemEntry(entry) and COOLDOWN_ONLY_NAMES[C_Spell.GetSpellName(entry) or ""] or false
+end
+
+local function UpdateSamples()
+    local tracked = ns.char.cdTracked
+    sampleCount = math.max(#tracked, 1)
+    for i = 1, sampleCount do
+        local sample = samples[i] or CreateSample()
+        samples[i] = sample
+        local entry = tracked[i]
+        local icon = entry and EntryIcon(entry) or PLACEHOLDER_ICON
+        sample.icon:SetTexture(icon)
+        sample.activeIcon:SetTexture(icon)
+        local active = entry ~= nil and i % 4 == 2 and not CooldownOnly(entry)
+        -- Timers restart only when the icon changes, not on every update.
+        if not sample.running or sample.entry ~= entry or sample.isActive ~= active then
+            if active then
+                StopLoop(sample.timer)
+                Loop(sample.activeTimer, 12, (i * 1.7) % 12)
+            else
+                local duration = 15 + (i * 11) % 40 -- staggered, so the numbers differ
+                Loop(sample.timer, duration, duration * ((i * 0.29) % 1))
+                StopLoop(sample.activeTimer)
+            end
+        end
+        sample.running, sample.entry, sample.isActive = true, entry, active
+        sample.active:SetShown(active)
+        sample.highlight:SetShown(entry ~= nil and entry == highlighted)
+        sample:Show()
+    end
+    for i = sampleCount + 1, #samples do
+        local sample = samples[i]
+        sample.running = false
+        StopLoop(sample.timer)
+        StopLoop(sample.activeTimer)
+        sample:Hide()
+    end
+end
+
+local function StopSamples()
+    sampleCount = 0
+    for _, sample in ipairs(samples) do
+        sample.running = false
+        StopLoop(sample.timer)
+        StopLoop(sample.activeTimer)
+        sample:Hide()
+    end
+end
+
 -- Layout ----------------------------------------------------------------------------------------------
 
 -- The largest square cell that fits `count` icons in the box, and how many columns that takes.
@@ -373,15 +527,21 @@ local function Arrange()
     end
     local tracked = ns.char.cdTracked
     local width, height = widget:GetWidth(), widget:GetHeight()
-    local cell, columns = CellSize(math.max(#tracked, 1), width, height)
-    local scale = math.max(cell / OUTLINE, 1) / SLOT
     local shown = {}
-    for _, entry in ipairs(tracked) do
-        local slot = slots[entry]
-        if slot and slot:IsShown() then
-            shown[#shown + 1] = slot
+    if sampleCount > 0 then -- previewing: the samples, in place of the real icons
+        for i = 1, sampleCount do
+            shown[i] = samples[i]
+        end
+    else
+        for _, entry in ipairs(tracked) do
+            local slot = slots[entry]
+            if slot and slot:IsShown() then
+                shown[#shown + 1] = slot
+            end
         end
     end
+    local cell, columns = CellSize(math.max(#tracked, sampleCount, 1), width, height)
+    local scale = math.max(cell / OUTLINE, 1) / SLOT
     local align = ns.db.cdAlign or DEFAULTS.cdAlign
     local horizontal = align:find("LEFT") and "LEFT" or align:find("RIGHT") and "RIGHT" or "CENTER"
     local vertical = align:find("TOP") and "TOP" or align:find("BOTTOM") and "BOTTOM" or "MIDDLE"
@@ -421,6 +581,7 @@ local function Update()
     if not (ns.char and ns.char.cdTracked) then
         return -- before PLAYER_LOGIN
     end
+    local sampling = Sampling()
     for _, slot in pairs(slots) do
         slot.wanted = false
     end
@@ -458,13 +619,19 @@ local function Update()
             slot.timer:Clear()
         end
         slot.onCooldown = onCooldown
-        slot:SetShown(unlocked or previewing or onCooldown or BuffSeenUp(entry))
+        slot:SetShown(not sampling and (onCooldown or BuffSeenUp(entry)))
     end
     for _, slot in pairs(slots) do
         if not slot.wanted then
             slot:Hide()
         end
     end
+    if sampling then
+        UpdateSamples()
+    else
+        StopSamples()
+    end
+    boxOutline:SetShown(sampling and settingsWanted and not (previewing or unlocked))
     Arrange()
 end
 
@@ -535,6 +702,17 @@ function Cooldowns.SetEnabled(enabled)
     ns.SettingsChanged()
 end
 
+-- The whole frame back to its defaults: size, position, opacity, alignment and on/off (the
+-- settings window's Reset...). The tracked abilities stay.
+function Cooldowns.ResetLayout()
+    for key, value in pairs(DEFAULTS) do
+        ns.db[key] = value
+    end
+    ApplyLayout()
+    Arrange()
+    ns.SettingsChanged()
+end
+
 function Cooldowns.ResetPosition()
     local db = ns.db
     db.cdX, db.cdY = DEFAULTS.cdX, DEFAULTS.cdY
@@ -542,7 +720,7 @@ function Cooldowns.ResetPosition()
     ns.SettingsChanged()
 end
 
--- Shown while the HUD is unlocked: catches the mouse only then. Clicking it opens Cooldown → Layout.
+-- Shown while the HUD is unlocked: catches the mouse only then. Clicking it opens the Cooldown tab.
 local overlay = ns.CreateUnlockOverlay(widget, "Cooldown Frame", function() ns.OpenSettings("cooldowns") end)
 
 overlay:SetScript("OnDragStart", function()
@@ -575,7 +753,7 @@ widget:SetScript("OnSizeChanged", function()
     end
 end)
 
--- Follows the HUD's unlock mode; while unlocked every tracked icon shows, so the box can be fitted.
+-- Follows the HUD's unlock mode; while unlocked the box shows its preview, so it can be fitted.
 ns.OnSettingsChanged(function()
     if not ns.db or ns.IsHudUnlocked() == unlocked then
         return
@@ -585,7 +763,8 @@ ns.OnSettingsChanged(function()
     Update()
 end)
 
--- Shows every tracked icon while Blizzard's Edit Mode is open (BlizzardEditMode.lua), like unlock mode.
+-- The preview (see Preview above) while Blizzard's Edit Mode is open (BlizzardEditMode.lua), like
+-- unlock mode.
 function Cooldowns.SetPreview(on)
     if previewing == on then
         return
@@ -593,6 +772,29 @@ function Cooldowns.SetPreview(on)
     previewing = on
     if ns.db then
         Update()
+    end
+end
+
+-- The preview while the settings window is open on the Cooldown tab (Options.lua).
+function Cooldowns.SetSettingsPreview(on)
+    on = on and true or false
+    if settingsWanted == on then
+        return
+    end
+    settingsWanted = on
+    if ns.db then
+        Update()
+    end
+end
+
+-- Outlines the sample icon for `entry` (nil for none): the Abilities row under the mouse.
+function Cooldowns.SetPreviewHighlight(entry)
+    if highlighted == entry then
+        return
+    end
+    highlighted = entry
+    if sampleCount > 0 then
+        UpdateSamples()
     end
 end
 
