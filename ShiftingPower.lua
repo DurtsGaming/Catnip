@@ -136,7 +136,7 @@ local StartSample, StopSample = ns.ArcSampler(sampleArc, SAMPLE_SECONDS, PlayPul
 -- swing ring ends at 66.5, the shift orbs start at 77.6).
 ns.ARC_HIT = { inner = 67, outer = 76, angle = -math.pi / 2, spread = SPAN + 0.03 }
 
--- For GrowlArc.lua's combined "Arc under the ring" setting: whether this arc shows (real or
+-- For GrowlArc.lua's combined "Cooldown Arc" setting: whether this arc shows (real or
 -- sample), and its opacity (the gates' alpha: nothing else sets it; GrowlArc.lua only shows and
 -- hides them).
 function ns.ShiftingPowerArcShown()
@@ -153,7 +153,7 @@ ns.RegisterElement({
     id = "under.sp",
     zone = "under",
     name = "Shifting Power arc",
-    hidden = true, -- offered as one setting with the Growl arc: "Arc under the ring" (GrowlArc.lua)
+    hidden = true, -- offered as one setting with the Growl arc: "Cooldown Arc" (GrowlArc.lua)
     -- Cat Form and Caster run the sample (Shifting Power shows in both); Bear shows Growl's
     -- (GrowlArc.lua).
     sample = function(state)

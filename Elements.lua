@@ -3,7 +3,6 @@
 --
 -- ns.RegisterElement{
 --     id = "resource.number", zone = "resource", name = "Resource number",
---     desc = "Energy, rage or mana", -- a line under its name in the settings list
 --     hidden = true, -- optional: not offered in the settings for now (see Stored below)
 --     glyph = { kind = "text", color = { 1, 1, 1 } }, -- its icon there: disc, ring, arc, dots or text
 --     options = { { key = "size", type = "slider", label = "Size", min = 8, max = 40, step = 1, default = 20 }, ... },
@@ -22,11 +21,11 @@ local addonName, ns = ...
 -- lists elements in groups, by the elements' `zone` field (resource, combo, swing, under, text); a
 -- group's name is a heading over its elements.
 ns.ZONES = {
-    { id = "above", name = "Above", desc = "The module over the top of the circle",
+    { id = "above", name = "Above",
         groups = { { zone = "combo" } } },
-    { id = "circle", name = "Circle", desc = "The resource circle and the ring round it",
+    { id = "circle", name = "Circle",
         groups = { { zone = "resource", name = "Fill" }, { zone = "swing", name = "Ring" } } },
-    { id = "below", name = "Below", desc = "Arcs, orbs and text under the ring",
+    { id = "below", name = "Below",
         groups = { { zone = "under", name = "Arcs and orbs" }, { zone = "text", name = "Text" } } },
 }
 
@@ -203,7 +202,6 @@ ns.RegisterElement({
     id = "general",
     name = "Text",
     hidden = true, -- not offered in the settings for now: font and outline are bloat (owner, 2026-10-09)
-    desc = "Font and outline defaults",
     glyph = { kind = "text", color = { 0.95, 0.93, 0.89 } },
     options = {
         { key = "font", type = "choice", label = "Font", values = ns.FONTS, default = "default", fontPreview = true },

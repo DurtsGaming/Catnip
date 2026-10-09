@@ -10,8 +10,12 @@ local addonName, ns = ...
 local stealthed = false
 local override -- preview mode's state (Preview.lua: true while previewing Prowl, else false), or nil
 local callbacks = {}
+local enabled = true -- the Stealth Mode setting's Enabled (Layout.lua): off, stealth leaves the HUD as is
 
 function ns.IsStealthMode()
+    if not enabled then
+        return false
+    end
     if override ~= nil then
         return override
     end
@@ -31,6 +35,17 @@ local function Notify(before)
             fn(now)
         end
     end
+end
+
+-- Stealth Mode on or off (the setting): off, stealth mode never shows, so nothing restyles.
+function ns.SetStealthModeEnabled(on)
+    on = on and true or false
+    if on == enabled then
+        return
+    end
+    local before = ns.IsStealthMode()
+    enabled = on
+    Notify(before)
 end
 
 -- Preview mode shows stealth mode on or off whatever the game says (true/false), then hands back to

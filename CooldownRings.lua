@@ -87,7 +87,6 @@ for _, ring in ipairs(RINGS) do
         id = ring.id,
         zone = "combo",
         name = ring.label .. " ring",
-        desc = "Around combo point " .. ring.dot,
         glyph = { kind = "ring", color = ring.color },
         order = ring.dot,
         hit = ns.ComboRingHit(ring.dot, function() return sampleArc.frame:IsVisible() end),

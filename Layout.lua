@@ -112,18 +112,20 @@ end)
 
 ns.OnLoad(ApplyLayout)
 
--- Stealth opacity: while stealthed (Prowl or Shadowmeld) the HUD's opacity is this share of Overall
--- opacity. One value for both; listed under General in the settings window.
+-- Stealth Mode, under General in the settings window: Enabled turns stealth's whole look on or off
+-- (Stealth.lua: periwinkle fill, smoke, dimmer orbs and this opacity); while stealthed (Prowl or
+-- Shadowmeld) the HUD's opacity is the share of Overall opacity, one value for both.
 ns.RegisterElement({
     id = "stealth",
-    name = "Stealth opacity",
-    desc = "Share of Overall opacity",
+    name = "Stealth Mode",
     glyph = { kind = "disc", color = { 0.56, 0.55, 0.94 } },
     options = {
+        { key = "enabled", type = "checkbox", label = "Enabled", default = true },
         { key = "opacity", type = "slider", label = "Share of Overall opacity", min = 10, max = 100, step = 5,
             format = "%.0f%%", default = 100 },
     },
     apply = function(get)
+        ns.SetStealthModeEnabled(get("enabled"))
         stealthShare = get("opacity") / 100
         hud:SetAlpha(HudAlpha())
     end,

@@ -262,7 +262,6 @@ ns.RegisterElement({
     zone = "resource",
     name = "Resource circle",
     hidden = true, -- not offered in the settings for now (Elements.lua)
-    desc = "Fill, backdrop and border",
     glyph = { kind = "disc", color = { 0.96, 0.77, 0.26 } },
     hit = { kind = "circle", radius = SIZE / 2 + 3 },
     options = {
@@ -306,8 +305,7 @@ numberOptions[#numberOptions + 1] = { key = "manaFormat", type = "choice", label
 ns.RegisterElement({
     id = "resource.number",
     zone = "resource",
-    name = "Resource number",
-    desc = "Energy, rage or mana",
+    name = "Resource Value",
     glyph = { kind = "text", color = { 1, 1, 1 } },
     hit = { kind = "text", region = text, anchor = textLayer, point = "CENTER", chars = 4 },
     options = numberOptions,

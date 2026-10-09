@@ -79,6 +79,8 @@ info:Hide()
 local timeText = info:CreateFontString(nil, "OVERLAY")
 timeText:SetFont(STANDARD_TEXT_FONT, 14, "OUTLINE") -- until the saved font is applied
 timeText:SetPoint("TOP")
+-- Cast.lua's "Swing/Cast Timer" setting sizes it, and picks it on the HUD while no cast shows.
+ns.swingInfo, ns.swingTimeText = info, timeText
 
 local swingStart, swingDuration
 
@@ -128,17 +130,12 @@ local function OnSwing(duration, weaponSlot)
     end
 end
 
+-- Registered for its preview sample (the swing loop); its setting is Cast.lua's "Swing/Cast Timer".
 ns.RegisterElement({
     id = "text.swing",
     zone = "text",
     name = "Swing time",
-    desc = "Elapsed / swing length",
-    glyph = { kind = "text", color = { 0.95, 0.93, 0.89 } },
-    hit = { kind = "text", region = timeText, anchor = info, point = "TOP", chars = 10 }, -- "0.0 / 2.5s"
-    options = ns.TextOptions(14),
-    apply = function(get)
-        ns.ApplyFont(timeText, get("font"), get("size"), get("outline"))
-    end,
+    hidden = true, -- offered as one setting with the cast text: "Swing/Cast Timer" (Cast.lua)
     -- No swing while stealthed (the preview's Stealth toggle), or in Caster, which shows a cast in
     -- the ring's place; nil puts back the real swing, if one is still running.
     sample = function(state)
@@ -199,8 +196,8 @@ ns.SWING_BAND = { inner = RING_INNER, outer = RING_OUTER } -- Cast.lua's ring si
 ns.RegisterElement({
     id = "swing.ring",
     zone = "swing",
-    name = "Swing ring",
-    desc = "Bar and glow",
+    name = "Swing Timer",
+    order = 1, -- in the Ring group: Swing Timer, Cast Timer, Stealth smoke (owner, 2026-10-09)
     glyph = { kind = "ring", color = { 0.91, 0.89, 0.82 } },
     hit = { kind = "ring", inner = RING_INNER, outer = RING_OUTER,
         visible = function() return not ns.IsStealthMode() and not (ns.CastBarShown and ns.CastBarShown()) end },
@@ -229,7 +226,6 @@ ns.RegisterElement({
     zone = "swing",
     name = "Maul orb",
     hidden = true, -- not offered in the settings for now (Elements.lua)
-    desc = "Maul queued",
     glyph = { kind = "disc", color = { 0.91, 0.64, 0.23 } },
     hit = { kind = "circle", x = 0, y = MARKER_Y, radius = MARKER_SIZE / 2 + 3,
         visible = function() return marker:IsShown() end },

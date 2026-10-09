@@ -77,31 +77,45 @@ local nameText = info:CreateFontString(nil, "OVERLAY")
 nameText:SetFont(STANDARD_TEXT_FONT, 12, "OUTLINE")
 nameText:SetPoint("TOP", timeText, "BOTTOM", 0, -2)
 
--- Settings (Elements.lua); the fonts above stand until these are applied.
+-- Registered for its preview sample (the cast loop, below); its setting is "Swing/Cast Timer".
 ns.RegisterElement({
     id = "text.castTime",
     zone = "text",
     name = "Cast time",
-    desc = "While casting",
-    glyph = { kind = "text", color = { 0.95, 0.93, 0.89 } },
-    hit = { kind = "text", region = timeText, anchor = info, point = "TOP", chars = 10 }, -- "0.0 / 2.5s"
-    options = ns.TextOptions(14),
-    apply = function(get)
-        ns.ApplyFont(timeText, get("font"), get("size"), get("outline"))
-    end,
+    hidden = true, -- offered as one setting with the swing text: "Swing/Cast Timer" (below)
 })
+
+-- Swing/Cast Timer, the text under the orbs as one setting: the swing time and, while casting, the
+-- cast time in its place with the spell name under it (owner, 2026-10-09). Timer size covers both
+-- times (same format, same spot). On the HUD it picks whichever text shows, the spell name
+-- included. Font and outline are General's (hidden for now, Elements.lua). The fonts above stand
+-- until it applies.
+local function CastShowing()
+    return info:IsVisible()
+end
+
 ns.RegisterElement({
-    id = "text.castName",
+    id = "text.under",
     zone = "text",
-    name = "Cast name",
-    desc = "The spell, while casting",
+    name = "Swing/Cast Timer",
     glyph = { kind = "text", color = { 0.95, 0.93, 0.89 } },
-    -- Under the time text, 2 below its line (its Size setting).
-    hit = { kind = "text", region = nameText, anchor = info, point = "TOP", chars = 14,
-        y = function() return -(ns.ElementOption("text.castTime", "size") + 2) end },
-    options = ns.TextOptions(12),
+    hit = { kind = "text", point = "TOP",
+        region = function() return CastShowing() and timeText or ns.swingTimeText end,
+        anchor = function() return CastShowing() and info or ns.swingInfo end,
+        chars = function() return CastShowing() and 14 or 10 end, -- "0.0 / 2.5s", or the spell name
+        below = function() -- the spell name's line, 2 under the timer's
+            return CastShowing() and ns.ElementOption("text.under", "nameSize") + 2 or 0
+        end },
+    options = {
+        { key = "size", type = "slider", label = "Timer size", min = 6, max = 40, step = 1, format = "%.0f", default = 14 },
+        { key = "nameSize", type = "slider", label = "Spell name size", min = 6, max = 40, step = 1, format = "%.0f",
+            default = 12 },
+    },
     apply = function(get)
-        ns.ApplyFont(nameText, get("font"), get("size"), get("outline"))
+        local font, outline = ns.ElementOption("general", "font"), ns.ElementOption("general", "outline")
+        ns.ApplyFont(ns.swingTimeText, font, get("size"), outline)
+        ns.ApplyFont(timeText, font, get("size"), outline)
+        ns.ApplyFont(nameText, font, get("nameSize"), outline)
     end,
 })
 
@@ -356,8 +370,8 @@ end
 ns.RegisterElement({
     id = "swing.cast",
     zone = "swing",
-    name = "Cast bar",
-    desc = "Gold ring while casting",
+    name = "Cast Timer",
+    order = 2, -- after Swing Timer, before Stealth smoke
     glyph = { kind = "ring", color = { 0.91, 0.72, 0.19 } },
     hit = { kind = "ring", inner = ns.SWING_BAND.inner, outer = ns.SWING_BAND.outer, visible = ns.CastBarShown },
     options = {

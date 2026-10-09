@@ -126,7 +126,6 @@ for _, dot in ipairs(DOTS) do
         id = dot.id,
         zone = "combo",
         name = dot.label .. " ring",
-        desc = "Around combo point " .. dot.dot,
         glyph = { kind = "ring", color = dot.color },
         order = dot.dot,
         hit = ns.ComboRingHit(dot.dot, function() return standIn:IsVisible() end),

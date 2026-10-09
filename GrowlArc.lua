@@ -91,7 +91,7 @@ ns.RegisterElement({
     id = "under.growl",
     zone = "under",
     name = "Growl arc",
-    hidden = true, -- offered as one setting with the Shifting Power arc: "Arc under the ring" (below)
+    hidden = true, -- offered as one setting with the Shifting Power arc: "Cooldown Arc" (below)
     sample = function(state)
         if state == "bear" then
             StartSample()
@@ -101,14 +101,14 @@ ns.RegisterElement({
     end,
 })
 
--- The arc under the ring as one setting: Shifting Power's and Growl's arcs share the spot (one shows:
--- Growl in Bear Form, Shifting Power otherwise), so one opacity covers whichever is drawn, plus
--- Shifting Power's ready pulse (owner, 2026-10-09). Picked on the HUD by the shared band.
+-- Cooldown Arc, the arc under the ring as one setting: Shifting Power's and Growl's arcs share the
+-- spot (one shows: Growl in Bear Form, Shifting Power otherwise), so one opacity covers whichever
+-- is drawn, plus Shifting Power's ready pulse (owner, 2026-10-09). Picked on the HUD by the shared
+-- band.
 ns.RegisterElement({
     id = "under.arc",
     zone = "under",
-    name = "Arc under the ring",
-    desc = "Shifting Power, or Growl in Bear",
+    name = "Cooldown Arc",
     glyph = { kind = "arc", color = { 0.42, 0.66, 1 } },
     hit = { kind = "ring", inner = ns.ARC_HIT.inner, outer = ns.ARC_HIT.outer, angle = ns.ARC_HIT.angle,
         spread = ns.ARC_HIT.spread,

@@ -210,7 +210,6 @@ ns.RegisterElement({
     zone = "resource",
     name = "GCD pie",
     hidden = true, -- not offered in the settings for now (Elements.lua)
-    desc = "Shade over the fill",
     glyph = { kind = "disc", color = { 0.43, 0.40, 0.36 } },
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },

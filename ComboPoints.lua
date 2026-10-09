@@ -137,7 +137,6 @@ ns.RegisterElement({
     id = "combo.points",
     zone = "combo",
     name = "Combo points",
-    desc = "All five, as one",
     glyph = { kind = "dots", color = { 0.96, 0.77, 0.26 } },
     order = 0,
     hit = { kind = "circles", radius = DOT_SIZE / 2 - 2, centres = function() return centres end,

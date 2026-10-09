@@ -177,19 +177,30 @@ end
 -- Text: Edit Mode's own nine-slice around the text's box, blue (with an additive copy on hover) or
 -- yellow. The frame is the box (see the top of the file), re-placed on every refresh, since the
 -- size and offsets follow settings.
+-- A text hit's field: its value, or what its function returns (e.g. the region and anchor of the
+-- text showing now, for "Swing/Cast Timer", which is the swing or the cast text).
+local function Resolve(field)
+    if type(field) == "function" then
+        return field()
+    end
+    return field
+end
+
 local function TextHighlight(hit, element)
     local frame = CreateFrame("Frame", nil, layer)
     function frame.Place()
         local size = ns.ElementOption(element.id, "size") or 14
-        local y = type(hit.y) == "function" and hit.y() or hit.y or 0
+        local y = Resolve(hit.y) or 0
+        local chars = Resolve(hit.chars)
+        local below = Resolve(hit.below) or 0 -- a second line under the first, if any
         if hit.point:find("TOP") then
             y = y + TEXT_PAD
         elseif hit.point:find("BOTTOM") then
             y = y - TEXT_PAD
         end
-        frame:SetSize(hit.chars * size * CHAR_WIDTH + 2 * TEXT_PAD, size + 2 * TEXT_PAD)
+        frame:SetSize(chars * size * CHAR_WIDTH + 2 * TEXT_PAD, size + below + 2 * TEXT_PAD)
         frame:ClearAllPoints()
-        frame:SetPoint(hit.point, hit.anchor, hit.point, 0, y)
+        frame:SetPoint(hit.point, Resolve(hit.anchor), hit.point, 0, y)
     end
     local blue = CreateFrame("Frame", nil, frame)
     blue:SetAllPoints()
@@ -260,7 +271,8 @@ end
 local function Visible(target)
     local hit = target.element.hit
     if hit.kind == "text" then
-        return hit.region:IsVisible()
+        local region = Resolve(hit.region)
+        return region ~= nil and region:IsVisible()
     end
     return not hit.visible or hit.visible() and true or false
 end

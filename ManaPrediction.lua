@@ -375,7 +375,6 @@ ns.RegisterElement({
     zone = "resource",
     name = "Mana prediction",
     hidden = true, -- not offered in the settings for now (Elements.lua)
-    desc = "Cost band while casting",
     glyph = { kind = "arc", color = { 0.23, 0.47, 0.88 } },
     options = {
         { key = "enabled", type = "checkbox", label = "Show mana cost prediction", default = true },

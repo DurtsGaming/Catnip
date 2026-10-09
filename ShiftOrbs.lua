@@ -406,7 +406,6 @@ ns.RegisterElement({
     id = "under.orbs",
     zone = "under",
     name = "Shift orbs",
-    desc = "Shifts your mana pays for",
     glyph = { kind = "dots", color = { 0.31, 0.56, 0.91 } },
     hit = { kind = "circles", radius = ORB_SIZE / 2, centres = OrbCentres, -- outlines just meet
         visible = function() return holder:IsVisible() end },
