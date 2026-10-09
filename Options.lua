@@ -18,8 +18,8 @@ local DEFAULT_HEIGHT = 580
 local MAX_WIDTH = 700
 local MIN_HEIGHT = 200
 local BORDER = 8 -- the frame's border
-local HEADER = 20 -- room at the top of the scrolling contents, above the pages, for the Edit Mode
--- button and a page's bookmark sub-tabs (it scrolls with them); also keeps panels clear of the portrait
+local HEADER = 20 -- room at the top of the scrolling contents, above the pages, for a page's
+-- bookmark sub-tabs (it scrolls with them); also keeps panels clear of the portrait
 local PAD = 6 -- frame to a panel, and between panels (as in the Professions frame)
 local PANEL_PAD = 12 -- panel edge to its controls
 local CONTENT = WIDTH - 2 * (BORDER + PAD + PANEL_PAD) -- a panel's control width at the minimum window width
@@ -784,14 +784,6 @@ local function ElementControls(element)
     end
 end
 
--- Edit Mode button (Blizzard's red button), right of the tabs: unlocks the widgets and shows the
--- Edit Mode panel (EditMode.lua). The settings window stays open alongside it.
-local editMode = CreateFrame("Button", nil, canvas, "UIPanelButtonTemplate") -- scrolls with the tabs
-editMode:SetSize(96, 22)
-editMode:SetPoint("BOTTOMRIGHT", canvas, "TOPRIGHT", -PAD, -(HEADER + PAD + art.EDGE_INSET - 2)) -- level with the tabs
-editMode:SetText("Edit Mode")
-editMode:SetScript("OnClick", ns.OpenEditMode)
-
 local function HalfWidth() return math.floor(UIParent:GetWidth() / 2) end
 local function HalfHeight() return math.floor(UIParent:GetHeight() / 2) end
 
@@ -940,24 +932,29 @@ local function ElementPage(element)
     EndTab(tab)
 end
 
--- General: the HUD's own scale, opacity and position, then the defaults other elements inherit.
+-- General: the HUD on or off, its scale, opacity and position, then the defaults other elements
+-- inherit. These are set only here; Edit Mode just moves the HUD.
 local hudPage = rotation.subs.Add("General")
 hudPage.elementId = "general"
 elementTabs.general = hudPage
 
 Section("HUD")
 
-Hint("In Edit Mode (top of this window), drag the HUD to move it, or click it to come back here.")
+Checkbox("Show Rotation Frame", function() return ns.db.hudEnabled end, ns.SetHudEnabled)
 
 -- In percent, so the steps are whole numbers.
 Slider("Scale", ns.MIN_SCALE * 100, ns.MAX_SCALE * 100, ns.SCALE_STEP * 100, "%.0f%%",
     function() return ns.db.scale * 100 end,
     function(percent) ns.SetHudScale(percent / 100) end)
-Slider("Opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
+-- Fades the whole HUD; each element's own opacity multiplies with it.
+Slider("Overall opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
     function() return ns.db.hudAlpha * 100 end,
     function(percent) ns.SetHudAlpha(percent / 100) end)
 
--- Position: offset from the screen centre, so 0 / 0 is dead centre. Range is half the screen.
+-- Position: dragged in Edit Mode, or an offset from the screen centre (0 / 0 is dead centre,
+-- range half the screen).
+Hint("In Edit Mode, drag the HUD to move it, or click it for a button back here.")
+Button("Move in Edit Mode", function() ns.OpenEditMode() end)
 Slider("Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
     function() return ns.db.x end,
     function(x) ns.SetHudPosition(x, ns.db.y) end)
@@ -1258,7 +1255,7 @@ local layout = cooldowns.subs.Add("Layout")
 
 Section("Position")
 
-Hint("In Edit Mode (top of this window), drag the box to move it, drag its corners to resize it, or click it to come back here.")
+Checkbox("Show Cooldown Frame", function() return ns.db.cdEnabled end, ns.Cooldowns.SetEnabled)
 
 -- Size up to the whole screen; position as an offset from the screen centre, like the HUD's.
 local function ScreenWidth() return math.floor(UIParent:GetWidth()) end
@@ -1274,6 +1271,8 @@ Slider("Width", ns.Cooldowns.MIN_SIZE, ScreenWidth, 1, "%.0f",
 Slider("Height", ns.Cooldowns.MIN_SIZE, ScreenHeight, 1, "%.0f",
     function() return ns.db.cdHeight end,
     function(height) SetCooldownBox({ height = height }) end)
+Hint("In Edit Mode, drag the box to move it, or click it for a button back here.")
+Button("Move in Edit Mode", function() ns.OpenEditMode() end)
 Slider("Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
     function() return ns.db.cdX end,
     function(x) SetCooldownBox({ x = x }) end)

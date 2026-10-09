@@ -1,10 +1,10 @@
 -- Moving and resizing the HUD. Unlock mode (Catnip Edit Mode): drag to move, click
--- to open its settings (scale and opacity are set there).
+-- to open its settings (on/off, scale and opacity are set there).
 local addonName, ns = ...
 
 local DEFAULTS = { x = 0, y = -180, scale = 1, hudAlpha = 0.85, hudEnabled = true }
 local MIN_SCALE, MAX_SCALE, SCALE_STEP = 0.5, 2.5, 0.05
-local MIN_ALPHA = 0.1 -- never fully invisible: turning it off in Edit Mode is for that
+local MIN_ALPHA = 0.1 -- never fully invisible: the Show Rotation Frame checkbox is for that
 
 for key, value in pairs(DEFAULTS) do
     ns.defaults[key] = value
@@ -68,7 +68,7 @@ function ns.SetHudAlpha(alpha)
     ns.SettingsChanged()
 end
 
--- Turns the whole Rotation Frame (the HUD) on or off (Edit Mode's checkbox).
+-- Turns the whole Rotation Frame (the HUD) on or off (the settings window's checkbox).
 function ns.SetHudEnabled(enabled)
     ns.db.hudEnabled = enabled
     ApplyLayout()
@@ -84,9 +84,8 @@ function ns.SetHudUnlocked(unlocked)
     ns.SettingsChanged()
 end
 
-function ns.ResetHudLayout()
-    ns.db.x, ns.db.y = DEFAULTS.x, DEFAULTS.y
-    SetScale(DEFAULTS.scale)
+function ns.ResetHudPosition()
+    ns.SetHudPosition(DEFAULTS.x, DEFAULTS.y)
 end
 
 overlay:SetScript("OnDragStart", function()

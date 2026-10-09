@@ -1,10 +1,10 @@
 -- Catnip's frames in Blizzard's Edit Mode, through LibEditMode (libs/LibEditMode, by p3lim). While
 -- Blizzard's Edit Mode is open, the Rotation Frame (the HUD) and the Cooldown Frame get Blizzard's
--- selection box and can be dragged; clicking one opens a Blizzard-style settings popup with its
--- sliders and a button to Catnip's settings. A small Catnip section under Blizzard's Edit Mode
--- panel turns each frame on or off. Positions stay in CatnipDB as before; EditModeLayouts.lua keeps
--- a copy per Edit Mode layout. If the library or Blizzard's Edit Mode is missing, Catnip's own Edit Mode
--- (EditMode.lua) stays in charge.
+-- selection box and can be dragged; clicking one opens a Blizzard-style popup with two buttons:
+-- Catnip Settings, and the library's own Reset Position. Edit Mode only moves the frames: turning
+-- them on or off, scale, opacity and size are in Catnip's settings window. Positions are saved in
+-- CatnipDB, one for each frame, whichever Edit Mode layout is active. If the library or Blizzard's
+-- Edit Mode is missing, Catnip's own Edit Mode (EditMode.lua) stays in charge.
 local addonName, ns = ...
 
 local lib = ns.LibEditMode
@@ -14,7 +14,6 @@ end
 
 local hud = ns.hud
 local cooldowns = CatnipCooldowns -- Cooldowns.lua's box
-local LABEL_FONT = _G.GameFontHighlightMedium and "GameFontHighlightMedium" or "GameFontHighlight"
 
 -- A frame's centre as an offset from the screen centre, in UIParent units: how Catnip stores
 -- positions.
@@ -25,11 +24,7 @@ local function CentreOffset(frame)
     return math.floor(cx * scale - ux + 0.5), math.floor(cy * scale - uy + 0.5)
 end
 
-local function Percent(value)
-    return string.format("%d%%", value)
-end
-
--- Adds settings to a frame's popup; AddFrameSettingsButtons is the newer name for the buttons.
+-- Adds buttons to a frame's popup; AddFrameSettingsButtons is the newer name.
 local function AddButtons(frame, buttons)
     if lib.AddFrameSettingsButtons then
         lib:AddFrameSettingsButtons(frame, buttons)
@@ -39,8 +34,6 @@ local function AddButtons(frame, buttons)
         end
     end
 end
-
-local Slider = lib.SettingType.Slider
 
 -- Snaps a frame when it's dropped, showing red lines where it will snap while it's dragged
 -- (EditModeSnap.lua). The drop runs after LibEditMode's own, which has already saved the dropped
@@ -81,30 +74,25 @@ end
 
 -- Rotation Frame ---------------------------------------------------------------------------------
 
+-- The library's Reset Position anchors the HUD at these offsets, which are in the HUD's own
+-- (scaled) units, so they follow the scale setting; it also compares them with the HUD's anchor
+-- to grey the button out when the HUD is already there.
+local hudDefault = { point = "CENTER", x = ns.defaults.x, y = ns.defaults.y }
+local function UpdateHudDefault()
+    if ns.db then
+        hudDefault.x, hudDefault.y = ns.defaults.x / ns.db.scale, ns.defaults.y / ns.db.scale
+    end
+end
+ns.OnLoad(UpdateHudDefault)
+ns.OnSettingsChanged(UpdateHudDefault)
+
 lib:AddFrame(hud, function(frame)
     ns.SetHudPosition(CentreOffset(frame))
-end, { point = "CENTER", x = ns.defaults.x, y = ns.defaults.y }, "Catnip: Rotation Frame")
+end, hudDefault, "Catnip: Rotation Frame")
 FollowOnClick(hud, "hud")
 SnapOnDrop(hud, function(dx, dy)
     ns.SetHudPosition(ns.db.x + dx, ns.db.y + dy)
 end)
-
-lib:AddFrameSettings(hud, {
-    {
-        kind = Slider, name = "Scale", default = ns.defaults.scale * 100,
-        minValue = ns.MIN_SCALE * 100, maxValue = ns.MAX_SCALE * 100, valueStep = ns.SCALE_STEP * 100,
-        formatter = Percent,
-        get = function() return ns.db.scale * 100 end,
-        set = function(_, value) ns.SetHudScale(value / 100) end,
-    },
-    {
-        kind = Slider, name = "Opacity", default = ns.defaults.hudAlpha * 100,
-        minValue = ns.MIN_ALPHA * 100, maxValue = 100, valueStep = 5,
-        formatter = Percent,
-        get = function() return ns.db.hudAlpha * 100 end,
-        set = function(_, value) ns.SetHudAlpha(value / 100) end,
-    },
-})
 AddButtons(hud, { { text = "Catnip Settings", click = function() ns.OpenSettings("hud") end } })
 
 -- Cooldown Frame ---------------------------------------------------------------------------------
@@ -117,105 +105,22 @@ FollowOnClick(cooldowns, "cooldowns")
 SnapOnDrop(cooldowns, function(dx, dy)
     ns.Cooldowns.SetLayout(ns.db.cdX + dx, ns.db.cdY + dy, ns.db.cdWidth, ns.db.cdHeight)
 end)
-
-lib:AddFrameSettings(cooldowns, {
-    {
-        kind = Slider, name = "Width", default = ns.defaults.cdWidth,
-        minValue = ns.Cooldowns.MIN_SIZE, maxValue = 800, valueStep = 1,
-        get = function() return ns.db.cdWidth end,
-        set = function(_, value)
-            ns.Cooldowns.SetLayout(ns.db.cdX, ns.db.cdY, value, ns.db.cdHeight)
-        end,
-    },
-    {
-        kind = Slider, name = "Height", default = ns.defaults.cdHeight,
-        minValue = ns.Cooldowns.MIN_SIZE, maxValue = 400, valueStep = 1,
-        get = function() return ns.db.cdHeight end,
-        set = function(_, value)
-            ns.Cooldowns.SetLayout(ns.db.cdX, ns.db.cdY, ns.db.cdWidth, value)
-        end,
-    },
-    {
-        kind = Slider, name = "Opacity", default = ns.defaults.cdAlpha * 100,
-        minValue = ns.MIN_ALPHA * 100, maxValue = 100, valueStep = 5,
-        formatter = Percent,
-        get = function() return ns.db.cdAlpha * 100 end,
-        set = function(_, value) ns.Cooldowns.SetAlpha(value / 100) end,
-    },
-})
 AddButtons(cooldowns, { { text = "Catnip Settings", click = function() ns.OpenSettings("cooldowns") end } })
 
--- Catnip section under Blizzard's Edit Mode panel -------------------------------------------------
-
--- Our own frame (on UIParent, only anchored to Blizzard's panel), so nothing of ours runs inside
--- Blizzard's Edit Mode code. Styled like Catnip Edit Mode's panel (EditMode.lua).
-local section = CreateFrame("Frame", "CatnipEditModeSection", UIParent, BackdropTemplateMixin and "BackdropTemplate" or nil)
-section:SetFrameStrata(EditModeManagerFrame:GetFrameStrata())
-section:SetPoint("TOPLEFT", EditModeManagerFrame, "BOTTOMLEFT", 0, 2)
-section:SetPoint("TOPRIGHT", EditModeManagerFrame, "BOTTOMRIGHT", 0, 2)
-section:SetHeight(84)
-section:Hide()
-if section.SetBackdrop then
-    section:SetBackdrop({
-        bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
-        edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
-        tile = true, tileSize = 32, edgeSize = 32,
-        insets = { left = 11, right = 12, top = 12, bottom = 11 },
-    })
-end
-
-local header = section:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-header:SetPoint("TOPLEFT", 20, -18)
-header:SetText("Catnip")
-
--- Blizzard's checkbox (yellow tick) with a label; column 0 or 1.
-local checkboxes = {}
-local function Checkbox(column, label, get, set)
-    local box = CreateFrame("CheckButton", nil, section)
-    box:SetSize(28, 28)
-    box:SetPoint("TOPLEFT", 16 + column * 150, -40)
-    box:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up")
-    box:SetPushedTexture("Interface\\Buttons\\UI-CheckBox-Down")
-    box:SetHighlightTexture("Interface\\Buttons\\UI-CheckBox-Highlight", "ADD")
-    box:SetCheckedTexture("Interface\\Buttons\\UI-CheckBox-Check")
-    local text = box:CreateFontString(nil, "OVERLAY", LABEL_FONT)
-    text:SetPoint("LEFT", box, "RIGHT", 4, 0)
-    text:SetText(label)
-    box:SetHitRectInsets(0, -(text:GetStringWidth() + 4), 0, 0) -- the label is clickable too
-    box:SetScript("OnClick", function(self) set(self:GetChecked() and true or false) end)
-    box.Refresh = function() box:SetChecked(get()) end
-    checkboxes[#checkboxes + 1] = box
-end
-
-Checkbox(0, "Rotation Frame", function() return ns.db.hudEnabled end, ns.SetHudEnabled)
-Checkbox(1, "Cooldown Frame", function() return ns.db.cdEnabled end, ns.Cooldowns.SetEnabled)
-
-local function Refresh()
-    for _, box in ipairs(checkboxes) do
-        box.Refresh()
-    end
-end
+-- Entering and leaving -----------------------------------------------------------------------------
 
 lib:RegisterCallback("enter", function()
     if ns.IsHudUnlocked() then
         ns.SetHudUnlocked(false) -- Blizzard's Edit Mode takes over from Catnip's own
     end
-    Refresh()
-    section:Show()
     ns.Cooldowns.SetPreview(true)
 end)
 lib:RegisterCallback("exit", function()
     ns.StopSnapPreview()
-    section:Hide()
     ns.Cooldowns.SetPreview(false)
 end)
-ns.OnSettingsChanged(function()
-    if section:IsShown() then
-        Refresh()
-    end
-end)
 
--- Opening Edit Mode (/catnip edit, the Edit Mode button in Catnip's settings) now opens Blizzard's.
+-- Opening Edit Mode (/catnip edit, the Move in Edit Mode buttons in Catnip's settings) now opens Blizzard's.
 function ns.OpenEditMode()
     if InCombatLockdown() then
         ns.Print("Edit Mode can't open in combat.")

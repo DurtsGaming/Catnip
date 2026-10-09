@@ -41,7 +41,6 @@ Cooldowns.lua
 EditMode.lua
 EditModeSnap.lua
 BlizzardEditMode.lua
-EditModeLayouts.lua
 Preview.lua
 OptionsArt.lua
 OptionsScroll.lua

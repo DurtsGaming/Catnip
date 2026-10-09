@@ -528,16 +528,16 @@ function Cooldowns.SetAlpha(alpha)
     ns.SettingsChanged()
 end
 
--- Turns the whole Cooldown Frame on or off (Edit Mode's checkbox).
+-- Turns the whole Cooldown Frame on or off (the settings window's checkbox).
 function Cooldowns.SetEnabled(enabled)
     ns.db.cdEnabled = enabled
     ApplyLayout()
     ns.SettingsChanged()
 end
 
-function Cooldowns.ResetLayout()
+function Cooldowns.ResetPosition()
     local db = ns.db
-    db.cdX, db.cdY, db.cdWidth, db.cdHeight = DEFAULTS.cdX, DEFAULTS.cdY, DEFAULTS.cdWidth, DEFAULTS.cdHeight
+    db.cdX, db.cdY = DEFAULTS.cdX, DEFAULTS.cdY
     ApplyLayout()
     ns.SettingsChanged()
 end
