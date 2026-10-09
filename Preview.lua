@@ -43,11 +43,11 @@ local selectedId, listHoverId, mouseHoverId
 -- What the HUD shows while active: a sample state, not the game's. Each element with a `sample`
 -- function draws it (sample(state)), and sample(nil) when preview ends puts back the real state.
 -- Prowl also turns on stealth mode's look everywhere (ns.SetStealthPreview).
-Preview.STATES = {
-    { value = "cat", text = "Cat Form" },
-    { value = "bear", text = "Bear Form" },
-    { value = "caster", text = "Caster" }, -- shows a spell being cast
-    { value = "prowl", text = "Prowl" },
+Preview.STATES = { -- short: the settings window's button for it
+    { value = "cat", text = "Cat Form", short = "Cat" },
+    { value = "bear", text = "Bear Form", short = "Bear" },
+    { value = "caster", text = "Caster", short = "Caster" }, -- shows a spell being cast
+    { value = "prowl", text = "Prowl", short = "Prowl" },
 }
 local state = "cat"
 

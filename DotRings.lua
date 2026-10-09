@@ -14,8 +14,10 @@ local addonName, ns = ...
 
 local DOTS = { -- Forever: each rank's aura has its own ID. length: the sample's, in preview mode
     { id = "combo.rake", label = "Rake", dot = 4, texture = "ring_rake", length = 9,
+        color = { 0.82, 0.23, 0.14 }, -- its icon in the settings list
         spellIDs = { 1822, 1823, 1824, 9904 } },
     { id = "combo.rip", label = "Rip", dot = 5, texture = "ring_rip_segments", length = 12,
+        color = { 0.69, 0.12, 0.12 },
         spellIDs = { 1079, 9492, 9493, 9752, 9894, 9896 } },
 }
 local LEVEL = 5 -- above the HUD, as the AuraContainers
@@ -124,6 +126,8 @@ for _, dot in ipairs(DOTS) do
         id = dot.id,
         zone = "combo",
         name = dot.label .. " ring",
+        desc = "Around combo point " .. dot.dot,
+        glyph = { kind = "ring", color = dot.color },
         order = dot.dot,
         hit = ns.ComboRingHit(dot.dot, function() return standIn:IsVisible() end),
         states = { "cat", "bear" },

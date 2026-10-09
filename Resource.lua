@@ -260,6 +260,8 @@ ns.RegisterElement({
     id = "resource.circle",
     zone = "resource",
     name = "Resource circle",
+    desc = "Fill, backdrop and border",
+    glyph = { kind = "disc", color = { 0.96, 0.77, 0.26 } },
     hit = { kind = "circle", radius = SIZE / 2 + 3 },
     options = {
         PercentSlider("fillOpacity", "Fill opacity", 100),
@@ -305,6 +307,8 @@ ns.RegisterElement({
     id = "resource.number",
     zone = "resource",
     name = "Resource number",
+    desc = "Energy, rage or mana",
+    glyph = { kind = "text", color = { 1, 1, 1 } },
     hit = { kind = "text", region = text, anchor = textLayer, point = "CENTER", chars = 4 },
     options = numberOptions,
     apply = function(get)

@@ -79,6 +79,8 @@ ns.RegisterElement({
     id = "swing.smoke",
     zone = "swing",
     name = "Stealth smoke",
+    desc = "While stealthed",
+    glyph = { kind = "ring", color = { 0.48, 0.33, 0.75 } },
     -- The smoke's visible band: from the gap outside the resource border to where it fades out.
     hit = { kind = "ring", inner = 54, outer = 69, visible = ns.IsStealthMode },
     states = { "prowl" },

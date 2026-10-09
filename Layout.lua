@@ -75,6 +75,14 @@ function ns.SetHudEnabled(enabled)
     ns.SettingsChanged()
 end
 
+-- Scale, opacity and on/off back to their defaults (the settings window's Reset…). Position stays:
+-- Edit Mode's Reset Position does that.
+function ns.ResetHudLook()
+    ns.db.scale, ns.db.hudAlpha, ns.db.hudEnabled = DEFAULTS.scale, DEFAULTS.hudAlpha, DEFAULTS.hudEnabled
+    ApplyLayout()
+    ns.SettingsChanged()
+end
+
 function ns.IsHudUnlocked()
     return overlay:IsShown()
 end

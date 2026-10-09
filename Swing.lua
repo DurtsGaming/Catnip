@@ -132,6 +132,8 @@ ns.RegisterElement({
     id = "text.swing",
     zone = "text",
     name = "Swing time",
+    desc = "Elapsed / swing length",
+    glyph = { kind = "text", color = { 0.95, 0.93, 0.89 } },
     hit = { kind = "text", region = timeText, anchor = info, point = "TOP", chars = 10 }, -- "0.0 / 2.5s"
     states = { "cat", "bear" }, -- opening its page switches the preview to Cat if needed
     options = ns.TextOptions(14),
@@ -199,6 +201,8 @@ ns.RegisterElement({
     id = "swing.ring",
     zone = "swing",
     name = "Swing ring",
+    desc = "Bar and glow",
+    glyph = { kind = "ring", color = { 0.91, 0.89, 0.82 } },
     hit = { kind = "ring", inner = RING_INNER, outer = RING_OUTER,
         visible = function() return not ns.IsStealthMode() and not (ns.CastBarShown and ns.CastBarShown()) end },
     states = { "cat", "bear" },
@@ -226,6 +230,8 @@ ns.RegisterElement({
     id = "swing.maul",
     zone = "swing",
     name = "Maul orb",
+    desc = "Maul queued",
+    glyph = { kind = "disc", color = { 0.91, 0.64, 0.23 } },
     hit = { kind = "circle", x = 0, y = MARKER_Y, radius = MARKER_SIZE / 2 + 3,
         visible = function() return marker:IsShown() end },
     states = { "bear" },

@@ -21,6 +21,7 @@ local RINGS = {
         label = "Faerie Fire",
         dot = 1,
         art = "ring_faerie",
+        color = { 0.69, 0.31, 0.82 }, -- its icon in the settings list
         segments = 6, -- 6s
         -- In Cat and Bear Form the spell becomes Faerie Fire (Feral) (unverified whether the
         -- spellbook finds it by that name, so the caster one stands in for "known").
@@ -35,6 +36,7 @@ local RINGS = {
         label = "Primal Bite",
         dot = 3,
         art = "ring_primal_bite",
+        color = { 0.91, 0.86, 0.75 },
         segments = 6,
         names = { "Primal Bite" },
         castNames = { ["Primal Bite"] = true },
@@ -85,6 +87,8 @@ for _, ring in ipairs(RINGS) do
         id = ring.id,
         zone = "combo",
         name = ring.label .. " ring",
+        desc = "Around combo point " .. ring.dot,
+        glyph = { kind = "ring", color = ring.color },
         order = ring.dot,
         hit = ns.ComboRingHit(ring.dot, function() return sampleArc.frame:IsVisible() end),
         states = { "cat", "bear" },

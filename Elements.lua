@@ -3,6 +3,8 @@
 --
 -- ns.RegisterElement{
 --     id = "resource.number", zone = "resource", name = "Resource number",
+--     desc = "Energy, rage or mana", -- a line under its name in the settings list
+--     glyph = { kind = "text", color = { 1, 1, 1 } }, -- its icon there: disc, ring, arc, dots or text
 --     options = { { key = "size", type = "slider", label = "Size", min = 8, max = 40, step = 1, default = 20 }, ... },
 --     apply = function(get) ... end, -- get(key) is the option's resolved value; called on load and on every change
 -- }
@@ -15,13 +17,16 @@
 -- Shared across Edit Mode layouts.
 local addonName, ns = ...
 
--- Zones in the order the settings tree lists them, from the centre of the HUD out.
+-- The settings window's zones (after its own General zone), from the top of the HUD down. Each
+-- lists elements in groups, by the elements' `zone` field (resource, combo, swing, under, text); a
+-- group's name is a heading over its elements.
 ns.ZONES = {
-    { id = "resource", name = "Resource circle" },
-    { id = "combo", name = "Combo arc" },
-    { id = "swing", name = "Swing ring" },
-    { id = "under", name = "Under the ring" },
-    { id = "text", name = "Text" },
+    { id = "above", name = "Above", desc = "The module over the top of the circle",
+        groups = { { zone = "combo" } } },
+    { id = "circle", name = "Circle", desc = "The resource circle and the ring round it",
+        groups = { { zone = "resource", name = "Fill" }, { zone = "swing", name = "Ring" } } },
+    { id = "below", name = "Below", desc = "Arcs, orbs and text under the ring",
+        groups = { { zone = "under", name = "Arcs and orbs" }, { zone = "text", name = "Text" } } },
 }
 
 ns.elements = {} -- in registration order
@@ -101,6 +106,15 @@ function ns.ResetElement(id)
     ns.SettingsChanged()
 end
 
+-- Every element's options back to their defaults (the settings window's Reset…).
+function ns.ResetAllElements()
+    ns.db.elements = {}
+    for _, element in ipairs(ns.elements) do
+        Apply(element)
+    end
+    ns.SettingsChanged()
+end
+
 ns.OnLoad(function()
     ns.db.elements = ns.db.elements or {}
     for _, element in ipairs(ns.elements) do -- every file has loaded by now, so all are registered
@@ -172,11 +186,13 @@ function ns.TextOptions(defaultSize)
     }
 end
 
--- General: HUD-wide defaults. Its own page also has the HUD's scale, opacity and position
--- (Options.lua), which stay per Edit Mode layout.
+-- General: HUD-wide text defaults (the General zone's Text page). The HUD's on/off, scale and
+-- opacity sit above the zones in the settings window, its position on General's Position page.
 ns.RegisterElement({
     id = "general",
-    name = "General",
+    name = "Text",
+    desc = "Font and outline defaults",
+    glyph = { kind = "text", color = { 0.95, 0.93, 0.89 } },
     options = {
         { key = "font", type = "choice", label = "Font", values = ns.FONTS, default = "default", fontPreview = true },
         { key = "outline", type = "choice", label = "Outline", values = ns.OUTLINES, default = "thin" },

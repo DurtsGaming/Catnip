@@ -90,6 +90,8 @@ ns.RegisterElement({
     id = "under.growl",
     zone = "under",
     name = "Growl arc",
+    desc = "In Shifting Power's spot",
+    glyph = { kind = "arc", color = { 0.82, 0.40, 0.18 } },
     hit = { kind = "ring", inner = ns.ARC_HIT.inner, outer = ns.ARC_HIT.outer, angle = ns.ARC_HIT.angle,
         spread = ns.ARC_HIT.spread,
         visible = function() return arc.frame:IsVisible() or sampleArc.frame:IsVisible() end },

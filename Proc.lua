@@ -153,6 +153,8 @@ ns.RegisterElement({
     id = "resource.proc",
     zone = "resource",
     name = "Clearcasting",
+    desc = "Crescent at the top",
+    glyph = { kind = "arc", color = { 1, 0.96, 0.78 } },
     hit = { kind = "circle", x = 0, y = SIZE * 0.36, radius = SIZE * 0.14,
         visible = function() return standIn:IsVisible() end },
     states = { "cat" },

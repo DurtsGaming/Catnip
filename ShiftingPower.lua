@@ -140,6 +140,8 @@ ns.RegisterElement({
     id = "under.sp",
     zone = "under",
     name = "Shifting Power arc",
+    desc = "Cooldown and ready pulse",
+    glyph = { kind = "arc", color = { 0.42, 0.66, 1 } },
     hit = { kind = "ring", inner = ns.ARC_HIT.inner, outer = ns.ARC_HIT.outer, angle = ns.ARC_HIT.angle,
         spread = ns.ARC_HIT.spread,
         visible = function() return arc.frame:IsVisible() or sampleArc.frame:IsVisible() end },
