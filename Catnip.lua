@@ -242,6 +242,5 @@ frame:SetScript("OnEvent", function(self, event, name)
     for _, callback in ipairs(loadCallbacks) do
         callback()
     end
-    ns.Print("loaded. Interface: " .. select(4, GetBuildInfo()))
     self:UnregisterEvent("ADDON_LOADED")
 end)
