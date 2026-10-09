@@ -194,6 +194,47 @@ function art.Tab(frame)
     end
 end
 
+-- A button in the bookmark tabs' look, rounded all round: ui_tab's top corners and edge, mirrored
+-- for the bottom, with a thin band from just under them stretched over the sides and middle (so the
+-- fill is even, not the tab's gradient). Returns SetSelected(selected): unselected is darker.
+function art.RoundTab(frame)
+    local file, size, c = ns.MEDIA .. "ui_tab", 64, 8
+    local band0, band1 = c, c + 2
+    local textures = {}
+    local function Piece(x0, x1, y0, y1, flip)
+        local texture = frame:CreateTexture(nil, "BACKGROUND")
+        texture:SetTexture(file)
+        if flip then
+            y0, y1 = y1, y0
+        end
+        texture:SetTexCoord(x0 / size, x1 / size, y0 / size, y1 / size)
+        textures[#textures + 1] = texture
+        return texture
+    end
+    local topLeft, topRight = Piece(0, c, 0, c), Piece(size - c, size, 0, c)
+    local bottomLeft, bottomRight = Piece(0, c, 0, c, true), Piece(size - c, size, 0, c, true)
+    for _, spec in ipairs({ { topLeft, "TOPLEFT" }, { topRight, "TOPRIGHT" },
+        { bottomLeft, "BOTTOMLEFT" }, { bottomRight, "BOTTOMRIGHT" } }) do
+        spec[1]:SetSize(c, c)
+        spec[1]:SetPoint(spec[2])
+    end
+    local function Between(texture, fromTexture, fromPoint, toTexture, toPoint)
+        texture:SetPoint("TOPLEFT", fromTexture, fromPoint)
+        texture:SetPoint("BOTTOMRIGHT", toTexture, toPoint)
+    end
+    Between(Piece(c, size - c, 0, c), topLeft, "TOPRIGHT", topRight, "BOTTOMLEFT")
+    Between(Piece(c, size - c, 0, c, true), bottomLeft, "TOPRIGHT", bottomRight, "BOTTOMLEFT")
+    Between(Piece(0, c, band0, band1), topLeft, "BOTTOMLEFT", bottomLeft, "TOPRIGHT")
+    Between(Piece(size - c, size, band0, band1), topRight, "BOTTOMLEFT", bottomRight, "TOPRIGHT")
+    Between(Piece(c, size - c, band0, band1), topLeft, "BOTTOMRIGHT", bottomRight, "TOPLEFT")
+    return function(selected)
+        local shade = selected and 1 or DIM
+        for _, texture in ipairs(textures) do
+            texture:SetVertexColor(shade, shade, shade)
+        end
+    end
+end
+
 -- Side tabs --------------------------------------------------------------------------------------
 
 -- Blizzard's side tabs (the Character and Professions windows' tabs down the right edge, found with

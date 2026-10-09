@@ -390,11 +390,11 @@ ns.OnLoad(function()
     ns.Debug("cast bar method:", UnitCastingDuration and "duration object" or "UnitCastingInfo times")
 end)
 
--- Blizzard's player cast bar: ours replaces it, so (by default) park it under a hidden frame
+-- Blizzard's player cast bar: ours replaces it, so (if the setting is on) park it under a hidden frame
 -- (EllesmereUI's technique; it leaves Blizzard's events and code untouched). Edit Mode re-parents
 -- the bar during layout changes, so park it again afterwards, but never in combat or while Edit
 -- Mode is open: SetParent there runs Blizzard's layout code under our taint.
-ns.defaults.hideBlizzardCastBar = true
+ns.defaults.hideBlizzardCastBar = false
 
 local hiddenParent = CreateFrame("Frame")
 hiddenParent:Hide()

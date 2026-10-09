@@ -2,7 +2,7 @@
 -- to open its settings (on/off, scale and opacity are set there).
 local addonName, ns = ...
 
-local DEFAULTS = { x = 0, y = -180, scale = 1, hudAlpha = 0.85, hudEnabled = true }
+local DEFAULTS = { x = 0, y = -285, scale = 1, hudAlpha = 0.95, hudEnabled = true }
 local MIN_SCALE, MAX_SCALE, SCALE_STEP = 0.5, 2.5, 0.05
 local MIN_ALPHA = 0.1 -- never fully invisible: the Show Rotation Frame checkbox is for that
 

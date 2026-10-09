@@ -944,49 +944,7 @@ local function ZonePicture(parent, zoneId)
     end
 end
 
--- A row of buttons, one per value ({ value, text, short }), in a dark well: the chosen one dark gold
--- with gold text. `width` wide, SEGMENT_HEIGHT tall; returns it for the caller to place.
-local SEGMENT_HEIGHT = 28
-local function Segmented(parent, width, values, get, set)
-    local holder = CreateFrame("Frame", nil, parent)
-    holder:SetSize(width, SEGMENT_HEIGHT)
-    Box(holder, WELL, TRACK_EDGE)
-    local gap, inset = 2, 2
-    local buttonWidth = (width - 2 * inset - (#values - 1) * gap) / #values
-    for i, entry in ipairs(values) do
-        local button = CreateFrame("Button", nil, holder)
-        button:SetSize(buttonWidth, SEGMENT_HEIGHT - 2 * inset)
-        button:SetPoint("TOPLEFT", inset + (i - 1) * (buttonWidth + gap), -inset)
-        local fill = button:CreateTexture(nil, "BACKGROUND", nil, 2)
-        fill:SetAllPoints()
-        local text = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        text:SetPoint("CENTER")
-        text:SetText(entry.short or entry.text)
-        local hovered = false
-        local function Paint()
-            local on = get() == entry.value
-            if on then
-                fill:SetColorTexture(unpack(SWITCH_ON_FILL))
-            elseif hovered then
-                fill:SetColorTexture(HOVER_BLUE[1], HOVER_BLUE[2], HOVER_BLUE[3], 0.08)
-            else
-                fill:SetColorTexture(unpack(CLEAR))
-            end
-            text:SetTextColor(unpack(on and GOLD or hovered and WHITE or MUTED))
-        end
-        button:SetScript("OnEnter", function()
-            hovered = true
-            Paint()
-        end)
-        button:SetScript("OnLeave", function()
-            hovered = false
-            Paint()
-        end)
-        button:SetScript("OnClick", function() set(entry.value) end)
-        refreshers[#refreshers + 1] = Paint
-    end
-    return holder
-end
+local SEGMENT_HEIGHT = 28 -- the preview strip's buttons (Rotation tab)
 
 local function ChoiceText(values, value)
     for _, entry in ipairs(values) do
@@ -1100,8 +1058,8 @@ EndTab(general)
 
 -- Rotation tab: the HUD (the Rotation Frame) --------------------------------------------------------
 
--- Across the top, the HUD's on/off, scale and opacity (shared by every form). Under them two panes:
--- on the left the preview's form buttons, a strip of zones (General, then Elements.lua's ns.ZONES) and the shown
+-- Across the top, the HUD's on/off, scale and opacity (shared by every form), then the preview strip.
+-- Under them two panes: on the left a strip of zones (General, then Elements.lua's ns.ZONES) and the shown
 -- zone's elements; on the right the selected element's page. The element rows are the tabs of a
 -- TabGroup, so each element's page is built like any sub-tab's. (docs/settings-plan.md)
 local rotation = topTabs.Add("Rotation")
@@ -1217,8 +1175,90 @@ do
         function() return ns.db.y end,
         function(y) ns.SetHudPosition(ns.db.x, y) end)
 
-    -- The two panes, under the HUD controls.
-    rotation.pageTop = PAD + hudHeight
+    -- The preview strip, across the window under the HUD controls: what the HUD shows while this tab
+    -- is open (Preview.lua's sample states). A form, and beside it a Stealth toggle laying stealth's
+    -- look over Cat Form (Prowl) or Caster (Shadowmeld); Bear Form can't stealth, so it's dimmed
+    -- there. A band of its own, apart from the panes, labelled "Preview", so it reads as changing
+    -- only what the HUD shows, not settings per form (owner, 2026-10-09).
+    local PREVIEW_LABEL = 66 -- the label's column
+    local FORM_WIDTH, FORM_GAP = 72, 4 -- each of Caster, Bear and Cat
+    local STEALTH_WIDTH = 110
+    local previewPanel = CreateFrame("Frame", nil, rotation.page)
+    previewPanel:SetPoint("TOPLEFT", PAD, -(PAD + hudHeight + PAD))
+    previewPanel:SetPoint("TOPRIGHT", -PAD, -(PAD + hudHeight + PAD))
+    previewPanel:SetHeight(2 * HUD_INSET + SEGMENT_HEIGHT)
+    art.Panel(previewPanel)
+
+    local previewLabel = previewPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    previewLabel:SetPoint("LEFT", previewPanel, "TOPLEFT", HUD_INSET, -(HUD_INSET + SEGMENT_HEIGHT / 2))
+    previewLabel:SetText("Preview")
+    -- The buttons: rounded, in the Cooldown tab's bookmark look (owner, 2026-10-09). The picked one
+    -- is bright with white text, the others darker with gold text, white on hover.
+    local function PreviewButton(width)
+        local button = CreateFrame("Button", nil, previewPanel)
+        button:SetSize(width, SEGMENT_HEIGHT)
+        button.SetShade = art.RoundTab(button)
+        button.text = button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        button.text:SetPoint("CENTER", 0, 1)
+        return button
+    end
+
+    local previous
+    for _, entry in ipairs(ns.Preview.STATES) do
+        local button = PreviewButton(FORM_WIDTH)
+        if previous then
+            button:SetPoint("LEFT", previous, "RIGHT", FORM_GAP, 0)
+        else
+            button:SetPoint("TOPLEFT", HUD_INSET + PREVIEW_LABEL, -HUD_INSET)
+        end
+        button.text:SetText(entry.short or entry.text)
+        local hovered = false
+        local function Paint()
+            local on = ns.Preview.GetState() == entry.value
+            button.SetShade(on)
+            button.text:SetTextColor(unpack((on or hovered) and WHITE or GOLD))
+        end
+        button:SetScript("OnEnter", function()
+            hovered = true
+            Paint()
+        end)
+        button:SetScript("OnLeave", function()
+            hovered = false
+            Paint()
+        end)
+        button:SetScript("OnClick", function() ns.Preview.SetState(entry.value) end)
+        refreshers[#refreshers + 1] = Paint
+        previous = button
+    end
+
+    local stealthToggle = PreviewButton(STEALTH_WIDTH)
+    stealthToggle:SetPoint("LEFT", previous, "RIGHT", 12, 0)
+    local stealthText = stealthToggle.text
+    local stealthHovered = false
+    local function PaintStealth()
+        local form, can, on = ns.Preview.GetState(), ns.Preview.CanStealth(), ns.Preview.GetStealthed()
+        stealthText:SetText(form == "caster" and "Shadowmeld" or form == "cat" and "Prowl" or "Stealth")
+        stealthToggle:SetAlpha(can and 1 or 0.4)
+        stealthToggle.SetShade(on)
+        stealthText:SetTextColor(unpack((on or stealthHovered and can) and WHITE or GOLD))
+    end
+    stealthToggle:SetScript("OnEnter", function()
+        stealthHovered = true
+        PaintStealth()
+    end)
+    stealthToggle:SetScript("OnLeave", function()
+        stealthHovered = false
+        PaintStealth()
+    end)
+    stealthToggle:SetScript("OnClick", function()
+        if ns.Preview.CanStealth() then
+            ns.Preview.SetStealthed(not ns.Preview.GetStealthed())
+        end
+    end)
+    refreshers[#refreshers + 1] = PaintStealth
+
+    -- The two panes, under the HUD controls and the preview strip.
+    rotation.pageTop = PAD + hudHeight + PAD + previewPanel:GetHeight()
     local tree = CreateFrame("Frame", nil, rotation.page)
     tree:SetPoint("TOPLEFT", PAD, -(rotation.pageTop + PAD))
     tree:SetWidth(TREE_WIDTH - PAD)
@@ -1254,12 +1294,13 @@ do
     sliderBlocker:SetPoint("TOPLEFT", hudPanel, "TOPLEFT", 0, -(HUD_INSET + HUD_ROW + 4))
     sliderBlocker:SetPoint("BOTTOMRIGHT", hudPanel, "BOTTOMRIGHT")
     local paneBlocker = Blocker(rotation.page:GetFrameLevel() + 40) -- under Reset...'s confirmation (+60)
-    paneBlocker:SetPoint("TOPLEFT", rotation.page, "TOPLEFT", 0, -rotation.pageTop)
+    paneBlocker:SetPoint("TOPLEFT", previewPanel, "TOPLEFT") -- the preview strip too
     paneBlocker:SetPoint("BOTTOMRIGHT", rotation.page, "BOTTOMRIGHT")
 
     refreshers[#refreshers + 1] = function()
         local on = ns.db.hudEnabled and true or false
         local alpha = on and 1 or 0.45
+        previewPanel:SetAlpha(alpha)
         tree:SetAlpha(alpha)
         detail:SetAlpha(alpha)
         sliderBlocker:SetShown(not on)
@@ -1283,52 +1324,6 @@ do
     local LIST_WIDTH = TREE_WIDTH - PAD - 2 * TREE_INSET
     local treeY = -TREE_INSET
 
-    -- Top of the list: what the HUD shows while this tab is open (Preview.lua's sample states): a
-    -- form, and under it a Stealth toggle laying stealth's look over Cat Form (Prowl) or Caster
-    -- (Shadowmeld). Bear Form can't stealth, so it's dimmed there.
-    local STEALTH_HEIGHT = 22
-    local previewAs = Segmented(tree, LIST_WIDTH, ns.Preview.STATES, ns.Preview.GetState, ns.Preview.SetState)
-    previewAs:SetPoint("TOPLEFT", TREE_INSET, treeY)
-    treeY = treeY - SEGMENT_HEIGHT - 4
-
-    local stealthToggle = CreateFrame("Button", nil, tree)
-    stealthToggle:SetSize(LIST_WIDTH, STEALTH_HEIGHT)
-    stealthToggle:SetPoint("TOPLEFT", TREE_INSET, treeY)
-    local stealthBorder, stealthFill = unpack(Bevel(stealthToggle, { { 0, TRACK_EDGE }, { 1, WELL } }))
-    local stealthText = stealthToggle:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    stealthText:SetPoint("CENTER")
-    local stealthHovered = false
-    local function PaintStealth()
-        local form, can, on = ns.Preview.GetState(), ns.Preview.CanStealth(), ns.Preview.GetStealthed()
-        stealthText:SetText(form == "caster" and "Shadowmeld" or form == "cat" and "Prowl" or "Stealth")
-        stealthToggle:SetAlpha(can and 1 or 0.4)
-        local hover = stealthHovered and can
-        stealthBorder:SetColorTexture(unpack(hover and HOVER_BLUE or on and GOLD or TRACK_EDGE))
-        stealthFill:SetColorTexture(unpack(on and SWITCH_ON_FILL or WELL))
-        stealthText:SetTextColor(unpack(on and GOLD or hover and WHITE or MUTED))
-    end
-    stealthToggle:SetScript("OnEnter", function()
-        stealthHovered = true
-        PaintStealth()
-    end)
-    stealthToggle:SetScript("OnLeave", function()
-        stealthHovered = false
-        PaintStealth()
-    end)
-    stealthToggle:SetScript("OnClick", function()
-        if ns.Preview.CanStealth() then
-            ns.Preview.SetStealthed(not ns.Preview.GetStealthed())
-        end
-    end)
-    refreshers[#refreshers + 1] = PaintStealth
-    treeY = treeY - STEALTH_HEIGHT - 12
-
-    -- A thin line between the forms (which everything under them follows) and the zones.
-    local divider = tree:CreateTexture(nil, "ARTWORK")
-    divider:SetColorTexture(unpack(TRACK_EDGE))
-    divider:SetSize(LIST_WIDTH, 1)
-    divider:SetPoint("TOPLEFT", TREE_INSET, treeY)
-    treeY = treeY - 1 - 12
 
     -- The zones: General (built here: the text defaults and the HUD's position), then ns.ZONES.
     local generalZone = { id = "general", name = "General" }
