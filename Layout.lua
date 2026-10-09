@@ -26,8 +26,34 @@ end
 
 -- Position is stored as the HUD centre's offset from the screen centre, in UIParent units,
 -- so changing the scale keeps the HUD centred where it is.
+-- The HUD frame's height, which both Edit Modes outline: at least its 240 square (the circle, ring,
+-- arcs and combo point rings fit, up to ~119 above the centre), taller when the text under the orbs
+-- reaches further down (Cast.lua sets how far). It grows evenly both ways: everything is anchored to
+-- the centre, so nothing moves. Not in combat (the HUD holds AuraContainers): applied after.
+local BASE_SIZE = 240
+local TEXT_MARGIN = 4 -- room below the lowest text
+local textBottom = 0
+
+local function ApplySize()
+    if InCombatLockdown() then
+        return
+    end
+    hud:SetHeight(math.max(BASE_SIZE, 2 * math.ceil(textBottom + TEXT_MARGIN)))
+end
+
+-- How far below the HUD's centre its lowest text reaches, in HUD units.
+function ns.SetHudTextBottom(bottom)
+    textBottom = bottom
+    ApplySize()
+end
+
+local sizeEvents = CreateFrame("Frame")
+sizeEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
+sizeEvents:SetScript("OnEvent", ApplySize)
+
 local function ApplyLayout()
     local db = ns.db
+    ApplySize()
     hud:SetShown(db.hudEnabled)
     hud:SetScale(db.scale)
     hud:SetAlpha(HudAlpha()) -- every element inherits this, AuraContainers included

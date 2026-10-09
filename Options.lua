@@ -81,6 +81,37 @@ local function Box(frame, fill, edge)
     return Bevel(frame, { { 0, edge }, { 1, fill } })[1]
 end
 
+-- A 1px outline round a frame, as four lines so a see-through fill inside stays see-through. Each
+-- line is at least one screen pixel thick (PixelUtil) and isn't snapped to the pixel grid: snapped,
+-- a line whose frame edge falls between pixels can round to zero height and vanish (the zone
+-- buttons' top lines did, 2026-10-09); unsnapped it draws, a little softer at worst. Returns a
+-- function that colours it.
+local function Outline(frame)
+    local lines = {}
+    for i, ends in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
+        { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+        local line = frame:CreateTexture(nil, "BORDER")
+        if line.SetSnapToPixelGrid then
+            line:SetSnapToPixelGrid(false)
+            line:SetTexelSnappingBias(0)
+        end
+        line:SetPoint(ends[1])
+        line:SetPoint(ends[2])
+        local across = i <= 2 and "Height" or "Width" -- top and bottom: a height; sides: a width
+        if PixelUtil and PixelUtil["Set" .. across] then
+            PixelUtil["Set" .. across](line, 1, 1)
+        else
+            line["Set" .. across](line, 1)
+        end
+        lines[i] = line
+    end
+    return function(r, g, b, a)
+        for _, line in ipairs(lines) do
+            line:SetColorTexture(r, g, b, a)
+        end
+    end
+end
+
 -- Border lights up bronze on hover, back to `edge` after.
 local function AddHover(frame, border, edge)
     frame:SetScript("OnEnter", function() border:SetColorTexture(unpack(BRONZE_HI)) end)
@@ -307,7 +338,9 @@ local function TabGroup(makeTab, buttonParent, pageParent, pageTop)
         if group.onSelect then
             group.onSelect(tab)
         end
-        scroll.ScrollTo(0)
+        if not group.keepScroll then -- e.g. the Rotation tab's element rows stay where they are
+            scroll.ScrollTo(0)
+        end
         UpdateCanvas()
     end
 
@@ -745,6 +778,7 @@ local function Button(text, onClick)
     button:SetPoint("LEFT")
     button:SetScript("OnClick", onClick)
     Place(holder, 22)
+    return button
 end
 
 -- A white disc or ring from media/, tinted with SetVertexColor.
@@ -772,7 +806,7 @@ local function Switch(parent, label, onText, offText, get, set)
         local size = SWITCH_HEIGHT - 2 * inset
         local parts = {}
         for _, side in ipairs({ "LEFT", "RIGHT" }) do
-            local cap = Shape(track, "circle_hard", size, "BACKGROUND", sublevel)
+            local cap = Shape(track, "circle_small", size, "BACKGROUND", sublevel)
             cap:SetPoint(side, side == "LEFT" and inset or -inset, 0)
             parts[#parts + 1] = cap
         end
@@ -781,6 +815,14 @@ local function Switch(parent, label, onText, offText, get, set)
         middle:SetPoint("TOPLEFT", inset + size / 2, -inset)
         middle:SetPoint("BOTTOMRIGHT", -(inset + size / 2), inset)
         parts[#parts + 1] = middle
+        -- Not snapped to the pixel grid: snapped, the fill pill could round over the edge pill's
+        -- 1-unit rim and hide it (its bottom went, 2026-10-09; see Outline).
+        for _, part in ipairs(parts) do
+            if part.SetSnapToPixelGrid then
+                part:SetSnapToPixelGrid(false)
+                part:SetTexelSnappingBias(0)
+            end
+        end
         return function(colour)
             for _, part in ipairs(parts) do
                 part:SetVertexColor(unpack(colour))
@@ -788,7 +830,7 @@ local function Switch(parent, label, onText, offText, get, set)
         end
     end
     local paintEdge, paintFill = Pill(0, 0), Pill(1, 1)
-    local knob = Shape(track, "circle_hard", SWITCH_HEIGHT - 6)
+    local knob = Shape(track, "circle_small", SWITCH_HEIGHT - 6)
 
     local name = button:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     name:SetPoint("TOPLEFT", track, "TOPRIGHT", 10, 3)
@@ -842,16 +884,16 @@ local function Glyph(parent, glyph)
         arc:SetSize(18, 9)
         arc:SetTexCoord(0, 1, 0.5, 1)
     elseif glyph.kind == "dots" then
-        Tinted("circle_hard", 6, -6, -1)
-        Tinted("circle_hard", 6, 0, 1)
-        Tinted("circle_hard", 6, 6, -1)
+        Tinted("circle_small", 6, -6, -1)
+        Tinted("circle_small", 6, 0, 1)
+        Tinted("circle_small", 6, 6, -1)
     elseif glyph.kind == "text" then
         local text = holder:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         text:SetPoint("CENTER", 0, 0)
         text:SetText("Aa")
         text:SetTextColor(r, g, b)
     else -- disc
-        Tinted("circle_hard", 16)
+        Tinted("circle_small", 16)
     end
     return holder
 end
@@ -879,16 +921,16 @@ local function ZonePicture(parent, zoneId)
         for i, knobX in ipairs({ -4, 5, -1 }) do
             local y = 8 - (i - 1) * 8
             Bar(22, 2, 0, y)
-            Add(Shape(picture, "circle_hard", 7, "ARTWORK", 1), knobX, y)
+            Add(Shape(picture, "circle_small", 7, "ARTWORK", 1), knobX, y)
         end
     elseif zoneId == "above" then
         -- Five dots on an arc, 14 out from a centre below them, 20 degrees apart.
         for _, offset in ipairs({ { -9, -1.3 }, { -4.8, 1.2 }, { 0, 2 }, { 4.8, 1.2 }, { 9, -1.3 } }) do
-            Add(Shape(picture, "circle_hard", 6), offset[1], offset[2])
+            Add(Shape(picture, "circle_small", 6), offset[1], offset[2])
         end
     elseif zoneId == "circle" then
         Add(Shape(picture, "ring_rip", 24), 0, 0)
-        Add(Shape(picture, "circle_hard", 12), 0, 0)
+        Add(Shape(picture, "circle_small", 12), 0, 0)
     else -- below: the bottom half of a ring, over a bar
         local arc = Add(Shape(picture, "ring_rip", 24), 0, 2)
         arc:SetSize(24, 12)
@@ -1182,10 +1224,60 @@ do
     tree:SetWidth(TREE_WIDTH - PAD)
     art.Panel(tree)
 
+    -- Whether the Rotation Frame is on (true before the settings load, while this is being built).
+    -- Off, the panes show no gold selection and their buttons are disabled (the refresher below).
+    local function HudOn()
+        return not ns.db or ns.db.hudEnabled
+    end
+    local paneButtons = {} -- the pages' red buttons (Reset to defaults)
+
     local detail = CreateFrame("Frame", nil, rotation.page) -- holds the pages, right of the list
     detail:SetPoint("TOPLEFT", TREE_WIDTH, -rotation.pageTop)
     detail:SetPoint("TOPRIGHT", 0, -rotation.pageTop)
     detail:SetHeight(1)
+
+    -- While the Rotation Frame is off, only its switch can be used (owner, 2026-10-09): the sliders
+    -- and both panes dim, a blocker over them catches the mouse (passing the wheel on, so the page
+    -- still scrolls), and Reset... and Edit Mode are disabled.
+    local function Blocker(level)
+        local blocker = CreateFrame("Frame", nil, rotation.page)
+        blocker:SetFrameLevel(level)
+        blocker:EnableMouse(true)
+        blocker:EnableMouseWheel(true)
+        blocker:SetScript("OnMouseWheel", function(_, delta)
+            scroll.ScrollTo(scroll.Target() - delta * SCROLL_STEP, true)
+        end)
+        blocker:Hide()
+        return blocker
+    end
+    local sliderBlocker = Blocker(hudPanel:GetFrameLevel() + 20)
+    sliderBlocker:SetPoint("TOPLEFT", hudPanel, "TOPLEFT", 0, -(HUD_INSET + HUD_ROW + 4))
+    sliderBlocker:SetPoint("BOTTOMRIGHT", hudPanel, "BOTTOMRIGHT")
+    local paneBlocker = Blocker(rotation.page:GetFrameLevel() + 40) -- under Reset...'s confirmation (+60)
+    paneBlocker:SetPoint("TOPLEFT", rotation.page, "TOPLEFT", 0, -rotation.pageTop)
+    paneBlocker:SetPoint("BOTTOMRIGHT", rotation.page, "BOTTOMRIGHT")
+
+    refreshers[#refreshers + 1] = function()
+        local on = ns.db.hudEnabled and true or false
+        local alpha = on and 1 or 0.45
+        tree:SetAlpha(alpha)
+        detail:SetAlpha(alpha)
+        sliderBlocker:SetShown(not on)
+        paneBlocker:SetShown(not on)
+        editButton:SetEnabled(on)
+        resetButton:SetEnabled(on)
+        for _, button in ipairs(paneButtons) do
+            button:SetEnabled(on)
+        end
+        if not on then
+            confirm:Hide()
+        end
+        -- Repaint the rows and zone buttons, whose gold selection shows only while on.
+        for _, tab in ipairs(rotation.subs and rotation.subs.tabs or {}) do
+            tab.SetSelected()
+            tab.zone.button.SetSelected(tab.zone.button.selected)
+        end
+    end
 
     local TREE_INSET = art.EDGE_INSET + 8 -- inside the panel's painted edge
     local LIST_WIDTH = TREE_WIDTH - PAD - 2 * TREE_INSET
@@ -1247,12 +1339,15 @@ do
 
     -- The zone strip: a button per zone, its picture over its name. Clicking one opens its first page.
     local ZONE_GAP, ZONE_HEIGHT = 4, 56
-    local zoneWidth = (LIST_WIDTH - (#zones - 1) * ZONE_GAP) / #zones
+    -- Whole units, so the edges don't start between pixels.
+    local zoneWidth = math.floor((LIST_WIDTH - (#zones - 1) * ZONE_GAP) / #zones)
     for i, zone in ipairs(zones) do
         local button = CreateFrame("Button", nil, tree)
         button:SetSize(zoneWidth, ZONE_HEIGHT)
         button:SetPoint("TOPLEFT", TREE_INSET + (i - 1) * (zoneWidth + ZONE_GAP), treeY)
-        local border, fill = unpack(Bevel(button, { { 0, TRACK_EDGE }, { 1, WELL } }))
+        local fill = button:CreateTexture(nil, "BACKGROUND")
+        fill:SetAllPoints()
+        local outline = Outline(button)
         local picture, paint = ZonePicture(button, zone.id)
         picture:SetPoint("TOP", 0, -4)
         local label = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -1260,13 +1355,14 @@ do
         label:SetText(zone.name)
         function button.SetSelected(selected)
             button.selected = selected
-            border:SetColorTexture(unpack(selected and GOLD or TRACK_EDGE))
-            fill:SetColorTexture(unpack(selected and SWITCH_ON_FILL or WELL))
-            label:SetTextColor(unpack(selected and GOLD or MUTED))
-            paint(selected)
+            local lit = selected and HudOn() -- no gold while the Rotation Frame is off
+            outline(unpack(lit and GOLD or TRACK_EDGE))
+            fill:SetColorTexture(unpack(lit and SWITCH_ON_FILL or WELL))
+            label:SetTextColor(unpack(lit and GOLD or MUTED))
+            paint(lit)
         end
         button:SetScript("OnEnter", function()
-            border:SetColorTexture(unpack(HOVER_BLUE))
+            outline(unpack(HOVER_BLUE))
             label:SetTextColor(unpack(WHITE))
         end)
         button:SetScript("OnLeave", function() button.SetSelected(button.selected) end)
@@ -1302,29 +1398,6 @@ do
         listY = listY - 22
     end
 
-    -- A 1px outline round a frame, as four lines so a see-through fill inside stays see-through.
-    -- Returns a function that colours it.
-    local function Outline(frame)
-        local lines = {}
-        for i, ends in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
-            { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
-            local line = frame:CreateTexture(nil, "BORDER")
-            line:SetPoint(ends[1])
-            line:SetPoint(ends[2])
-            if i <= 2 then
-                line:SetHeight(1)
-            else
-                line:SetWidth(1)
-            end
-            lines[i] = line
-        end
-        return function(r, g, b, a)
-            for _, line in ipairs(lines) do
-                line:SetColorTexture(r, g, b, a)
-            end
-        end
-    end
-
     -- A makeTab for TabGroup: an element's row in the zone list being filled: its icon (added by
     -- SetGlyph) and name on one line. `dot` marks an element with settings changed. Hovering a row
     -- lights its element up on the HUD in preview mode (row.elementId).
@@ -1344,14 +1417,15 @@ do
         row.text:SetJustifyH("LEFT")
         row.text:SetWordWrap(false)
         row.text:SetText(name)
-        row.dot = Shape(row, "circle_hard", 6, "OVERLAY")
+        row.dot = Shape(row, "circle_small", 6, "OVERLAY")
         row.dot:SetPoint("RIGHT", -8, 0)
         row.dot:SetVertexColor(unpack(ACCENT))
         row.dot:Hide()
 
         local hovered = false
         local function Paint()
-            if row.selected then
+            local lit = row.selected and HudOn() -- no gold while the Rotation Frame is off
+            if lit then
                 outline(unpack(GOLD))
                 fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.12)
             elseif hovered then
@@ -1361,7 +1435,7 @@ do
                 outline(unpack(CLEAR))
                 fill:SetColorTexture(unpack(CLEAR))
             end
-            row.text:SetTextColor(unpack(row.selected and WHITE or ROW_TEXT))
+            row.text:SetTextColor(unpack(lit and WHITE or ROW_TEXT))
         end
         function row.SetSelected()
             Paint() -- TabGroup sets row.selected first
@@ -1385,6 +1459,7 @@ do
     end
 
     rotation.subs = TabGroup(ElementRow, tree, detail, 0)
+    rotation.subs.keepScroll = true -- picking an element keeps the list where it's scrolled to
 
     -- Adds a row (in `zone`, under the last heading) and starts its page. The row's dot shows while
     -- the element has any setting changed.
@@ -1407,7 +1482,7 @@ do
         local tab = AddRow(zone, element.name, element.glyph, element.id)
         Section(element.name)
         ElementControls(element)
-        Button("Reset to defaults", function() ns.ResetElement(element.id) end)
+        paneButtons[#paneButtons + 1] = Button("Reset to defaults", function() ns.ResetElement(element.id) end)
         EndTab(tab)
     end
 
@@ -1420,7 +1495,7 @@ do
         Section("Text")
         Hint("Fonts and outline for all text, unless an element picks its own.")
         ElementControls(generalElement)
-        Button("Reset to defaults", function() ns.ResetElement("general") end)
+        paneButtons[#paneButtons + 1] = Button("Reset to defaults", function() ns.ResetElement("general") end)
         EndTab(textPage)
     end
     ElementPage(ns.GetElement("stealth"), generalZone) -- Stealth Mode (Layout.lua)

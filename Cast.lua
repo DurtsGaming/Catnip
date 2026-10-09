@@ -116,6 +116,8 @@ ns.RegisterElement({
         ns.ApplyFont(ns.swingTimeText, font, get("size"), outline)
         ns.ApplyFont(timeText, font, get("size"), outline)
         ns.ApplyFont(nameText, font, get("nameSize"), outline)
+        -- The spell name's line is the HUD's lowest: Edit Mode's box reaches down to it (Layout.lua).
+        ns.SetHudTextBottom(TEXT_OFFSET + get("size") + 2 + get("nameSize"))
     end,
 })
 

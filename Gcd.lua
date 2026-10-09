@@ -192,16 +192,22 @@ end)
 
 -- Settings and preview mode (Elements.lua, Preview.lua). Opacity scales the shade's own alpha (the
 -- swipe colour). No hit shape: the pie covers the whole circle, so it's picked from the list.
--- The sample sweeps every SAMPLE_EVERY seconds: 1.0s in Cat Form (and Prowl), 1.5s otherwise.
+-- The sample sweeps every SAMPLE_EVERY seconds, drawn as the real one is: in Cat Form a plain 1.0s
+-- sweep; otherwise 1.5s paced to the swing, i.e. a swing-length pie starting part-way (60% for the
+-- preview's 2.5s sample swing, Swing.lua), so it shrinks at the sample swing ring's speed.
 local SAMPLE_EVERY = 2.5
-local sampleLength
+local sampleLength, sampleSwing -- sampleSwing: the swing it's paced to, or nil for a plain sweep
 local sampleDriver = CreateFrame("Frame")
 sampleDriver:Hide()
 local sampleStart = 0
 sampleDriver:SetScript("OnUpdate", function()
     if GetTime() - sampleStart >= SAMPLE_EVERY then
         sampleStart = GetTime()
-        ball:SetCooldown(sampleStart, sampleLength)
+        if sampleSwing and sampleSwing > sampleLength then
+            ball:SetCooldown(sampleStart - (sampleSwing - sampleLength), sampleSwing)
+        else
+            ball:SetCooldown(sampleStart, sampleLength)
+        end
     end
 end)
 
@@ -220,7 +226,9 @@ ns.RegisterElement({
     sample = function(state)
         sampling = state ~= nil
         if sampling then
-            sampleLength = state == "cat" and 1 or GCD_LENGTH
+            local paced = state ~= "cat" -- as IsPaced: every form but Cat
+            sampleLength = paced and GCD_LENGTH or 1
+            sampleSwing = paced and ns.SAMPLE_SWING or nil
             sampleStart = 0 -- sweep at once
             sampleDriver:Show()
         else

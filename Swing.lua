@@ -87,6 +87,7 @@ local swingStart, swingDuration
 -- Preview mode (Preview.lua): while sampling, a made-up swing of SAMPLE_SWING seconds loops on the
 -- ring and text (in the forms that swing), and real swings are only noted, not drawn.
 local SAMPLE_SWING = 2.5
+ns.SAMPLE_SWING = SAMPLE_SWING -- Gcd.lua paces its sample pie to it, as the real pie is to the swing
 local sampling = false
 local sampleStart -- the looping sample swing's start, while it shows
 

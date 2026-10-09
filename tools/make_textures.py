@@ -92,6 +92,14 @@ def ring_glow(size, center=0.78, width=0.07):
     return lambda d, *_: math.exp(-(((d - center * r) / (width * r)) ** 2) / 2)
 
 
+def circle_small(size, edge=1.5):
+    """A small disc with a soft edge `edge` px wide, for the settings window's dots and switch knob,
+    drawn at 5-20px. circle_hard's one-pixel edge at 256px turns jagged scaled that far down (the
+    textures have no smaller mip levels to sample)."""
+    r = size / 2 - 1
+    return lambda d, *_: clamp01((r - d) / edge + 0.5)
+
+
 def circle_feather(size, feather=8):
     """A circle whose edge fades out over `feather` px (~3px at the 100px resource size), for soft edges."""
     r = size / 2 - 1
@@ -520,6 +528,7 @@ TEXTURES = {
     "circle_hard": (256, circle_hard(256)),                 # 1
     "circle_soft": (256, circle_soft(256)),                 # 2
     "circle_feather": (256, circle_feather(256)),           # 1, soft-edged: resource fill mask, GCD, Enrage
+    "circle_small": (32, circle_small(32)),                 # settings window: switch, dots, icons (smooth at 5-20px)
     "crescent_line": (256, crescent_line(256)),             # Clearcasting: bright arc inside the top rim
     "crescent_bloom": (256, crescent_bloom(256)),           # Clearcasting: glow and rays under the arc
     "crescent_shadow": (256, crescent_shadow(256)),         # Clearcasting: dark backing under the glow
