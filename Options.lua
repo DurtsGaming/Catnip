@@ -1332,6 +1332,11 @@ ns.commands[""] = function()
     window:SetShown(not window:IsShown())
 end
 
+-- Shows the settings window as last left (the AddOns page in Blizzard's settings uses this).
+function ns.ShowSettings()
+    window:Show()
+end
+
 -- /catnip edit: the settings window and Catnip Edit Mode together.
 ns.commands.edit = function()
     window:Show()

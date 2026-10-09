@@ -46,3 +46,4 @@ Preview.lua
 OptionsArt.lua
 OptionsScroll.lua
 Options.lua
+AddOnsPage.lua
