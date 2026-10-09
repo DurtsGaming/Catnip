@@ -157,7 +157,6 @@ ns.RegisterElement({
     glyph = { kind = "arc", color = { 1, 0.96, 0.78 } },
     hit = { kind = "circle", x = 0, y = SIZE * 0.36, radius = SIZE * 0.14,
         visible = function() return standIn:IsVisible() end },
-    states = { "cat" },
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
     },

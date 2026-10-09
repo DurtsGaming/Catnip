@@ -130,7 +130,6 @@ for _, dot in ipairs(DOTS) do
         glyph = { kind = "ring", color = dot.color },
         order = dot.dot,
         hit = ns.ComboRingHit(dot.dot, function() return standIn:IsVisible() end),
-        states = { "cat", "bear" },
         options = {
             { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
         },

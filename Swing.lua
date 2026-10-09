@@ -135,16 +135,15 @@ ns.RegisterElement({
     desc = "Elapsed / swing length",
     glyph = { kind = "text", color = { 0.95, 0.93, 0.89 } },
     hit = { kind = "text", region = timeText, anchor = info, point = "TOP", chars = 10 }, -- "0.0 / 2.5s"
-    states = { "cat", "bear" }, -- opening its page switches the preview to Cat if needed
     options = ns.TextOptions(14),
     apply = function(get)
         ns.ApplyFont(timeText, get("font"), get("size"), get("outline"))
     end,
-    -- No swing while prowling, or in Caster, which shows a cast in the ring's place; nil puts back
-    -- the real swing, if one is still running.
+    -- No swing while stealthed (the preview's Stealth toggle), or in Caster, which shows a cast in
+    -- the ring's place; nil puts back the real swing, if one is still running.
     sample = function(state)
         sampling = state ~= nil
-        if state == "cat" or state == "bear" then
+        if (state == "cat" or state == "bear") and not ns.IsStealthMode() then
             sampleStart = GetTime()
             ring:SetCooldown(sampleStart, SAMPLE_SWING)
             info:Show()
@@ -205,7 +204,6 @@ ns.RegisterElement({
     glyph = { kind = "ring", color = { 0.91, 0.89, 0.82 } },
     hit = { kind = "ring", inner = RING_INNER, outer = RING_OUTER,
         visible = function() return not ns.IsStealthMode() and not (ns.CastBarShown and ns.CastBarShown()) end },
-    states = { "cat", "bear" },
     options = {
         Percent("barOpacity", "Bar opacity", 100),
         Percent("glowOpacity", "Background opacity", 75),
@@ -230,11 +228,11 @@ ns.RegisterElement({
     id = "swing.maul",
     zone = "swing",
     name = "Maul orb",
+    hidden = true, -- not offered in the settings for now (Elements.lua)
     desc = "Maul queued",
     glyph = { kind = "disc", color = { 0.91, 0.64, 0.23 } },
     hit = { kind = "circle", x = 0, y = MARKER_Y, radius = MARKER_SIZE / 2 + 3,
         visible = function() return marker:IsShown() end },
-    states = { "bear" },
     options = { Percent("opacity", "Opacity", 100) },
     apply = function(get)
         marker:SetAlpha(get("opacity") / 100)

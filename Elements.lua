@@ -4,6 +4,7 @@
 -- ns.RegisterElement{
 --     id = "resource.number", zone = "resource", name = "Resource number",
 --     desc = "Energy, rage or mana", -- a line under its name in the settings list
+--     hidden = true, -- optional: not offered in the settings for now (see Stored below)
 --     glyph = { kind = "text", color = { 1, 1, 1 } }, -- its icon there: disc, ring, arc, dots or text
 --     options = { { key = "size", type = "slider", label = "Size", min = 8, max = 40, step = 1, default = 20 }, ... },
 --     apply = function(get) ... end, -- get(key) is the option's resolved value; called on load and on every change
@@ -51,7 +52,13 @@ function ns.GetElement(id)
     return byId[id]
 end
 
+-- A hidden element (`hidden = true`) keeps its code and options but isn't offered: the settings
+-- window doesn't list it, preview mode doesn't outline it, and it ignores anything saved for it, so
+-- it always uses its defaults. Delete the flag to offer it again.
 local function Stored(id, key)
+    if byId[id] and byId[id].hidden then
+        return nil
+    end
     local saved = ns.db and ns.db.elements and ns.db.elements[id]
     if saved then
         return saved[key]

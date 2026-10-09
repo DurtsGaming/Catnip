@@ -967,7 +967,6 @@ local function ElementControls(element)
                 value = nil
             end
             ns.SetElementOption(id, key, value)
-            ns.Preview.FitStates(option.states) -- e.g. "Mana as" switches the preview to Caster
         end
         if option.type == "slider" then
             Slider(option.label, option.min, option.max, option.step or 1, option.format or "%.0f", Get, Set)
@@ -985,7 +984,6 @@ local function ElementControls(element)
                 Get = function() return ns.ElementStored(id, key) end
                 Set = function(value)
                     ns.SetElementOption(id, key, value)
-                    ns.Preview.FitStates(option.states)
                 end
             end
             Choice(option.label, values, Get, Set, option.fontPreview and function(entry)
@@ -1054,402 +1052,447 @@ EndTab(general)
 -- Rotation tab: the HUD (the Rotation Frame) --------------------------------------------------------
 
 -- Across the top, the HUD's on/off, scale and opacity (shared by every form). Under them two panes:
--- on the left "Preview as", a strip of zones (General, then Elements.lua's ns.ZONES) and the shown
+-- on the left the preview's form buttons, a strip of zones (General, then Elements.lua's ns.ZONES) and the shown
 -- zone's elements; on the right the selected element's page. The element rows are the tabs of a
 -- TabGroup, so each element's page is built like any sub-tab's. (docs/settings-plan.md)
 local rotation = topTabs.Add("Rotation")
-rotation.hasTree = true
+local elementTabs = {} -- element id -> its row (tab); ns.OpenElementSettings reads it
 
--- HUD controls: three rows, the switch (and Edit Mode), then scale and opacity, then position.
-local HUD_INSET = art.EDGE_INSET + PANEL_PAD
-local HUD_ROW = 30 -- the switch's row
-local HUD_GAP = 22 -- between the two sliders of a row
-local hudHeight = 2 * HUD_INSET + HUD_ROW + 2 * (10 + SLIDER_HEIGHT)
+-- The tab is built in a block of its own so its many locals end with it: a Lua function, this
+-- file's main chunk included, can hold at most 200 at once.
+do
+    rotation.hasTree = true
 
-local hudPanel = CreateFrame("Frame", nil, rotation.page)
-hudPanel:SetPoint("TOPLEFT", PAD, -PAD)
-hudPanel:SetPoint("TOPRIGHT", -PAD, -PAD)
-hudPanel:SetHeight(hudHeight)
-art.Panel(hudPanel)
+    -- HUD controls: three rows, the switch (and Edit Mode), then scale and opacity, then position.
+    local HUD_INSET = art.EDGE_INSET + PANEL_PAD
+    local HUD_ROW = 30 -- the switch's row
+    local HUD_GAP = 22 -- between the two sliders of a row
+    local hudHeight = 2 * HUD_INSET + HUD_ROW + 2 * (10 + SLIDER_HEIGHT)
 
-local hudSwitch = Switch(hudPanel, "Rotation Frame", "Shown", "Hidden",
-    function() return ns.db.hudEnabled end, ns.SetHudEnabled)
-hudSwitch:SetPoint("TOPLEFT", HUD_INSET, -HUD_INSET)
+    local hudPanel = CreateFrame("Frame", nil, rotation.page)
+    hudPanel:SetPoint("TOPLEFT", PAD, -PAD)
+    hudPanel:SetPoint("TOPRIGHT", -PAD, -PAD)
+    hudPanel:SetHeight(hudHeight)
+    art.Panel(hudPanel)
 
-local editButton = CreateFrame("Button", nil, hudPanel, "UIPanelButtonTemplate")
-editButton:SetText("Move in Edit Mode")
-editButton:SetSize(editButton:GetFontString():GetStringWidth() + 32, 22)
-editButton:SetPoint("TOPRIGHT", -HUD_INSET, -(HUD_INSET + (HUD_ROW - 22) / 2))
-editButton:SetScript("OnClick", function() ns.OpenEditMode() end)
+    local hudSwitch = Switch(hudPanel, "Rotation Frame", "Shown", "Hidden",
+        function() return ns.db.hudEnabled end, ns.SetHudEnabled)
+    hudSwitch:SetPoint("TOPLEFT", HUD_INSET, -HUD_INSET)
 
-local everyForm = hudPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-everyForm:SetPoint("RIGHT", editButton, "LEFT", -10, 0)
-everyForm:SetText("Every form")
-everyForm:SetTextColor(unpack(MUTED))
+    local editButton = CreateFrame("Button", nil, hudPanel, "UIPanelButtonTemplate")
+    editButton:SetText("Move in Edit Mode")
+    editButton:SetSize(editButton:GetFontString():GetStringWidth() + 32, 22)
+    editButton:SetPoint("TOPRIGHT", -HUD_INSET, -(HUD_INSET + (HUD_ROW - 22) / 2))
+    editButton:SetScript("OnClick", function() ns.OpenEditMode() end)
 
--- Sliders in pairs under the switch, `row` 1 or 2: the left one ending short of the middle, the
--- right one starting past it. Dimmed while the HUD is off, but still usable.
-local hudSliders = {}
-local function HudSlider(row, right, ...)
-    local top = -(HUD_INSET + HUD_ROW + 10 + (row - 1) * (SLIDER_HEIGHT + 10))
-    local slider = SliderWidget(hudPanel, ...)
-    if right then
-        slider:SetPoint("TOPLEFT", hudPanel, "TOP", HUD_GAP / 2, top)
-        slider:SetPoint("TOPRIGHT", -HUD_INSET, top)
-    else
-        slider:SetPoint("TOPLEFT", HUD_INSET, top)
-        slider:SetPoint("TOPRIGHT", hudPanel, "TOP", -HUD_GAP / 2, top)
-    end
-    slider:SetHeight(SLIDER_HEIGHT)
-    hudSliders[#hudSliders + 1] = slider
-end
-refreshers[#refreshers + 1] = function()
-    for _, slider in ipairs(hudSliders) do
-        slider:SetAlpha(ns.db.hudEnabled and 1 or 0.45)
-    end
-end
+    local everyForm = hudPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    everyForm:SetPoint("RIGHT", editButton, "LEFT", -10, 0)
+    everyForm:SetText("Every form")
+    everyForm:SetTextColor(unpack(MUTED))
 
--- Scale and opacity in percent, so the steps are whole numbers. Opacity fades the whole HUD; each
--- element's own opacity multiplies with it.
-HudSlider(1, false, "Scale", ns.MIN_SCALE * 100, ns.MAX_SCALE * 100, ns.SCALE_STEP * 100, "%.0f%%",
-    function() return ns.db.scale * 100 end,
-    function(percent) ns.SetHudScale(percent / 100) end)
-HudSlider(1, true, "Overall opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
-    function() return ns.db.hudAlpha * 100 end,
-    function(percent) ns.SetHudAlpha(percent / 100) end)
--- Position: an offset from the screen centre (0 / 0 is dead centre, range half the screen), or
--- dragged in Edit Mode.
-HudSlider(2, false, "Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
-    function() return ns.db.x end,
-    function(x) ns.SetHudPosition(x, ns.db.y) end)
-HudSlider(2, true, "Vertical position", function() return -HalfHeight() end, HalfHeight, 1, "%.0f",
-    function() return ns.db.y end,
-    function(y) ns.SetHudPosition(ns.db.x, y) end)
-
--- The two panes, under the HUD controls.
-rotation.pageTop = PAD + hudHeight
-local tree = CreateFrame("Frame", nil, rotation.page)
-tree:SetPoint("TOPLEFT", PAD, -(rotation.pageTop + PAD))
-tree:SetWidth(TREE_WIDTH - PAD)
-art.Panel(tree)
-
-local detail = CreateFrame("Frame", nil, rotation.page) -- holds the pages, right of the list
-detail:SetPoint("TOPLEFT", TREE_WIDTH, -rotation.pageTop)
-detail:SetPoint("TOPRIGHT", 0, -rotation.pageTop)
-detail:SetHeight(1)
-
-local TREE_INSET = art.EDGE_INSET + 8 -- inside the panel's painted edge
-local LIST_WIDTH = TREE_WIDTH - PAD - 2 * TREE_INSET
-local treeY = -TREE_INSET
-
--- Top of the list: what the HUD shows while this tab is open (Preview.lua's sample states), as a
--- row of buttons. Step 2 of settings-plan.md turns these into the form tabs.
-local previewAs = Segmented(tree, LIST_WIDTH, ns.Preview.STATES, ns.Preview.GetState, ns.Preview.SetState)
-previewAs:SetPoint("TOPLEFT", TREE_INSET, treeY)
-treeY = treeY - SEGMENT_HEIGHT - 12
-
--- A thin line between the forms (which everything under them follows) and the zones.
-local divider = tree:CreateTexture(nil, "ARTWORK")
-divider:SetColorTexture(unpack(TRACK_EDGE))
-divider:SetSize(LIST_WIDTH, 1)
-divider:SetPoint("TOPLEFT", TREE_INSET, treeY)
-treeY = treeY - 1 - 12
-
--- The zones: General (built here: the text defaults and the HUD's position), then ns.ZONES.
-local generalZone = { id = "general", name = "General", desc = "Defaults every element inherits" }
-local zones = { generalZone }
-for _, zone in ipairs(ns.ZONES) do
-    zones[#zones + 1] = { id = zone.id, name = zone.name, desc = zone.desc, groups = zone.groups }
-end
-
--- The zone strip: a button per zone, its picture over its name. Clicking one opens its first page.
-local ZONE_GAP, ZONE_HEIGHT = 4, 56
-local zoneWidth = (LIST_WIDTH - (#zones - 1) * ZONE_GAP) / #zones
-for i, zone in ipairs(zones) do
-    local button = CreateFrame("Button", nil, tree)
-    button:SetSize(zoneWidth, ZONE_HEIGHT)
-    button:SetPoint("TOPLEFT", TREE_INSET + (i - 1) * (zoneWidth + ZONE_GAP), treeY)
-    local border, fill = unpack(Bevel(button, { { 0, TRACK_EDGE }, { 1, WELL } }))
-    local picture, paint = ZonePicture(button, zone.id)
-    picture:SetPoint("TOP", 0, -4)
-    local label = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    label:SetPoint("BOTTOM", 0, 4)
-    label:SetText(zone.name)
-    function button.SetSelected(selected)
-        button.selected = selected
-        border:SetColorTexture(unpack(selected and GOLD or TRACK_EDGE))
-        fill:SetColorTexture(unpack(selected and SWITCH_ON_FILL or WELL))
-        label:SetTextColor(unpack(selected and GOLD or MUTED))
-        paint(selected)
-    end
-    button:SetScript("OnEnter", function()
-        border:SetColorTexture(unpack(HOVER_BLUE))
-        label:SetTextColor(unpack(WHITE))
-    end)
-    button:SetScript("OnLeave", function() button.SetSelected(button.selected) end)
-    button:SetScript("OnClick", function() rotation.subs.Select(zone.first) end)
-    button.SetSelected(false)
-    zone.button = button
-end
-treeY = treeY - ZONE_HEIGHT - 10
-
--- The shown zone's name and what's in it.
-local zoneTitle = tree:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-zoneTitle:SetPoint("TOPLEFT", TREE_INSET + 2, treeY)
-zoneTitle:SetJustifyH("LEFT")
-treeY = treeY - 17
-local zoneDesc = tree:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-zoneDesc:SetPoint("TOPLEFT", TREE_INSET + 2, treeY)
-zoneDesc:SetWidth(LIST_WIDTH - 2)
-zoneDesc:SetJustifyH("LEFT")
-zoneDesc:SetJustifyV("TOP")
-zoneDesc:SetTextColor(unpack(MUTED))
-treeY = treeY - 26 -- room for two lines
-local listTop = treeY
-
--- Each zone's rows go in a frame of their own (zone.list), shown while the zone is.
-local currentList, listY -- the zone list being filled, and the next row's y on it
-local function ZoneList(zone)
-    local list = CreateFrame("Frame", nil, tree)
-    list:SetPoint("TOPLEFT", TREE_INSET, listTop)
-    list:SetWidth(LIST_WIDTH)
-    list:Hide()
-    zone.list = list
-    currentList, listY = list, 0
-end
-
-local function GroupHeading(text)
-    local heading = currentList:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    heading:SetPoint("TOPLEFT", 4, listY - 6)
-    heading:SetText(string.upper(text))
-    heading:SetTextColor(unpack(MUTED))
-    listY = listY - 22
-end
-
--- A 1px outline round a frame, as four lines so a see-through fill inside stays see-through.
--- Returns a function that colours it.
-local function Outline(frame)
-    local lines = {}
-    for i, ends in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
-        { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
-        local line = frame:CreateTexture(nil, "BORDER")
-        line:SetPoint(ends[1])
-        line:SetPoint(ends[2])
-        if i <= 2 then
-            line:SetHeight(1)
+    -- Sliders in pairs under the switch, `row` 1 or 2: the left one ending short of the middle, the
+    -- right one starting past it. Dimmed while the HUD is off, but still usable.
+    local hudSliders = {}
+    local function HudSlider(row, right, ...)
+        local top = -(HUD_INSET + HUD_ROW + 10 + (row - 1) * (SLIDER_HEIGHT + 10))
+        local slider = SliderWidget(hudPanel, ...)
+        if right then
+            slider:SetPoint("TOPLEFT", hudPanel, "TOP", HUD_GAP / 2, top)
+            slider:SetPoint("TOPRIGHT", -HUD_INSET, top)
         else
-            line:SetWidth(1)
+            slider:SetPoint("TOPLEFT", HUD_INSET, top)
+            slider:SetPoint("TOPRIGHT", hudPanel, "TOP", -HUD_GAP / 2, top)
         end
-        lines[i] = line
+        slider:SetHeight(SLIDER_HEIGHT)
+        hudSliders[#hudSliders + 1] = slider
     end
-    return function(r, g, b, a)
-        for _, line in ipairs(lines) do
-            line:SetColorTexture(r, g, b, a)
+    refreshers[#refreshers + 1] = function()
+        for _, slider in ipairs(hudSliders) do
+            slider:SetAlpha(ns.db.hudEnabled and 1 or 0.45)
         end
     end
-end
 
--- A makeTab for TabGroup: an element's row in the zone list being filled. Describe adds its icon
--- and the line under its name; `dot` marks an element with settings changed. Hovering a row lights
--- its element up on the HUD in preview mode (row.elementId).
-local ROW_TEXT = RGB(232, 225, 212)
-local function ElementRow(_, name)
-    local row = CreateFrame("Button", nil, currentList)
-    row:SetHeight(ELEMENT_ROW)
-    row:SetPoint("TOPLEFT", 0, listY)
-    row:SetPoint("TOPRIGHT", 0, listY)
-    listY = listY - ELEMENT_ROW - 1
-    local fill = row:CreateTexture(nil, "BACKGROUND")
-    fill:SetAllPoints()
-    local outline = Outline(row)
-    local textWidth = LIST_WIDTH - 6 - GLYPH_SIZE - 8 - 18
-    row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    row.text:SetWidth(textWidth)
-    row.text:SetJustifyH("LEFT")
-    row.text:SetWordWrap(false)
-    row.text:SetText(name)
-    row.line = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    row.line:SetWidth(textWidth)
-    row.line:SetJustifyH("LEFT")
-    row.line:SetWordWrap(false)
-    row.line:SetTextColor(unpack(MUTED))
-    row.dot = Shape(row, "circle_hard", 6, "OVERLAY")
-    row.dot:SetPoint("RIGHT", -8, 0)
-    row.dot:SetVertexColor(unpack(ACCENT))
-    row.dot:Hide()
+    -- Scale and opacity in percent, so the steps are whole numbers. Opacity fades the whole HUD; each
+    -- element's own opacity multiplies with it.
+    HudSlider(1, false, "Scale", ns.MIN_SCALE * 100, ns.MAX_SCALE * 100, ns.SCALE_STEP * 100, "%.0f%%",
+        function() return ns.db.scale * 100 end,
+        function(percent) ns.SetHudScale(percent / 100) end)
+    HudSlider(1, true, "Overall opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
+        function() return ns.db.hudAlpha * 100 end,
+        function(percent) ns.SetHudAlpha(percent / 100) end)
+    -- Position: an offset from the screen centre (0 / 0 is dead centre, range half the screen), or
+    -- dragged in Edit Mode.
+    HudSlider(2, false, "Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
+        function() return ns.db.x end,
+        function(x) ns.SetHudPosition(x, ns.db.y) end)
+    HudSlider(2, true, "Vertical position", function() return -HalfHeight() end, HalfHeight, 1, "%.0f",
+        function() return ns.db.y end,
+        function(y) ns.SetHudPosition(ns.db.x, y) end)
 
-    local hovered = false
-    local function Paint()
-        if row.selected then
-            outline(unpack(GOLD))
-            fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.12)
-        elseif hovered then
-            outline(HOVER_BLUE[1], HOVER_BLUE[2], HOVER_BLUE[3], 0.7)
-            fill:SetColorTexture(HOVER_BLUE[1], HOVER_BLUE[2], HOVER_BLUE[3], 0.06)
-        else
-            outline(unpack(CLEAR))
-            fill:SetColorTexture(unpack(CLEAR))
-        end
-        row.text:SetTextColor(unpack(row.selected and WHITE or ROW_TEXT))
+    -- The two panes, under the HUD controls.
+    rotation.pageTop = PAD + hudHeight
+    local tree = CreateFrame("Frame", nil, rotation.page)
+    tree:SetPoint("TOPLEFT", PAD, -(rotation.pageTop + PAD))
+    tree:SetWidth(TREE_WIDTH - PAD)
+    art.Panel(tree)
+
+    local detail = CreateFrame("Frame", nil, rotation.page) -- holds the pages, right of the list
+    detail:SetPoint("TOPLEFT", TREE_WIDTH, -rotation.pageTop)
+    detail:SetPoint("TOPRIGHT", 0, -rotation.pageTop)
+    detail:SetHeight(1)
+
+    local TREE_INSET = art.EDGE_INSET + 8 -- inside the panel's painted edge
+    local LIST_WIDTH = TREE_WIDTH - PAD - 2 * TREE_INSET
+    local treeY = -TREE_INSET
+
+    -- Top of the list: what the HUD shows while this tab is open (Preview.lua's sample states): a
+    -- form, and under it a Stealth toggle laying stealth's look over Cat Form (Prowl) or Caster
+    -- (Shadowmeld). Bear Form can't stealth, so it's dimmed there.
+    local STEALTH_HEIGHT = 22
+    local previewAs = Segmented(tree, LIST_WIDTH, ns.Preview.STATES, ns.Preview.GetState, ns.Preview.SetState)
+    previewAs:SetPoint("TOPLEFT", TREE_INSET, treeY)
+    treeY = treeY - SEGMENT_HEIGHT - 4
+
+    local stealthToggle = CreateFrame("Button", nil, tree)
+    stealthToggle:SetSize(LIST_WIDTH, STEALTH_HEIGHT)
+    stealthToggle:SetPoint("TOPLEFT", TREE_INSET, treeY)
+    local stealthBorder, stealthFill = unpack(Bevel(stealthToggle, { { 0, TRACK_EDGE }, { 1, WELL } }))
+    local stealthText = stealthToggle:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    stealthText:SetPoint("CENTER")
+    local stealthHovered = false
+    local function PaintStealth()
+        local form, can, on = ns.Preview.GetState(), ns.Preview.CanStealth(), ns.Preview.GetStealthed()
+        stealthText:SetText(form == "caster" and "Shadowmeld" or form == "cat" and "Prowl" or "Stealth")
+        stealthToggle:SetAlpha(can and 1 or 0.4)
+        local hover = stealthHovered and can
+        stealthBorder:SetColorTexture(unpack(hover and HOVER_BLUE or on and GOLD or TRACK_EDGE))
+        stealthFill:SetColorTexture(unpack(on and SWITCH_ON_FILL or WELL))
+        stealthText:SetTextColor(unpack(on and GOLD or hover and WHITE or MUTED))
     end
-    function row.SetSelected()
-        Paint() -- TabGroup sets row.selected first
-    end
-    function row.Describe(desc, glyph)
-        local icon = Glyph(row, glyph)
-        icon:SetPoint("LEFT", 6, 0)
-        row.text:SetPoint("TOPLEFT", icon, "TOPRIGHT", 8, 1)
-        row.line:SetPoint("BOTTOMLEFT", icon, "BOTTOMRIGHT", 8, -1)
-        row.line:SetText(desc or "")
-    end
-    row:SetScript("OnEnter", function()
-        hovered = true
-        Paint()
-        ns.Preview.SetListHover(row.elementId)
+    stealthToggle:SetScript("OnEnter", function(self)
+        stealthHovered = true
+        PaintStealth()
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Stealth")
+        GameTooltip:AddLine("Stealth's look over the form: Prowl in Cat Form, Shadowmeld in Caster. Bear Form can't stealth.", 1, 1, 1, true)
+        GameTooltip:Show()
     end)
-    row:SetScript("OnLeave", function()
-        hovered = false
-        Paint()
-        ns.Preview.SetListHover(nil)
+    stealthToggle:SetScript("OnLeave", function()
+        stealthHovered = false
+        PaintStealth()
+        GameTooltip:Hide()
     end)
-    return row
-end
+    stealthToggle:SetScript("OnClick", function()
+        if ns.Preview.CanStealth() then
+            ns.Preview.SetStealthed(not ns.Preview.GetStealthed())
+        end
+    end)
+    refreshers[#refreshers + 1] = PaintStealth
+    treeY = treeY - STEALTH_HEIGHT - 12
 
-rotation.subs = TabGroup(ElementRow, tree, detail, 0)
-local elementTabs = {} -- element id -> its row (tab)
+    -- A thin line between the forms (which everything under them follows) and the zones.
+    local divider = tree:CreateTexture(nil, "ARTWORK")
+    divider:SetColorTexture(unpack(TRACK_EDGE))
+    divider:SetSize(LIST_WIDTH, 1)
+    divider:SetPoint("TOPLEFT", TREE_INSET, treeY)
+    treeY = treeY - 1 - 12
 
--- Adds a row (in `zone`, under the last heading) and starts its page. The row's dot shows while
--- the element has any setting changed.
-local function AddRow(zone, name, desc, glyph, id)
-    local tab = rotation.subs.Add(name)
-    tab.zone, tab.elementId = zone, id
-    tab.Describe(desc, glyph)
-    zone.first = zone.first or tab
-    if id then
-        elementTabs[id] = tab
-        refreshers[#refreshers + 1] = function()
-            tab.dot:SetShown(ns.db.elements[id] ~= nil)
+    -- The zones: General (built here: the text defaults and the HUD's position), then ns.ZONES.
+    local generalZone = { id = "general", name = "General", desc = "Defaults every element inherits" }
+    local zones = { generalZone }
+    for _, zone in ipairs(ns.ZONES) do
+        zones[#zones + 1] = { id = zone.id, name = zone.name, desc = zone.desc, groups = zone.groups }
+    end
+
+    -- The zone strip: a button per zone, its picture over its name. Clicking one opens its first page.
+    local ZONE_GAP, ZONE_HEIGHT = 4, 56
+    local zoneWidth = (LIST_WIDTH - (#zones - 1) * ZONE_GAP) / #zones
+    for i, zone in ipairs(zones) do
+        local button = CreateFrame("Button", nil, tree)
+        button:SetSize(zoneWidth, ZONE_HEIGHT)
+        button:SetPoint("TOPLEFT", TREE_INSET + (i - 1) * (zoneWidth + ZONE_GAP), treeY)
+        local border, fill = unpack(Bevel(button, { { 0, TRACK_EDGE }, { 1, WELL } }))
+        local picture, paint = ZonePicture(button, zone.id)
+        picture:SetPoint("TOP", 0, -4)
+        local label = button:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        label:SetPoint("BOTTOM", 0, 4)
+        label:SetText(zone.name)
+        function button.SetSelected(selected)
+            button.selected = selected
+            border:SetColorTexture(unpack(selected and GOLD or TRACK_EDGE))
+            fill:SetColorTexture(unpack(selected and SWITCH_ON_FILL or WELL))
+            label:SetTextColor(unpack(selected and GOLD or MUTED))
+            paint(selected)
+        end
+        button:SetScript("OnEnter", function()
+            border:SetColorTexture(unpack(HOVER_BLUE))
+            label:SetTextColor(unpack(WHITE))
+        end)
+        button:SetScript("OnLeave", function() button.SetSelected(button.selected) end)
+        button:SetScript("OnClick", function() rotation.subs.Select(zone.first) end)
+        button.SetSelected(false)
+        zone.button = button
+    end
+    treeY = treeY - ZONE_HEIGHT - 10
+
+    -- The shown zone's name and what's in it.
+    local zoneTitle = tree:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    zoneTitle:SetPoint("TOPLEFT", TREE_INSET + 2, treeY)
+    zoneTitle:SetJustifyH("LEFT")
+    treeY = treeY - 17
+    local zoneDesc = tree:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    zoneDesc:SetPoint("TOPLEFT", TREE_INSET + 2, treeY)
+    zoneDesc:SetWidth(LIST_WIDTH - 2)
+    zoneDesc:SetJustifyH("LEFT")
+    zoneDesc:SetJustifyV("TOP")
+    zoneDesc:SetTextColor(unpack(MUTED))
+    treeY = treeY - 26 -- room for two lines
+    local listTop = treeY
+
+    -- Each zone's rows go in a frame of their own (zone.list), shown while the zone is.
+    local currentList, listY -- the zone list being filled, and the next row's y on it
+    local function ZoneList(zone)
+        local list = CreateFrame("Frame", nil, tree)
+        list:SetPoint("TOPLEFT", TREE_INSET, listTop)
+        list:SetWidth(LIST_WIDTH)
+        list:Hide()
+        zone.list = list
+        currentList, listY = list, 0
+    end
+
+    local function GroupHeading(text)
+        local heading = currentList:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        heading:SetPoint("TOPLEFT", 4, listY - 6)
+        heading:SetText(string.upper(text))
+        heading:SetTextColor(unpack(MUTED))
+        listY = listY - 22
+    end
+
+    -- A 1px outline round a frame, as four lines so a see-through fill inside stays see-through.
+    -- Returns a function that colours it.
+    local function Outline(frame)
+        local lines = {}
+        for i, ends in ipairs({ { "TOPLEFT", "TOPRIGHT" }, { "BOTTOMLEFT", "BOTTOMRIGHT" },
+            { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" } }) do
+            local line = frame:CreateTexture(nil, "BORDER")
+            line:SetPoint(ends[1])
+            line:SetPoint(ends[2])
+            if i <= 2 then
+                line:SetHeight(1)
+            else
+                line:SetWidth(1)
+            end
+            lines[i] = line
+        end
+        return function(r, g, b, a)
+            for _, line in ipairs(lines) do
+                line:SetColorTexture(r, g, b, a)
+            end
         end
     end
-    return tab
-end
 
--- An element's page: a panel named after it with its controls, and a reset button.
-local function ElementPage(element, zone)
-    local tab = AddRow(zone, element.name, element.desc, element.glyph, element.id)
-    Section(element.name)
-    ElementControls(element)
-    Button("Reset to defaults", function() ns.ResetElement(element.id) end)
-    EndTab(tab)
-end
+    -- A makeTab for TabGroup: an element's row in the zone list being filled. Describe adds its icon
+    -- and the line under its name; `dot` marks an element with settings changed. Hovering a row lights
+    -- its element up on the HUD in preview mode (row.elementId).
+    local ROW_TEXT = RGB(232, 225, 212)
+    local function ElementRow(_, name)
+        local row = CreateFrame("Button", nil, currentList)
+        row:SetHeight(ELEMENT_ROW)
+        row:SetPoint("TOPLEFT", 0, listY)
+        row:SetPoint("TOPRIGHT", 0, listY)
+        listY = listY - ELEMENT_ROW - 1
+        local fill = row:CreateTexture(nil, "BACKGROUND")
+        fill:SetAllPoints()
+        local outline = Outline(row)
+        local textWidth = LIST_WIDTH - 6 - GLYPH_SIZE - 8 - 18
+        row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        row.text:SetWidth(textWidth)
+        row.text:SetJustifyH("LEFT")
+        row.text:SetWordWrap(false)
+        row.text:SetText(name)
+        row.line = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        row.line:SetWidth(textWidth)
+        row.line:SetJustifyH("LEFT")
+        row.line:SetWordWrap(false)
+        row.line:SetTextColor(unpack(MUTED))
+        row.dot = Shape(row, "circle_hard", 6, "OVERLAY")
+        row.dot:SetPoint("RIGHT", -8, 0)
+        row.dot:SetVertexColor(unpack(ACCENT))
+        row.dot:Hide()
 
--- General: the text defaults other elements inherit. On/off, scale, opacity and position are the
--- HUD controls above; Edit Mode just moves the HUD.
-ZoneList(generalZone)
-local generalElement = ns.GetElement("general")
-local textPage = AddRow(generalZone, generalElement.name, generalElement.desc, generalElement.glyph, "general")
-Section("Text")
-Hint("Fonts and outline for all text, unless an element picks its own.")
-ElementControls(generalElement)
-Button("Reset to defaults", function() ns.ResetElement("general") end)
-EndTab(textPage)
-generalZone.height = -listY
+        local hovered = false
+        local function Paint()
+            if row.selected then
+                outline(unpack(GOLD))
+                fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.12)
+            elseif hovered then
+                outline(HOVER_BLUE[1], HOVER_BLUE[2], HOVER_BLUE[3], 0.7)
+                fill:SetColorTexture(HOVER_BLUE[1], HOVER_BLUE[2], HOVER_BLUE[3], 0.06)
+            else
+                outline(unpack(CLEAR))
+                fill:SetColorTexture(unpack(CLEAR))
+            end
+            row.text:SetTextColor(unpack(row.selected and WHITE or ROW_TEXT))
+        end
+        function row.SetSelected()
+            Paint() -- TabGroup sets row.selected first
+        end
+        function row.Describe(desc, glyph)
+            local icon = Glyph(row, glyph)
+            icon:SetPoint("LEFT", 6, 0)
+            row.text:SetPoint("TOPLEFT", icon, "TOPRIGHT", 8, 1)
+            row.line:SetPoint("BOTTOMLEFT", icon, "BOTTOMRIGHT", 8, -1)
+            row.line:SetText(desc or "")
+        end
+        row:SetScript("OnEnter", function()
+            hovered = true
+            Paint()
+            ns.Preview.SetListHover(row.elementId)
+        end)
+        row:SetScript("OnLeave", function()
+            hovered = false
+            Paint()
+            ns.Preview.SetListHover(nil)
+        end)
+        return row
+    end
 
--- Each zone's elements, group by group under the group's heading, by their `order` (e.g. the combo
--- point they sit on), else as registered.
-for _, zone in ipairs(zones) do
-    if zone.groups then
-        ZoneList(zone)
-        for _, group in ipairs(zone.groups) do
-            local entries = {}
-            for index, element in ipairs(ns.elements) do
-                if element.zone == group.zone then
-                    entries[#entries + 1] = { element = element, key = element.order or 1000 + index }
+    rotation.subs = TabGroup(ElementRow, tree, detail, 0)
+
+    -- Adds a row (in `zone`, under the last heading) and starts its page. The row's dot shows while
+    -- the element has any setting changed.
+    local function AddRow(zone, name, desc, glyph, id)
+        local tab = rotation.subs.Add(name)
+        tab.zone, tab.elementId = zone, id
+        tab.Describe(desc, glyph)
+        zone.first = zone.first or tab
+        if id then
+            elementTabs[id] = tab
+            refreshers[#refreshers + 1] = function()
+                tab.dot:SetShown(ns.db.elements[id] ~= nil)
+            end
+        end
+        return tab
+    end
+
+    -- An element's page: a panel named after it with its controls, and a reset button.
+    local function ElementPage(element, zone)
+        local tab = AddRow(zone, element.name, element.desc, element.glyph, element.id)
+        Section(element.name)
+        ElementControls(element)
+        Button("Reset to defaults", function() ns.ResetElement(element.id) end)
+        EndTab(tab)
+    end
+
+    -- General: the text defaults other elements inherit. On/off, scale, opacity and position are the
+    -- HUD controls above; Edit Mode just moves the HUD.
+    ZoneList(generalZone)
+    local generalElement = ns.GetElement("general")
+    local textPage = AddRow(generalZone, generalElement.name, generalElement.desc, generalElement.glyph, "general")
+    Section("Text")
+    Hint("Fonts and outline for all text, unless an element picks its own.")
+    ElementControls(generalElement)
+    Button("Reset to defaults", function() ns.ResetElement("general") end)
+    EndTab(textPage)
+    ElementPage(ns.GetElement("stealth"), generalZone) -- Stealth opacity (Layout.lua)
+    generalZone.height = -listY
+
+    -- Each zone's elements, group by group under the group's heading, by their `order` (e.g. the combo
+    -- point they sit on), else as registered.
+    for _, zone in ipairs(zones) do
+        if zone.groups then
+            ZoneList(zone)
+            for _, group in ipairs(zone.groups) do
+                local entries = {}
+                for index, element in ipairs(ns.elements) do
+                    if element.zone == group.zone and not element.hidden then
+                        entries[#entries + 1] = { element = element, key = element.order or 1000 + index }
+                    end
+                end
+                table.sort(entries, function(a, b) return a.key < b.key end)
+                if #entries > 0 and group.name then
+                    GroupHeading(group.name)
+                end
+                for _, entry in ipairs(entries) do
+                    ElementPage(entry.element, zone)
                 end
             end
-            table.sort(entries, function(a, b) return a.key < b.key end)
-            if #entries > 0 and group.name then
-                GroupHeading(group.name)
-            end
-            for _, entry in ipairs(entries) do
-                ElementPage(entry.element, zone)
-            end
+            zone.height = -listY
         end
-        zone.height = -listY
     end
-end
 
--- Reset...: under the shown zone's list. It opens a confirmation (over the list) before putting every
--- element and the HUD controls back to their defaults.
-local resetButton = CreateFrame("Button", nil, tree, "UIPanelButtonTemplate")
-resetButton:SetText("Reset...")
-resetButton:SetSize(LIST_WIDTH, 22)
+    -- Reset...: under the shown zone's list. It opens a confirmation (over the list) before putting every
+    -- element and the HUD controls back to their defaults.
+    local resetButton = CreateFrame("Button", nil, tree, "UIPanelButtonTemplate")
+    resetButton:SetText("Reset...")
+    resetButton:SetSize(LIST_WIDTH, 22)
 
-local CONFIRM_INSET = art.EDGE_INSET + 10
-local CONFIRM_WIDTH = LIST_WIDTH + 12
-local confirm = CreateFrame("Frame", nil, tree)
-confirm:SetWidth(CONFIRM_WIDTH)
-confirm:SetFrameLevel(tree:GetFrameLevel() + 50)
-confirm:EnableMouse(true) -- clicks stop here, not on the rows under it
-confirm:SetPoint("BOTTOMLEFT", resetButton, "TOPLEFT", -6, 6)
-art.Panel(confirm)
-confirm:Hide()
-local confirmTitle = confirm:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-confirmTitle:SetPoint("TOPLEFT", CONFIRM_INSET, -CONFIRM_INSET)
-confirmTitle:SetText("Reset Rotation Frame")
-local confirmText = confirm:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-confirmText:SetPoint("TOPLEFT", confirmTitle, "BOTTOMLEFT", 0, -6)
-confirmText:SetWidth(CONFIRM_WIDTH - 2 * CONFIRM_INSET)
-confirmText:SetJustifyH("LEFT")
-confirmText:SetTextColor(unpack(MUTED))
-confirmText:SetText("Every element's settings, Scale, Overall opacity and the Rotation Frame switch go back to their defaults. Position stays.")
-local everything = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
-everything:SetText("Everything back to defaults")
-everything:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
-everything:SetPoint("TOPLEFT", confirmText, "BOTTOMLEFT", 0, -10)
-everything:SetScript("OnClick", function()
+    local CONFIRM_INSET = art.EDGE_INSET + 10
+    local CONFIRM_WIDTH = LIST_WIDTH + 12
+    local confirm = CreateFrame("Frame", nil, tree)
+    confirm:SetWidth(CONFIRM_WIDTH)
+    confirm:SetFrameLevel(tree:GetFrameLevel() + 50)
+    confirm:EnableMouse(true) -- clicks stop here, not on the rows under it
+    confirm:SetPoint("BOTTOMLEFT", resetButton, "TOPLEFT", -6, 6)
+    art.Panel(confirm)
     confirm:Hide()
-    ns.ResetAllElements()
-    ns.ResetHudLook()
-end)
-local cancel = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
-cancel:SetText("Cancel")
-cancel:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
-cancel:SetPoint("TOPLEFT", everything, "BOTTOMLEFT", 0, -4)
-cancel:SetScript("OnClick", function() confirm:Hide() end)
-confirm:SetHeight(2 * CONFIRM_INSET + 14 + 6 + math.max(12, confirmText:GetStringHeight()) + 10 + 22 + 4 + 22)
-resetButton:SetScript("OnClick", function() confirm:SetShown(not confirm:IsShown()) end)
+    local confirmTitle = confirm:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    confirmTitle:SetPoint("TOPLEFT", CONFIRM_INSET, -CONFIRM_INSET)
+    confirmTitle:SetText("Reset Rotation Frame")
+    local confirmText = confirm:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    confirmText:SetPoint("TOPLEFT", confirmTitle, "BOTTOMLEFT", 0, -6)
+    confirmText:SetWidth(CONFIRM_WIDTH - 2 * CONFIRM_INSET)
+    confirmText:SetJustifyH("LEFT")
+    confirmText:SetTextColor(unpack(MUTED))
+    confirmText:SetText("Every element's settings, Scale, Overall opacity and the Rotation Frame switch go back to their defaults. Position stays.")
+    local everything = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
+    everything:SetText("Everything back to defaults")
+    everything:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
+    everything:SetPoint("TOPLEFT", confirmText, "BOTTOMLEFT", 0, -10)
+    everything:SetScript("OnClick", function()
+        confirm:Hide()
+        ns.ResetAllElements()
+        ns.ResetHudLook()
+    end)
+    local cancel = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
+    cancel:SetText("Cancel")
+    cancel:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
+    cancel:SetPoint("TOPLEFT", everything, "BOTTOMLEFT", 0, -4)
+    cancel:SetScript("OnClick", function() confirm:Hide() end)
+    confirm:SetHeight(2 * CONFIRM_INSET + 14 + 6 + math.max(12, confirmText:GetStringHeight()) + 10 + 22 + 4 + 22)
+    resetButton:SetScript("OnClick", function() confirm:SetShown(not confirm:IsShown()) end)
 
--- Shows a zone: its button lit, its name and rows, Reset... under them, and the list's height.
-local shownZone
-local function ShowZone(zone)
-    if zone == shownZone then
-        return
+    -- Shows a zone: its button lit, its name and rows, Reset... under them, and the list's height.
+    local shownZone
+    local function ShowZone(zone)
+        if zone == shownZone then
+            return
+        end
+        shownZone = zone
+        for _, other in ipairs(zones) do
+            other.list:SetShown(other == zone)
+            other.button.SetSelected(other == zone)
+        end
+        zoneTitle:SetText(zone.name)
+        zoneDesc:SetText(zone.desc)
+        zone.list:SetHeight(math.max(1, zone.height))
+        resetButton:ClearAllPoints()
+        resetButton:SetPoint("TOPLEFT", zone.list, "BOTTOMLEFT", 0, -10)
+        confirm:Hide()
+        local treeHeight = -listTop + zone.height + 10 + 22 + TREE_INSET
+        tree:SetHeight(treeHeight)
+        rotation.treeHeight = rotation.pageTop + PAD + treeHeight + PAD
+        UpdateCanvas()
     end
-    shownZone = zone
-    for _, other in ipairs(zones) do
-        other.list:SetShown(other == zone)
-        other.button.SetSelected(other == zone)
+
+    -- The open page's zone shows, and its element is the selected one in preview mode.
+    function rotation.subs.onSelect(tab)
+        ShowZone(tab.zone)
+        ns.Preview.SetSelected(tab.elementId)
     end
-    zoneTitle:SetText(zone.name)
-    zoneDesc:SetText(zone.desc)
-    zone.list:SetHeight(math.max(1, zone.height))
-    resetButton:ClearAllPoints()
-    resetButton:SetPoint("TOPLEFT", zone.list, "BOTTOMLEFT", 0, -10)
-    confirm:Hide()
-    local treeHeight = -listTop + zone.height + 10 + 22 + TREE_INSET
-    tree:SetHeight(treeHeight)
-    rotation.treeHeight = rotation.pageTop + PAD + treeHeight + PAD
-    UpdateCanvas()
-end
 
--- The open page's zone shows, and its element is the selected one in preview mode.
-function rotation.subs.onSelect(tab)
-    ShowZone(tab.zone)
-    ns.Preview.SetSelected(tab.elementId)
+    rotation.subs.Select(textPage)
 end
-
-rotation.subs.Select(textPage)
 
 -- Cooldown tab: Abilities and Layout sub-tabs ----------------------------------------------------
 

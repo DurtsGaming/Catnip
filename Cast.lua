@@ -84,7 +84,6 @@ ns.RegisterElement({
     name = "Cast time",
     desc = "While casting",
     glyph = { kind = "text", color = { 0.95, 0.93, 0.89 } },
-    states = { "caster" }, -- opening its page switches the preview to Caster (casting a spell)
     hit = { kind = "text", region = timeText, anchor = info, point = "TOP", chars = 10 }, -- "0.0 / 2.5s"
     options = ns.TextOptions(14),
     apply = function(get)
@@ -97,7 +96,6 @@ ns.RegisterElement({
     name = "Cast name",
     desc = "The spell, while casting",
     glyph = { kind = "text", color = { 0.95, 0.93, 0.89 } },
-    states = { "caster" },
     -- Under the time text, 2 below its line (its Size setting).
     hit = { kind = "text", region = nameText, anchor = info, point = "TOP", chars = 14,
         y = function() return -(ns.ElementOption("text.castTime", "size") + 2) end },
@@ -321,9 +319,9 @@ events:SetScript("OnEvent", function(_, event)
     end
 end)
 
--- Preview mode's sample (Preview.lua's "Caster" state, which shows a spell being cast): a cast
--- looping on the arcs and text (info's OnUpdate); in other states no cast. nil hands back to the
--- real cast, if any.
+-- Preview mode's sample (Preview.lua's "Caster" state, which shows a spell being cast, unless
+-- stealthed): a cast looping on the arcs and text (info's OnUpdate); in other states no cast. nil
+-- hands back to the real cast, if any.
 local SAMPLE_NAME = "Regrowth"
 
 local function Sample(state)
@@ -333,7 +331,7 @@ local function Sample(state)
         Refresh("preview ended") -- redraws the real state, swing ring alpha included
         return
     end
-    local casting = state == "caster"
+    local casting = state == "caster" and not ns.IsStealthMode() -- a cast would break Shadowmeld
     ring:Hide()
     arcs:SetShown(casting)
     info:SetShown(casting)
@@ -362,7 +360,6 @@ ns.RegisterElement({
     desc = "Gold ring while casting",
     glyph = { kind = "ring", color = { 0.91, 0.72, 0.19 } },
     hit = { kind = "ring", inner = ns.SWING_BAND.inner, outer = ns.SWING_BAND.outer, visible = ns.CastBarShown },
-    states = { "caster" },
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
     },

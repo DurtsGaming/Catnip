@@ -95,7 +95,6 @@ ns.RegisterElement({
     hit = { kind = "ring", inner = ns.ARC_HIT.inner, outer = ns.ARC_HIT.outer, angle = ns.ARC_HIT.angle,
         spread = ns.ARC_HIT.spread,
         visible = function() return arc.frame:IsVisible() or sampleArc.frame:IsVisible() end },
-    states = { "bear" },
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
     },

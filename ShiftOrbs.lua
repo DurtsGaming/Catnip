@@ -164,9 +164,9 @@ local predictCost -- the cast's mana cost while ManaPrediction.lua shows a band,
 -- Settings (the element below) and preview mode's sample state (Preview.lua), nil when live.
 local opacity, showGhost = 1, true
 local sampleState
-local SAMPLE_POWER = { cat = Enum.PowerType.Energy, prowl = Enum.PowerType.Energy,
+local SAMPLE_POWER = { cat = Enum.PowerType.Energy,
     bear = Enum.PowerType.Rage, caster = MANA }
-local SAMPLE_ORBS = { cat = MAX_ORBS, prowl = MAX_ORBS, bear = MAX_ORBS, caster = 0 } -- caster: the ghost
+local SAMPLE_ORBS = { cat = MAX_ORBS, bear = MAX_ORBS, caster = 0 } -- caster: the ghost
 
 -- The art for the current form and stealth state; nil (keep the current art) if the form is secret.
 local function OrbArt()
@@ -413,7 +413,7 @@ ns.RegisterElement({
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
         -- Previewed in Caster, whose sample has no orbs yet.
-        { key = "ghost", type = "checkbox", label = "Almost-ready orb", default = true, states = { "caster" } },
+        { key = "ghost", type = "checkbox", label = "Almost-ready orb", default = true },
     },
     apply = function(get)
         opacity = get("opacity") / 100

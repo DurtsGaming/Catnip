@@ -145,7 +145,6 @@ ns.RegisterElement({
     hit = { kind = "ring", inner = ns.ARC_HIT.inner, outer = ns.ARC_HIT.outer, angle = ns.ARC_HIT.angle,
         spread = ns.ARC_HIT.spread,
         visible = function() return arc.frame:IsVisible() or sampleArc.frame:IsVisible() end },
-    states = { "cat", "prowl" },
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
         { key = "readyPulse", type = "checkbox", label = "Blue pulse in the circle when ready", default = true },
@@ -158,7 +157,7 @@ ns.RegisterElement({
     -- Cat Form (and Prowl, still Cat Form) runs the sample; Bear shows Growl's (GrowlArc.lua).
     sample = function(state)
         liveArcs:SetShown(state == nil)
-        if state == "cat" or state == "prowl" then
+        if state == "cat" then
             StartSample()
         else
             StopSample()

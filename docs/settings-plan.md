@@ -15,38 +15,35 @@ Plan for letting players customize the HUD (opacity per element, text font and s
 | 3c + 4. Combo arc: Combo points (opacity, picked as one), Faerie Fire, Primal Bite, Rake and Rip rings (opacity each; Rake/Rip with their ticks). Real rings move into `ns.comboLive` (hidden in preview); Rake/Rip get stand-ins (same art on a plain Cooldown, looping) and FF/PB looping sample arcs, in `ns.comboSample`. Rake/Rip opacity is a gate frame around the AuraContainer, so no /reload needed | Verified in-game 2026-10-04 (a real Rake ring can't be checked yet: Rake isn't unlocked in the beta) |
 | 3d. Resource circle, the rest (list only unless noted): GCD pie, Five-second ring, Clearcasting (stand-in; picked at the top of the circle), Enrage tint (stand-in), Mana prediction (on/off and opacity; a sample band in Caster) | Verified in-game 2026-10-04 |
 
-## Panel redesign: zones, form profiles, slots (planned 2026-10-08)
+## Panel redesign: zones and slots (2026-10-08)
 
 Workshopped on a design canvas (private: https://claude.ai/artifact/BmLUtK7MF8E66cjaqQkjr3, board "B · Above / Circle / Below + form profiles"). The owner picked it over a HUD-map picker and a refined tree. Replaces the Rotation tab's tree; the element pages and the HUD preview, hover and click (Preview.lua) stay.
 
 ### Layout
 
-- **HUD controls across the top** (every form, never overridden), two rows: a **Rotation Frame** on/off switch (a new control: Blizzard has none) with "Every form" and **Move in Edit Mode**; then **Scale** and **Overall opacity**, then **Horizontal** and **Vertical position**, as sliders in pairs with room for their labels. They all leave the General page.
-- **Stealth opacity** lives under Prowl → General and Shadowmeld → General (owner, 2026-10-08), listed only on those tabs: a share of Overall opacity while stealthed (100% = no change), one value per stealth profile.
-- **Form tabs: All · Cat · Bear · Caster.** The tab is both what you edit and what the HUD previews (owner, 2026-10-08). All forms edits the shared values and previews the last form picked. A dot on a tab means it holds changes.
-- **Stealth sub-tabs** under Cat (**Cat Form | Prowl**) and Caster (**Caster | Shadowmeld**), as their own profiles. Bear shows "Bear Form can't stealth" (unverified: can a night elf Shadowmeld in Bear Form?), All shows "Changes here apply to every form".
-- **Four zones as icons with labels**: General (default text), **Above** (a module slot), **Circle** (headings Fill and Ring), **Below** (headings Arcs and orbs, Text). Each element is a row with a small glyph in its colour, its name and a one-line description, and a dot when it has changes in this tab.
-- **No form gating in settings**: every element is listed and editable in every tab (owner, 2026-10-08). The HUD preview shows the selected element whatever the form, rather than jumping to the form it shows in.
+- **HUD controls across the top**, three rows: a **Rotation Frame** on/off switch (a new control: Blizzard has none) with "Every form" and **Move in Edit Mode**; then **Scale** and **Overall opacity**; then **Horizontal** and **Vertical position**, as sliders in pairs with room for their labels.
+- **Preview buttons: Caster · Bear · Cat** (owner's order) and a full-width **Stealth** toggle under them (reads Prowl or Shadowmeld; dimmed in Bear) at the top of the list: what the HUD previews. Not an editing scope (see "Form profiles: dropped"). **Stealth is a look over the form, not a form** (owner, 2026-10-08): the form decides what shows (its module, its power), stealth only the look (periwinkle fill for energy and mana, smoke, dimmer orbs, Stealth opacity), so Shadowmeld in Caster keeps Caster's module.
+- **Four zones as icons with labels**: General (Text defaults, Stealth opacity), **Above** (a module slot), **Circle** (headings Fill and Ring), **Below** (headings Arcs and orbs, Text). Each icon draws only its zone's part of the HUD (a full mini HUD with the rest dimmed was unreadable at that size, 2026-10-08). Each element is a row with a small glyph in its colour, its name and a one-line description, and a green dot when it has changed settings.
+- **Stealth opacity**: under General, one value: while stealthed (Prowl or Shadowmeld) the HUD's opacity is this share of Overall opacity (100% = no change).
 - **No mini HUD in the window**: the real HUD is the preview.
-- **Each option shows where its value comes from** ("Default", "From All forms", "Bear Form only", "Changed") with a ↺ to drop an override.
-- **Resets**: Reset to defaults on each element page (this tab's values only); **Reset…** pinned under the element list opens a confirmation: **Everything back to defaults** (every form and stealth profile, the HUD controls, modules and rings; not position, which Edit Mode's Reset Position handles) or **Only <tab> changes**.
+- **Fewer options for now** (owner, 2026-10-08): Resource circle, Mana prediction, Five-second ring, GCD pie, Enrage tint and Maul orb are `hidden` (Elements.lua): their code and options stay, but the settings don't offer them and they use their defaults. Delete the flag to bring one back.
+- **Resets**: Reset to defaults on each element page; **Reset...** under the element list opens a confirmation: **Everything back to defaults** (every element, scale, opacity, the switch; not position, which Edit Mode's Reset Position handles) or Cancel.
 
-### Form profiles (storage)
+### Form profiles: dropped (2026-10-08)
 
-Overrides, not copies: `CatnipDB.elements[id]` keeps the shared value; a form or stealth profile stores only what differs. Lookup: stealth profile → its form → All forms → General (for `inherit` options) → default. Profiles: `cat`, `bear`, `caster`, `cat_s` (Prowl), `caster_s` (Shadowmeld). Elements reapply on shapeshift and on stealth changes; our own frames' colour, font and alpha are known to change in combat (the resource fill already recolours per form).
+Built as step 2 (form tabs All / Caster / Bear / Cat with Shadowmeld and Prowl sub-tabs; every option stored for all forms plus per-profile overrides, looked up stealth profile → form → all forms → General → default; source lines and Reset links; the HUD reapplying every element on shapeshift and stealth), then backed out before testing: the owner judged a general inheritance chain too costly for the coming performance pass. It's in `git stash` ("Step 2 form profiles (backed out ...)") if real requests ever call for it. Instead, **a per-form choice is an explicit setting where it's actually needed** (so far: the module above the circle), and everything else is one value for every form.
 
 ### Slots
 
-- **Above is a module slot, locked to each form** (owner, 2026-10-08): each form picks its module (Combo arc, a planned **Cooldown tracker** for other cooldowns, or None); All forms can't. Defaults: Combo arc in Cat and Bear, None in Caster. Prowl and Shadowmeld inherit their form's.
-- **Combo rings are slots**: Ring 1-5 round the combo points, each showing one tracker (Empty, Faerie Fire, Primal Bite, Rake, Rip; Tiger's Fury etc. later as more tracker entries). A tracker brings its own look and timing (colours, segments, ticks); the ring is a position and an opacity. One tracker per ring; picking one that's on another ring swaps them. Defaults match today: FF 1, empty 2, PB 3, Rake 4, Rip 5.
-- **Combat**: AuraContainer frames (Rake, Rip) can't move in combat, so each form's module is its **own set of frames**, built out of combat, and shifting fades one set out and the next in (alpha on our gate frames, as Rake/Rip opacity already works). Costs one Rake and one Rip container per form that shows them. **Needs an in-game test** that gate alpha changes on a shift in combat.
+- **Above is a module slot, chosen per form** (owner, 2026-10-08): a setting with a choice for each form (Combo arc, a planned **Cooldown tracker** for other cooldowns, or None). Defaults: Combo arc in Cat and Bear, None in Caster. Stealth uses its form's.
+- **Combo rings are slots, the same in every form**: Ring 1-5 round the combo points, each showing one tracker (Empty, Faerie Fire, Primal Bite, Rake, Rip; Tiger's Fury etc. later as more tracker entries). A tracker brings its own look and timing (colours, segments, ticks); the ring is a position and an opacity. One tracker per ring; picking one that's on another ring swaps them. Defaults match today: FF 1, empty 2, PB 3, Rake 4, Rip 5. AuraContainer frames (Rake, Rip) can't move in combat, but assignments only change from the settings window, out of combat, so one set of frames does.
 
 ### Order of work
 
-1. Panel layout: HUD controls (with the switch), zone strip, element rows, Reset…; storage unchanged. **Built 2026-10-08, untested in-game.** "Preview as" stays at the top of the list until step 2's form tabs replace it; the HUD controls gained a third row, Horizontal and Vertical position (owner, 2026-10-08), so General has only its Text page; Reset... offers only "Everything back to defaults" until profiles exist.
-2. Form profiles: scoped storage and lookup, form tabs and stealth sub-tabs, value sources and ↺, reapply on shift/stealth, Stealth opacity.
+1. Panel layout: HUD controls (with the switch), preview buttons, zone strip, element rows, Reset.... **Done 2026-10-08** (commit 1b22123; seen in-game: hover, dots, Reset... and scrolling work). Since then: Stealth opacity under General; preview buttons reordered Caster, Bear, Cat, Prowl; the Rotation tab's build wrapped in `do ... end` (Options.lua's main chunk neared Lua's 200-locals limit).
+2. ~~Form profiles~~: dropped, see above.
 3. Combo ring slots: CooldownRings.lua and DotRings.lua become trackers placed on rings.
-4. Above module slot per form, with None; per-form frame sets for the combo arc. The Cooldown tracker module is separate work.
+4. Above module slot: a per-form choice of module, with None. The Cooldown tracker module is separate work.
 
 ## Decisions (owner, 2026-10-04)
 

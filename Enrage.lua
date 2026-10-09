@@ -65,9 +65,9 @@ ns.RegisterElement({
     id = "resource.enrage",
     zone = "resource",
     name = "Enrage tint",
+    hidden = true, -- not offered in the settings for now (Elements.lua)
     desc = "Red wash while Enraged",
     glyph = { kind = "disc", color = { 0.85, 0.20, 0.17 } },
-    states = { "bear" },
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
     },

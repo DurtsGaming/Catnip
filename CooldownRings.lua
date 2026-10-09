@@ -91,7 +91,6 @@ for _, ring in ipairs(RINGS) do
         glyph = { kind = "ring", color = ring.color },
         order = ring.dot,
         hit = ns.ComboRingHit(ring.dot, function() return sampleArc.frame:IsVisible() end),
-        states = { "cat", "bear" },
         options = {
             { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
         },

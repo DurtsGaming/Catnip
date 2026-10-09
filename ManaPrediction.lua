@@ -23,6 +23,10 @@ local MANA = Enum.PowerType.Mana
 local SIZE = ns.RESOURCE_SIZE
 local SMOOTH = Enum.StatusBarInterpolation and Enum.StatusBarInterpolation.ExponentialEaseOut
 local SPEND_COLOR = { 0.45, 0.45, 0.6 } -- tints fill_mana darker, like Blizzard's cost band
+-- Shadowmelded, the mana fill is stealth's periwinkle (Resource.lua), so the bands are too: the
+-- same art, the cost band tinted darker.
+local MANA_FILE, STEALTH_FILE = ns.MEDIA .. "fill_mana", ns.MEDIA .. "fill_energy_prowl"
+local STEALTH_SPEND_COLOR = { 0.5, 0.5, 0.55 }
 local GLOW_FILE = "Interface\\TargetingFrame\\UI-StatusBar-Glow" -- Blizzard's gain glow, drawn additively
 local GLOW_ALPHA = 0.75 -- as Blizzard's
 ns.MANA_SPEND_COLOR = SPEND_COLOR -- for ShiftOrbs.lua
@@ -43,8 +47,21 @@ level:SetOrientation("VERTICAL")
 level:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
 level:SetStatusBarColor(0, 0, 0, 0)
 
+local bands = {} -- every band, with its colours: band.color, band.stealthColor
+
+-- Gives each band the mana art, or stealth's periwinkle while stealthed.
+local function StyleBands()
+    local stealthed = ns.IsStealthMode()
+    for _, band in ipairs(bands) do
+        band.fill:SetTexture(stealthed and STEALTH_FILE or MANA_FILE)
+        local color = stealthed and band.stealthColor or band.color
+        band.fill:SetVertexColor(color[1], color[2], color[3])
+    end
+end
+
 -- With glow, Blizzard's glow texture is added over the band (it stretches over the gap the same way).
-local function CreateBand(color, glow)
+-- stealthColor: its tint over the periwinkle art (default: `color`).
+local function CreateBand(color, glow, stealthColor)
     local band = CreateFrame("Frame", nil, ns.hud)
     band:SetFrameLevel(ns.hud:GetFrameLevel() + 1)
     band:SetClipsChildren(true)
@@ -53,8 +70,6 @@ local function CreateBand(color, glow)
     mask:SetSize(SIZE, SIZE)
     mask:SetPoint("CENTER", ns.hud)
     local fill = band:CreateTexture(nil, "ARTWORK")
-    fill:SetTexture(ns.MEDIA .. "fill_mana")
-    fill:SetVertexColor(color[1], color[2], color[3])
     fill:SetSize(SIZE, SIZE)
     fill:SetPoint("CENTER", ns.hud)
     fill:AddMaskTexture(mask)
@@ -70,11 +85,15 @@ local function CreateBand(color, glow)
         texture:AddMaskTexture(mask)
     end
     band:Hide()
+    band.fill, band.color, band.stealthColor = fill, color, stealthColor or color
+    bands[#bands + 1] = band
+    StyleBands()
     return band
 end
 
-local spendBand = CreateBand(SPEND_COLOR)
+local spendBand = CreateBand(SPEND_COLOR, false, STEALTH_SPEND_COLOR)
 local refundBand = CreateBand({ 1, 1, 1 }, true)
+ns.OnStealthChanged(StyleBands)
 
 -- Anchors the bands to the two fills' top edges (again each cast, in case Resource.lua's
 -- StatusBar handed out a new fill texture). False if the client refused.
@@ -338,7 +357,7 @@ end)
 -- between the lowered sample fill and ns.SAMPLE_MANA (Resource.lua). Plain numbers, so the band
 -- is placed directly rather than anchored to the fills.
 local SAMPLE_COST = 0.15
-local sampleBand = CreateBand(SPEND_COLOR)
+local sampleBand = CreateBand(SPEND_COLOR, false, STEALTH_SPEND_COLOR)
 sampleBand:SetSize(SIZE, SIZE * SAMPLE_COST)
 sampleBand:SetPoint("BOTTOM", ns.hud, "CENTER", 0, SIZE * (ns.SAMPLE_MANA - SAMPLE_COST - 0.5))
 local sampleShown = false
@@ -355,9 +374,9 @@ ns.RegisterElement({
     id = "resource.prediction",
     zone = "resource",
     name = "Mana prediction",
+    hidden = true, -- not offered in the settings for now (Elements.lua)
     desc = "Cost band while casting",
     glyph = { kind = "arc", color = { 0.23, 0.47, 0.88 } },
-    states = { "caster" },
     options = {
         { key = "enabled", type = "checkbox", label = "Show mana cost prediction", default = true },
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },

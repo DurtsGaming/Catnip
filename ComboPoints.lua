@@ -142,7 +142,6 @@ ns.RegisterElement({
     order = 0,
     hit = { kind = "circles", radius = DOT_SIZE / 2 - 2, centres = function() return centres end,
         visible = function() return group:IsVisible() end },
-    states = { "cat", "bear", "prowl" },
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
     },

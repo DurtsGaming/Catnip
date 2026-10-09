@@ -11,6 +11,12 @@ for key, value in pairs(DEFAULTS) do
 end
 
 local hud = ns.hud
+local stealthShare = 1 -- Stealth opacity (below): a share of Overall opacity while stealthed
+
+-- Overall opacity, times Stealth opacity while stealthed (Prowl or Shadowmeld).
+local function HudAlpha()
+    return ns.db.hudAlpha * (ns.IsStealthMode() and stealthShare or 1)
+end
 
 hud:SetMovable(true)
 hud:SetClampedToScreen(true)
@@ -24,7 +30,7 @@ local function ApplyLayout()
     local db = ns.db
     hud:SetShown(db.hudEnabled)
     hud:SetScale(db.scale)
-    hud:SetAlpha(db.hudAlpha) -- every element inherits this, AuraContainers included
+    hud:SetAlpha(HudAlpha()) -- every element inherits this, AuraContainers included
     hud:ClearAllPoints()
     hud:SetPoint("CENTER", UIParent, "CENTER", db.x / db.scale, db.y / db.scale)
 end
@@ -105,3 +111,21 @@ overlay:SetScript("OnDragStop", function()
 end)
 
 ns.OnLoad(ApplyLayout)
+
+-- Stealth opacity: while stealthed (Prowl or Shadowmeld) the HUD's opacity is this share of Overall
+-- opacity. One value for both; listed under General in the settings window.
+ns.RegisterElement({
+    id = "stealth",
+    name = "Stealth opacity",
+    desc = "Share of Overall opacity",
+    glyph = { kind = "disc", color = { 0.56, 0.55, 0.94 } },
+    options = {
+        { key = "opacity", type = "slider", label = "Share of Overall opacity", min = 10, max = 100, step = 5,
+            format = "%.0f%%", default = 100 },
+    },
+    apply = function(get)
+        stealthShare = get("opacity") / 100
+        hud:SetAlpha(HudAlpha())
+    end,
+})
+ns.OnStealthChanged(function() hud:SetAlpha(HudAlpha()) end)

@@ -114,9 +114,9 @@ ns.RegisterElement({
     id = "resource.fsr",
     zone = "resource",
     name = "Five-second ring",
+    hidden = true, -- not offered in the settings for now (Elements.lua)
     desc = "Mana regen clock",
     glyph = { kind = "ring", color = { 0.35, 0.31, 0.78 } },
-    states = { "caster" },
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
     },

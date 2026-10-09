@@ -212,7 +212,8 @@ local function Update()
     local powerType = sample and sample.powerType or UnitPowerType("player")
     local knownType = not ns.IsSecret(powerType)
     local file = knownType and POWER_TEXTURES[powerType]
-    if file and powerType == Enum.PowerType.Energy and ns.IsStealthMode() then
+    -- Stealthed, energy (Prowl) and mana (Shadowmeld in Caster) both turn periwinkle.
+    if file and powerType ~= Enum.PowerType.Rage and ns.IsStealthMode() then
         file = STEALTH_ENERGY_TEXTURE
     end
     if file then
@@ -260,6 +261,7 @@ ns.RegisterElement({
     id = "resource.circle",
     zone = "resource",
     name = "Resource circle",
+    hidden = true, -- not offered in the settings for now (Elements.lua)
     desc = "Fill, backdrop and border",
     glyph = { kind = "disc", color = { 0.96, 0.77, 0.26 } },
     hit = { kind = "circle", radius = SIZE / 2 + 3 },
@@ -286,7 +288,7 @@ ns.RegisterElement({
             sample = { powerType = mana, value = math.floor(max * ns.SAMPLE_MANA), max = max }
         elseif state == "bear" then
             sample = { powerType = Enum.PowerType.Rage, value = 45, max = 100 }
-        elseif state then -- cat, prowl
+        elseif state then -- cat
             sample = { powerType = Enum.PowerType.Energy, value = 70, max = 100 }
         else
             sample = nil
@@ -299,10 +301,8 @@ ns.RegisterElement({
 -- The number's font, size and outline, and how mana shows. A raw mana
 -- value is secret in combat too, but SetText takes it as-is.
 local numberOptions = ns.TextOptions(20)
--- states: changing it switches the preview to a state that shows mana (Preview.lua).
 numberOptions[#numberOptions + 1] = { key = "manaFormat", type = "choice", label = "Mana as", default = "percent",
-    values = { { value = "percent", text = "Percent" }, { value = "value", text = "Value" } },
-    states = { "caster" } }
+    values = { { value = "percent", text = "Percent" }, { value = "value", text = "Value" } } }
 ns.RegisterElement({
     id = "resource.number",
     zone = "resource",
@@ -327,13 +327,15 @@ events:RegisterUnitEvent("UNIT_MAXPOWER", "player")
 events:RegisterUnitEvent("UNIT_DISPLAYPOWER", "player")
 events:SetScript("OnEvent", Update)
 
-local ENERGY_FILES = { [POWER_TEXTURES[Enum.PowerType.Energy]] = true, [STEALTH_ENERGY_TEXTURE] = true }
+-- The fills that crossfade into or out of stealth's periwinkle.
+local STEALTH_FADE_FILES = { [POWER_TEXTURES[Enum.PowerType.Energy]] = true,
+    [POWER_TEXTURES[Enum.PowerType.Mana]] = true, [STEALTH_ENERGY_TEXTURE] = true }
 
 ns.OnStealthChanged(function(stealthed)
     StyleText()
     local before = currentFile
     Update()
-    if before ~= currentFile and ENERGY_FILES[before] then
+    if before ~= currentFile and STEALTH_FADE_FILES[before] then
         FadeFrom(before)
     end
     FadeFillAlpha(stealthed and STEALTH_FILL_ALPHA or 1)

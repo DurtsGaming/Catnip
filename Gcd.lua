@@ -209,6 +209,7 @@ ns.RegisterElement({
     id = "resource.gcd",
     zone = "resource",
     name = "GCD pie",
+    hidden = true, -- not offered in the settings for now (Elements.lua)
     desc = "Shade over the fill",
     glyph = { kind = "disc", color = { 0.43, 0.40, 0.36 } },
     options = {
@@ -220,7 +221,7 @@ ns.RegisterElement({
     sample = function(state)
         sampling = state ~= nil
         if sampling then
-            sampleLength = (state == "cat" or state == "prowl") and 1 or GCD_LENGTH
+            sampleLength = state == "cat" and 1 or GCD_LENGTH
             sampleStart = 0 -- sweep at once
             sampleDriver:Show()
         else
