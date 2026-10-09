@@ -17,7 +17,7 @@
 --     tracked ability is cast out of combat, we look for a buff or debuff of ours that started then
 --     and remember it (CatnipDB.cdBuffs, by ability name).
 --
--- Tracked entries (CatnipDB.cdTracked, in priority order) are spell IDs (numbers) or item entries
+-- Tracked entries (CatnipDB.chars[character].cdTracked, in priority order) are spell IDs (numbers) or item entries
 -- (strings: "potion", "item:<id>"), which CooldownItems.lua handles.
 local addonName, ns = ...
 
@@ -368,7 +368,10 @@ end
 -- centre: middle of the top row, then the rest of it, then the middle of the second row. Sized so
 -- every tracked ability fits at once, so icons don't change size as they come and go.
 local function Arrange()
-    local tracked = ns.db.cdTracked
+    if not (ns.char and ns.char.cdTracked) then
+        return -- before PLAYER_LOGIN (ApplyLayout at load resizes the box)
+    end
+    local tracked = ns.char.cdTracked
     local width, height = widget:GetWidth(), widget:GetHeight()
     local cell, columns = CellSize(math.max(#tracked, 1), width, height)
     local scale = math.max(cell / OUTLINE, 1) / SLOT
@@ -415,10 +418,13 @@ local function Arrange()
 end
 
 local function Update()
+    if not (ns.char and ns.char.cdTracked) then
+        return -- before PLAYER_LOGIN
+    end
     for _, slot in pairs(slots) do
         slot.wanted = false
     end
-    for _, entry in ipairs(ns.db.cdTracked) do
+    for _, entry in ipairs(ns.char.cdTracked) do
         local slot = slots[entry] or CreateSlot(entry)
         slot.wanted = true
         slot.icon:SetTexture(EntryIcon(entry))
@@ -689,7 +695,7 @@ end
 -- different rank of a tracked spell (a newly learned one), switch to it. Also turns form versions
 -- saved before we tracked base spells (Feral Charge (Cat)) into their base, dropping duplicates.
 local function FollowRanks(known)
-    local tracked = ns.db.cdTracked
+    local tracked = ns.char.cdTracked
     for i = #tracked, 1, -1 do
         local base = type(tracked[i]) == "number" and BaseSpell(tracked[i]) or tracked[i]
         if base ~= tracked[i] then
@@ -725,7 +731,7 @@ function Cooldowns.Candidates()
         listed[entry] = true
         list[#list + 1] = { entry = entry, name = EntryName(entry), icon = EntryIcon(entry), tracked = tracked }
     end
-    for _, entry in ipairs(ns.db.cdTracked) do
+    for _, entry in ipairs(ns.char.cdTracked) do
         Add(entry, true)
     end
     local untracked = {}
@@ -745,7 +751,7 @@ function Cooldowns.Candidates()
 end
 
 function Cooldowns.IsTracked(entry)
-    for _, tracked in ipairs(ns.db.cdTracked) do
+    for _, tracked in ipairs(ns.char.cdTracked) do
         if tracked == entry then
             return true
         end
@@ -755,7 +761,7 @@ end
 
 -- Newly tracked entries go last (lowest priority). Untracked items drop off the list entirely.
 function Cooldowns.SetTracked(entry, track)
-    local tracked = ns.db.cdTracked
+    local tracked = ns.char.cdTracked
     for i = #tracked, 1, -1 do
         if tracked[i] == entry then
             table.remove(tracked, i)
@@ -779,7 +785,7 @@ function Cooldowns.AddItem(itemID)
         return
     end
     if not Cooldowns.IsTracked(entry) then
-        ns.db.cdTracked[#ns.db.cdTracked + 1] = entry
+        ns.char.cdTracked[#ns.char.cdTracked + 1] = entry
     end
     RefreshAuraFilters() -- a new special-case potion adds its buff to Potions
     Update()
@@ -788,7 +794,7 @@ end
 
 -- Moves the tracked ability at position `from` to position `to` (1 = highest priority).
 function Cooldowns.Move(from, to)
-    local tracked = ns.db.cdTracked
+    local tracked = ns.char.cdTracked
     if from == to or not tracked[from] then
         return
     end
@@ -814,7 +820,7 @@ events:RegisterEvent("BAG_UPDATE_DELAYED")
 
 -- Is spellID the use effect of a tracked item (or special-case potion)?
 local function IsTrackedItemSpell(spellID)
-    for _, entry in ipairs(ns.db.cdTracked) do
+    for _, entry in ipairs(ns.char.cdTracked) do
         if Items.IsItemEntry(entry) then
             for _, useSpell in ipairs(Items.UseSpells(entry)) do
                 if useSpell == spellID then
@@ -827,6 +833,9 @@ local function IsTrackedItemSpell(spellID)
 end
 
 events:SetScript("OnEvent", function(_, event, _, _, spellID)
+    if not (ns.char and ns.char.cdTracked) then
+        return -- before PLAYER_LOGIN (SPELLS_CHANGED can come first)
+    end
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         if not spellID or ns.IsSecret(spellID) then
             return
@@ -855,9 +864,13 @@ events:SetScript("OnEvent", function(_, event, _, _, spellID)
 end)
 
 ns.OnLoad(function()
-    ns.db.cdTracked = ns.db.cdTracked or {}
     ns.db.cdBuffs = ns.db.cdBuffs or {} -- ability name -> buff spell ID, when they differ
     ns.db.cdFormCooldowns = ns.db.cdFormCooldowns or {} -- base spell ID -> true: has a cooldown in some form
     ApplyLayout()
-    ns.Debug("Cooldowns: tracking", #ns.db.cdTracked, "| countdownForCooldowns CVar:", GetCVar("countdownForCooldowns"))
+end)
+
+ns.OnCharacterLoad(function()
+    ns.char.cdTracked = ns.char.cdTracked or {}
+    ns.Debug("Cooldowns: tracking", #ns.char.cdTracked, "| countdownForCooldowns CVar:", GetCVar("countdownForCooldowns"))
+    RequestUpdate()
 end)

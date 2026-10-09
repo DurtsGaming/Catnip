@@ -9,7 +9,7 @@
 -- them straight to Cooldown:SetCooldown on Forever. Unverified by us, so a secret still falls back.
 -- The shared potion cooldown reports on the potion that was used (and on others you own);
 -- EllesmereUI found that once the last of a kind is drunk it only reports on that item's ID, so we
--- remember the last potion used (CatnipDB.cdLastPotion).
+-- remember the last potion used (per character: CatnipDB.chars[character].cdLastPotion).
 local addonName, ns = ...
 
 local Items = {}
@@ -100,7 +100,7 @@ local function PotionState(previous)
             candidates[#candidates + 1] = itemID
         end
     end
-    Consider(ns.db.cdLastPotion)
+    Consider(ns.char.cdLastPotion)
     for itemID in pairs(potionsInBags) do
         Consider(itemID)
     end
@@ -113,7 +113,7 @@ local function PotionState(previous)
         if not sure then
             unsure = true
         elseif onCooldown then
-            ns.db.cdLastPotion = itemID
+            ns.char.cdLastPotion = itemID
             return true, true, start, duration
         end
     end
@@ -149,7 +149,7 @@ end
 
 function Items.Icon(entry)
     if entry == POTION_ENTRY then
-        local itemID = ns.db.cdLastPotion or next(potionsInBags) or ns.db.cdPotionItems[1]
+        local itemID = ns.char.cdLastPotion or next(potionsInBags) or ns.db.cdPotionItems[1]
         return itemID and ItemIcon(itemID) or POTION_ICON
     end
     return ItemIcon(EntryItem(entry))
@@ -195,7 +195,7 @@ end
 function Items.OnCast(spellID)
     for itemID, useSpell in pairs(potionsInBags) do
         if useSpell == spellID then
-            ns.db.cdLastPotion = itemID
+            ns.char.cdLastPotion = itemID
             return
         end
     end

@@ -173,9 +173,61 @@ ns.commands.art = function()
     ns.Print(string.format("recorded %d textures from %s. /reload to save them to disk.", #lines, name))
 end
 
+-- Per-character settings (CatnipDB.chars[player GUID], as ns.char): what depends on the
+-- character's spells and talents. Everything else in CatnipDB is account-wide. Kept inside CatnipDB
+-- rather than a SavedVariablesPerCharacter, which needs a game restart to start saving.
+-- Keyed by GUID, not name: Forever characters share their first name across the account, so
+-- UnitName("player") gave two characters the same entry (2026-10-08). Set up at PLAYER_LOGIN, when
+-- the GUID is surely known; code that needs ns.char runs in ns.OnCharacterLoad.
+local CHARACTER_KEYS = {
+    "cdTracked", -- Cooldowns.lua: the tracked cooldowns, in priority order
+    "cdLastPotion", -- CooldownItems.lua
+    "lengths", -- SpellTiming.lua: learned cooldown and GCD lengths (talents change them)
+}
+
+local characterCallbacks = {}
+function ns.OnCharacterLoad(callback)
+    characterCallbacks[#characterCallbacks + 1] = callback
+end
+
+local function SetUpCharacter()
+    local db = ns.db
+    db.chars = db.chars or {}
+    for key in pairs(db.chars) do
+        if not key:find("^Player%-") then
+            db.chars[key] = nil -- the shared "Name-Realm" entry from the first try; whose list it holds is unknown
+        end
+    end
+    local firstCharacter = next(db.chars) == nil
+    local key = UnitGUID("player")
+    db.chars[key] = db.chars[key] or {}
+    ns.char = db.chars[key]
+    -- To tell entries apart in the saved file (the name alone is shared by the account's characters).
+    ns.char.name = string.format("%s %s %s (level %d)", UnitName("player"), UnitRace("player") or "?",
+        UnitClass("player") or "?", UnitLevel("player") or 0)
+    -- These were account-wide until 2026-10-08: the first character to log in after that keeps them.
+    for _, name in ipairs(CHARACTER_KEYS) do
+        if db[name] ~= nil then
+            if firstCharacter and ns.char[name] == nil then
+                ns.char[name] = db[name]
+            end
+            db[name] = nil
+        end
+    end
+    ns.Debug("Settings for", ns.char.name, key)
+    for _, callback in ipairs(characterCallbacks) do
+        callback()
+    end
+end
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("ADDON_LOADED")
+frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function(self, event, name)
+    if event == "PLAYER_LOGIN" then
+        SetUpCharacter()
+        return
+    end
     if name ~= addonName then
         return
     end

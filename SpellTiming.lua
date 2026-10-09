@@ -63,21 +63,21 @@ function ns.CooldownState(spellID, previous)
 end
 
 -- Learned lengths ---------------------------------------------------------------------------------
--- CatnipDB.lengths[kind][spell name], in seconds, rounded to the half second (so a 10% shorter GCD
+-- Per character, since talents change them: CatnipDB.chars[character].lengths[kind][spell name], in seconds, rounded to the half second (so a 10% shorter GCD
 -- from Nature's Grace doesn't stick). Kinds: "cooldown" (the spell's own cooldown) and "gcd" (the
 -- GCD it starts, e.g. 1.0s for Rejuvenation with Gift of the Earthmother). By name, since IDs
 -- differ by rank.
 
 -- The learned length, or nil if none yet.
 function ns.LearnedLength(kind, name)
-    local lengths = ns.db and ns.db.lengths
+    local lengths = ns.char and ns.char.lengths
     return lengths and lengths[kind][name]
 end
 
 -- Saves a measured length; returns it rounded.
 function ns.LearnLength(kind, name, seconds)
     local length = math.floor(seconds * 2 + 0.5) / 2
-    local lengths = ns.db and ns.db.lengths
+    local lengths = ns.char and ns.char.lengths
     if lengths and lengths[kind][name] ~= length then
         lengths[kind][name] = length
         ns.Debug("Learned", kind, "length:", name, length, "s")
@@ -93,20 +93,21 @@ local OLD_KEYS = {
     pbLength = "Primal Bite",
 }
 
-ns.OnLoad(function()
+ns.OnCharacterLoad(function()
     local db = ns.db
-    db.lengths = db.lengths or {}
-    db.lengths.cooldown = db.lengths.cooldown or {}
-    db.lengths.gcd = db.lengths.gcd or {}
+    local lengths = ns.char.lengths or {}
+    ns.char.lengths = lengths
+    lengths.cooldown = lengths.cooldown or {}
+    lengths.gcd = lengths.gcd or {}
     for key, name in pairs(OLD_KEYS) do
         if db[key] then
-            db.lengths.cooldown[name] = db.lengths.cooldown[name] or db[key]
+            lengths.cooldown[name] = lengths.cooldown[name] or db[key]
             db[key] = nil
         end
     end
     if db.gcdLengths then
         for name, length in pairs(db.gcdLengths) do
-            db.lengths.gcd[name] = db.lengths.gcd[name] or length
+            lengths.gcd[name] = lengths.gcd[name] or length
         end
         db.gcdLengths = nil
     end
