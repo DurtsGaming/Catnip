@@ -54,9 +54,11 @@ end
 
 -- A hidden element (`hidden = true`) keeps its code and options but isn't offered: the settings
 -- window doesn't list it, preview mode doesn't outline it, and it ignores anything saved for it, so
--- it always uses its defaults. Delete the flag to offer it again.
+-- it always uses its defaults. An option can be hidden the same way (its control isn't shown, its
+-- saved value is ignored). Delete the flag to offer it again.
 local function Stored(id, key)
-    if byId[id] and byId[id].hidden then
+    local element = byId[id]
+    if element and (element.hidden or (FindOption(element, key) or {}).hidden) then
         return nil
     end
     local saved = ns.db and ns.db.elements and ns.db.elements[id]
@@ -185,19 +187,22 @@ function ns.FontObject(font, size)
 end
 
 -- The options every text element shares: font and outline (from General unless set), and size.
+-- Font and outline are hidden for now (owner, 2026-10-09: bloat), so text uses General's defaults.
 function ns.TextOptions(defaultSize)
     return {
-        { key = "font", type = "choice", label = "Font", values = ns.FONTS, inherit = "font", fontPreview = true },
+        { key = "font", type = "choice", label = "Font", values = ns.FONTS, inherit = "font", fontPreview = true,
+            hidden = true },
         { key = "size", type = "slider", label = "Size", min = 6, max = 40, step = 1, format = "%.0f", default = defaultSize },
-        { key = "outline", type = "choice", label = "Outline", values = ns.OUTLINES, inherit = "outline" },
+        { key = "outline", type = "choice", label = "Outline", values = ns.OUTLINES, inherit = "outline", hidden = true },
     }
 end
 
--- General: HUD-wide text defaults (the General zone's Text page). The HUD's on/off, scale and
--- opacity sit above the zones in the settings window, its position on General's Position page.
+-- General: HUD-wide text defaults (the General zone's Text page, hidden with font and outline for
+-- now). The HUD's on/off, scale, opacity and position sit above the zones in the settings window.
 ns.RegisterElement({
     id = "general",
     name = "Text",
+    hidden = true, -- not offered in the settings for now: font and outline are bloat (owner, 2026-10-09)
     desc = "Font and outline defaults",
     glyph = { kind = "text", color = { 0.95, 0.93, 0.89 } },
     options = {

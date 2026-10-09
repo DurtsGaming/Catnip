@@ -140,7 +140,8 @@ else
     SetupCooldownManagerFallback()
 end
 
--- Preview mode's stand-in: the same crescent, shown in Cat Form (where Omen of Clarity procs).
+-- Preview mode's stand-in: the same crescent, shown in every form (Clearcasting can be up in any,
+-- and the real one shows in any; owner, 2026-10-09).
 local standIn = CreateFrame("Frame", nil, sampleGate)
 standIn:SetSize(SIZE, SIZE)
 standIn:SetPoint("CENTER", ns.hud)
@@ -166,6 +167,6 @@ ns.RegisterElement({
     end,
     sample = function(state)
         liveGate:SetShown(state == nil)
-        standIn:SetShown(state == "cat")
+        standIn:SetShown(state ~= nil)
     end,
 })

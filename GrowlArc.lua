@@ -86,28 +86,44 @@ sampleGate:SetAllPoints()
 local sampleArc = ns.CreateSegmentedArc(ArcOptions(sampleGate))
 local StartSample, StopSample = ns.ArcSampler(sampleArc, 8)
 
+-- Registered for its preview sample; its settings are the combined arc's (below).
 ns.RegisterElement({
     id = "under.growl",
     zone = "under",
     name = "Growl arc",
-    desc = "In Shifting Power's spot",
-    glyph = { kind = "arc", color = { 0.82, 0.40, 0.18 } },
-    hit = { kind = "ring", inner = ns.ARC_HIT.inner, outer = ns.ARC_HIT.outer, angle = ns.ARC_HIT.angle,
-        spread = ns.ARC_HIT.spread,
-        visible = function() return arc.frame:IsVisible() or sampleArc.frame:IsVisible() end },
-    options = {
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
-    },
-    apply = function(get) -- the gates' alpha; UpdatePriority only shows and hides `gate`
-        local alpha = get("opacity") / 100
-        gate:SetAlpha(alpha)
-        sampleGate:SetAlpha(alpha)
-    end,
+    hidden = true, -- offered as one setting with the Shifting Power arc: "Arc under the ring" (below)
     sample = function(state)
         if state == "bear" then
             StartSample()
         else
             StopSample()
         end
+    end,
+})
+
+-- The arc under the ring as one setting: Shifting Power's and Growl's arcs share the spot (one shows:
+-- Growl in Bear Form, Shifting Power otherwise), so one opacity covers whichever is drawn, plus
+-- Shifting Power's ready pulse (owner, 2026-10-09). Picked on the HUD by the shared band.
+ns.RegisterElement({
+    id = "under.arc",
+    zone = "under",
+    name = "Arc under the ring",
+    desc = "Shifting Power, or Growl in Bear",
+    glyph = { kind = "arc", color = { 0.42, 0.66, 1 } },
+    hit = { kind = "ring", inner = ns.ARC_HIT.inner, outer = ns.ARC_HIT.outer, angle = ns.ARC_HIT.angle,
+        spread = ns.ARC_HIT.spread,
+        visible = function()
+            return ns.ShiftingPowerArcShown() or arc.frame:IsVisible() or sampleArc.frame:IsVisible()
+        end },
+    options = {
+        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "readyPulse", type = "checkbox", label = "Shifting Power ready pulse",
+            default = true },
+    },
+    apply = function(get) -- the gates' alpha; UpdatePriority only shows and hides `gate`
+        local alpha = get("opacity") / 100
+        gate:SetAlpha(alpha)
+        sampleGate:SetAlpha(alpha)
+        ns.SetShiftingPowerArcOpacity(alpha)
     end,
 })

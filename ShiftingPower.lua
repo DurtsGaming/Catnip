@@ -96,7 +96,7 @@ local function HidePulse()
 end
 
 local function PlayPulse()
-    if not ns.ElementOption("under.sp", "readyPulse") then
+    if not ns.ElementOption("under.arc", "readyPulse") then -- GrowlArc.lua's combined arc element
         return -- turned off in the settings
     end
     pulseOnce:Stop()
@@ -136,28 +136,29 @@ local StartSample, StopSample = ns.ArcSampler(sampleArc, SAMPLE_SECONDS, PlayPul
 -- swing ring ends at 66.5, the shift orbs start at 77.6).
 ns.ARC_HIT = { inner = 67, outer = 76, angle = -math.pi / 2, spread = SPAN + 0.03 }
 
+-- For GrowlArc.lua's combined "Arc under the ring" setting: whether this arc shows (real or
+-- sample), and its opacity (the gates' alpha: nothing else sets it; GrowlArc.lua only shows and
+-- hides them).
+function ns.ShiftingPowerArcShown()
+    return arc.frame:IsVisible() or sampleArc.frame:IsVisible()
+end
+
+function ns.SetShiftingPowerArcOpacity(alpha)
+    arcGate:SetAlpha(alpha)
+    sampleGate:SetAlpha(alpha)
+end
+
+-- Registered for its preview sample; its settings are the combined arc's (GrowlArc.lua).
 ns.RegisterElement({
     id = "under.sp",
     zone = "under",
     name = "Shifting Power arc",
-    desc = "Cooldown and ready pulse",
-    glyph = { kind = "arc", color = { 0.42, 0.66, 1 } },
-    hit = { kind = "ring", inner = ns.ARC_HIT.inner, outer = ns.ARC_HIT.outer, angle = ns.ARC_HIT.angle,
-        spread = ns.ARC_HIT.spread,
-        visible = function() return arc.frame:IsVisible() or sampleArc.frame:IsVisible() end },
-    options = {
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
-        { key = "readyPulse", type = "checkbox", label = "Blue pulse in the circle when ready", default = true },
-    },
-    apply = function(get) -- the gates' alpha: nothing else sets it (GrowlArc.lua only shows and hides them)
-        local alpha = get("opacity") / 100
-        arcGate:SetAlpha(alpha)
-        sampleGate:SetAlpha(alpha)
-    end,
-    -- Cat Form (and Prowl, still Cat Form) runs the sample; Bear shows Growl's (GrowlArc.lua).
+    hidden = true, -- offered as one setting with the Growl arc: "Arc under the ring" (GrowlArc.lua)
+    -- Cat Form and Caster run the sample (Shifting Power shows in both); Bear shows Growl's
+    -- (GrowlArc.lua).
     sample = function(state)
         liveArcs:SetShown(state == nil)
-        if state == "cat" then
+        if state == "cat" or state == "caster" then
             StartSample()
         else
             StopSample()

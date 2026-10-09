@@ -955,40 +955,47 @@ local function ChoiceText(values, value)
     return tostring(value)
 end
 
--- The controls for an element's options (Elements.lua). Values equal to the default are stored as
--- nil, so a later change of default reaches them. An inherited choice gets a first entry "General
--- (<its value>)" that stores nil.
+-- The control for one of an element's options (Elements.lua). Values equal to the default are
+-- stored as nil, so a later change of default reaches them. An inherited choice gets a first entry
+-- "General (<its value>)" that stores nil.
+local function ElementOptionControl(element, option)
+    local id, key = element.id, option.key
+    local function Get() return ns.ElementOption(id, key) end
+    local function Set(value)
+        if value == option.default then
+            value = nil
+        end
+        ns.SetElementOption(id, key, value)
+    end
+    if option.type == "slider" then
+        Slider(option.label, option.min, option.max, option.step or 1, option.format or "%.0f", Get, Set)
+    elseif option.type == "checkbox" then
+        Checkbox(option.label, Get, Set)
+    elseif option.type == "choice" then
+        local values = option.values
+        if option.inherit then
+            values = { { text = function()
+                return "General (" .. ChoiceText(option.values, ns.ElementOption("general", option.inherit)) .. ")"
+            end } }
+            for _, entry in ipairs(option.values) do
+                values[#values + 1] = entry
+            end
+            Get = function() return ns.ElementStored(id, key) end
+            Set = function(value)
+                ns.SetElementOption(id, key, value)
+            end
+        end
+        Choice(option.label, values, Get, Set, option.fontPreview and function(entry)
+            return entry.value or ns.ElementOption(id, key)
+        end)
+    end
+end
+
+-- The controls for an element's options, skipping hidden ones (not offered for now, Elements.lua).
 local function ElementControls(element)
     for _, option in ipairs(element.options or {}) do
-        local id, key = element.id, option.key
-        local function Get() return ns.ElementOption(id, key) end
-        local function Set(value)
-            if value == option.default then
-                value = nil
-            end
-            ns.SetElementOption(id, key, value)
-        end
-        if option.type == "slider" then
-            Slider(option.label, option.min, option.max, option.step or 1, option.format or "%.0f", Get, Set)
-        elseif option.type == "checkbox" then
-            Checkbox(option.label, Get, Set)
-        elseif option.type == "choice" then
-            local values = option.values
-            if option.inherit then
-                values = { { text = function()
-                    return "General (" .. ChoiceText(option.values, ns.ElementOption("general", option.inherit)) .. ")"
-                end } }
-                for _, entry in ipairs(option.values) do
-                    values[#values + 1] = entry
-                end
-                Get = function() return ns.ElementStored(id, key) end
-                Set = function(value)
-                    ns.SetElementOption(id, key, value)
-                end
-            end
-            Choice(option.label, values, Get, Set, option.fontPreview and function(entry)
-                return entry.value or ns.ElementOption(id, key)
-            end)
+        if not option.hidden then
+            ElementOptionControl(element, option)
         end
     end
 end
@@ -1085,10 +1092,49 @@ do
     editButton:SetPoint("TOPRIGHT", -HUD_INSET, -(HUD_INSET + (HUD_ROW - 22) / 2))
     editButton:SetScript("OnClick", function() ns.OpenEditMode() end)
 
-    local everyForm = hudPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    everyForm:SetPoint("RIGHT", editButton, "LEFT", -10, 0)
-    everyForm:SetText("Every form")
-    everyForm:SetTextColor(unpack(MUTED))
+    -- Reset...: beside Edit Mode, with the frame-wide controls. It opens a confirmation (dropping
+    -- down over the panes) before putting every element and the HUD controls, position included,
+    -- back to their defaults.
+    local resetButton = CreateFrame("Button", nil, hudPanel, "UIPanelButtonTemplate")
+    resetButton:SetText("Reset...")
+    resetButton:SetSize(resetButton:GetFontString():GetStringWidth() + 32, 22)
+    resetButton:SetPoint("RIGHT", editButton, "LEFT", -6, 0)
+
+    local CONFIRM_INSET = art.EDGE_INSET + 10
+    local CONFIRM_WIDTH = 236
+    local confirm = CreateFrame("Frame", nil, rotation.page)
+    confirm:SetWidth(CONFIRM_WIDTH)
+    confirm:SetFrameLevel(rotation.page:GetFrameLevel() + 60) -- over the panes
+    confirm:EnableMouse(true) -- clicks stop here, not on what's under it
+    confirm:SetPoint("TOPRIGHT", resetButton, "BOTTOMRIGHT", 0, -6)
+    art.Panel(confirm)
+    confirm:Hide()
+    local confirmTitle = confirm:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    confirmTitle:SetPoint("TOPLEFT", CONFIRM_INSET, -CONFIRM_INSET)
+    confirmTitle:SetText("Reset Rotation Frame")
+    local confirmText = confirm:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    confirmText:SetPoint("TOPLEFT", confirmTitle, "BOTTOMLEFT", 0, -6)
+    confirmText:SetWidth(CONFIRM_WIDTH - 2 * CONFIRM_INSET)
+    confirmText:SetJustifyH("LEFT")
+    confirmText:SetTextColor(unpack(MUTED))
+    confirmText:SetText("Every element's settings, Scale, Overall opacity, position and the Rotation Frame switch go back to their defaults.")
+    local everything = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
+    everything:SetText("Everything back to defaults")
+    everything:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
+    everything:SetPoint("TOPLEFT", confirmText, "BOTTOMLEFT", 0, -10)
+    everything:SetScript("OnClick", function()
+        confirm:Hide()
+        ns.ResetAllElements()
+        ns.ResetHudLook()
+        ns.ResetHudPosition()
+    end)
+    local cancel = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
+    cancel:SetText("Cancel")
+    cancel:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
+    cancel:SetPoint("TOPLEFT", everything, "BOTTOMLEFT", 0, -4)
+    cancel:SetScript("OnClick", function() confirm:Hide() end)
+    confirm:SetHeight(2 * CONFIRM_INSET + 14 + 6 + math.max(12, confirmText:GetStringHeight()) + 10 + 22 + 4 + 22)
+    resetButton:SetScript("OnClick", function() confirm:SetShown(not confirm:IsShown()) end)
 
     -- Sliders in pairs under the switch, `row` 1 or 2: the left one ending short of the middle, the
     -- right one starting past it. Dimmed while the HUD is off, but still usable.
@@ -1384,16 +1430,18 @@ do
         EndTab(tab)
     end
 
-    -- General: the text defaults other elements inherit. On/off, scale, opacity and position are the
-    -- HUD controls above; Edit Mode just moves the HUD.
+    -- General: the text defaults other elements inherit (unless hidden), and Stealth opacity. On/off,
+    -- scale, opacity and position are the HUD controls above; Edit Mode just moves the HUD.
     ZoneList(generalZone)
     local generalElement = ns.GetElement("general")
-    local textPage = AddRow(generalZone, generalElement.name, generalElement.desc, generalElement.glyph, "general")
-    Section("Text")
-    Hint("Fonts and outline for all text, unless an element picks its own.")
-    ElementControls(generalElement)
-    Button("Reset to defaults", function() ns.ResetElement("general") end)
-    EndTab(textPage)
+    if not generalElement.hidden then
+        local textPage = AddRow(generalZone, generalElement.name, generalElement.desc, generalElement.glyph, "general")
+        Section("Text")
+        Hint("Fonts and outline for all text, unless an element picks its own.")
+        ElementControls(generalElement)
+        Button("Reset to defaults", function() ns.ResetElement("general") end)
+        EndTab(textPage)
+    end
     ElementPage(ns.GetElement("stealth"), generalZone) -- Stealth opacity (Layout.lua)
     generalZone.height = -listY
 
@@ -1421,48 +1469,7 @@ do
         end
     end
 
-    -- Reset...: under the shown zone's list. It opens a confirmation (over the list) before putting every
-    -- element and the HUD controls back to their defaults.
-    local resetButton = CreateFrame("Button", nil, tree, "UIPanelButtonTemplate")
-    resetButton:SetText("Reset...")
-    resetButton:SetSize(LIST_WIDTH, 22)
-
-    local CONFIRM_INSET = art.EDGE_INSET + 10
-    local CONFIRM_WIDTH = LIST_WIDTH + 12
-    local confirm = CreateFrame("Frame", nil, tree)
-    confirm:SetWidth(CONFIRM_WIDTH)
-    confirm:SetFrameLevel(tree:GetFrameLevel() + 50)
-    confirm:EnableMouse(true) -- clicks stop here, not on the rows under it
-    confirm:SetPoint("BOTTOMLEFT", resetButton, "TOPLEFT", -6, 6)
-    art.Panel(confirm)
-    confirm:Hide()
-    local confirmTitle = confirm:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    confirmTitle:SetPoint("TOPLEFT", CONFIRM_INSET, -CONFIRM_INSET)
-    confirmTitle:SetText("Reset Rotation Frame")
-    local confirmText = confirm:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    confirmText:SetPoint("TOPLEFT", confirmTitle, "BOTTOMLEFT", 0, -6)
-    confirmText:SetWidth(CONFIRM_WIDTH - 2 * CONFIRM_INSET)
-    confirmText:SetJustifyH("LEFT")
-    confirmText:SetTextColor(unpack(MUTED))
-    confirmText:SetText("Every element's settings, Scale, Overall opacity and the Rotation Frame switch go back to their defaults. Position stays.")
-    local everything = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
-    everything:SetText("Everything back to defaults")
-    everything:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
-    everything:SetPoint("TOPLEFT", confirmText, "BOTTOMLEFT", 0, -10)
-    everything:SetScript("OnClick", function()
-        confirm:Hide()
-        ns.ResetAllElements()
-        ns.ResetHudLook()
-    end)
-    local cancel = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
-    cancel:SetText("Cancel")
-    cancel:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
-    cancel:SetPoint("TOPLEFT", everything, "BOTTOMLEFT", 0, -4)
-    cancel:SetScript("OnClick", function() confirm:Hide() end)
-    confirm:SetHeight(2 * CONFIRM_INSET + 14 + 6 + math.max(12, confirmText:GetStringHeight()) + 10 + 22 + 4 + 22)
-    resetButton:SetScript("OnClick", function() confirm:SetShown(not confirm:IsShown()) end)
-
-    -- Shows a zone: its button lit, its name and rows, Reset... under them, and the list's height.
+    -- Shows a zone: its button lit, its name and rows, and the list's height.
     local shownZone
     local function ShowZone(zone)
         if zone == shownZone then
@@ -1476,10 +1483,8 @@ do
         zoneTitle:SetText(zone.name)
         zoneDesc:SetText(zone.desc)
         zone.list:SetHeight(math.max(1, zone.height))
-        resetButton:ClearAllPoints()
-        resetButton:SetPoint("TOPLEFT", zone.list, "BOTTOMLEFT", 0, -10)
         confirm:Hide()
-        local treeHeight = -listTop + zone.height + 10 + 22 + TREE_INSET
+        local treeHeight = -listTop + zone.height + TREE_INSET
         tree:SetHeight(treeHeight)
         rotation.treeHeight = rotation.pageTop + PAD + treeHeight + PAD
         UpdateCanvas()
@@ -1491,7 +1496,7 @@ do
         ns.Preview.SetSelected(tab.elementId)
     end
 
-    rotation.subs.Select(textPage)
+    rotation.subs.Select(generalZone.first)
 end
 
 -- Cooldown tab: Abilities and Layout sub-tabs ----------------------------------------------------

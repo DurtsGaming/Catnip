@@ -66,12 +66,16 @@ driver:SetScript("OnUpdate", function(_, elapsed)
     end
 end)
 
--- Settings (Elements.lua): the smoke's opacity, as a share of each layer's own alpha (in its vertex
--- colour; the textures' alpha is the fade-in above). Pickable while stealth mode shows (Prowl).
+-- Settings (Elements.lua): the smoke's opacity is the main cloud layer's (smoke_a's) real alpha, so
+-- the slider reads what's drawn, from invisible to fully opaque, and defaults to its design value;
+-- the other layers keep their proportion to it, capped at fully opaque (owner, 2026-10-09). In the
+-- vertex colour: the textures' alpha is the fade-in above. Pickable while stealth mode shows.
+local MAIN_ALPHA = LAYERS[2][3]
 local function ApplyOpacity(opacity)
+    local scale = opacity / MAIN_ALPHA
     for i, layer in ipairs(layers) do
         local colour, alpha = LAYERS[i][2], LAYERS[i][3]
-        layer.texture:SetVertexColor(colour[1] / 255, colour[2] / 255, colour[3] / 255, alpha * opacity)
+        layer.texture:SetVertexColor(colour[1] / 255, colour[2] / 255, colour[3] / 255, math.min(1, alpha * scale))
     end
 end
 
@@ -84,7 +88,8 @@ ns.RegisterElement({
     -- The smoke's visible band: from the gap outside the resource border to where it fades out.
     hit = { kind = "ring", inner = 54, outer = 69, visible = ns.IsStealthMode },
     options = {
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%",
+            default = math.floor(MAIN_ALPHA * 100 + 0.5) },
     },
     apply = function(get)
         ApplyOpacity(get("opacity") / 100)
