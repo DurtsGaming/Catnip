@@ -95,8 +95,10 @@ local function HidePulse()
     pulse:Hide()
 end
 
+local arcEnabled = true -- the Cooldown Arc setting's Shifting Power switch (GrowlArc.lua)
+
 local function PlayPulse()
-    if not ns.ElementOption("under.arc", "readyPulse") then -- GrowlArc.lua's combined arc element
+    if not arcEnabled or not ns.ElementOption("under.arc", "readyPulse") then -- GrowlArc.lua's setting
         return -- turned off in the settings
     end
     pulseOnce:Stop()
@@ -146,6 +148,16 @@ end
 function ns.SetShiftingPowerArcOpacity(alpha)
     arcGate:SetAlpha(alpha)
     sampleGate:SetAlpha(alpha)
+end
+
+-- The setting's Shifting Power switch: off, the sample arc and the ready pulse don't show (the real
+-- arc's gate is GrowlArc.lua's to show or hide). Its clock keeps running either way.
+function ns.SetShiftingPowerArcEnabled(on)
+    arcEnabled = on and true or false
+    sampleGate:SetShown(arcEnabled)
+    if not arcEnabled then
+        HidePulse()
+    end
 end
 
 -- Registered for its preview sample; its settings are the combined arc's (GrowlArc.lua).

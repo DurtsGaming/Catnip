@@ -41,10 +41,16 @@ local arc = ns.CreateSegmentedArc(ArcOptions(gate))
 
 local spArc, spGate = ns.shiftingPowerArc, ns.shiftingPowerArcGate
 
+-- The Cooldown Arc setting's switches (below): an arc switched off never shows, so the other has the
+-- spot in every form; its clock keeps running, so it shows at the right point if switched back on.
+local spEnabled, growlEnabled = true, true
+
 local function UpdatePriority()
     local growlFirst = UnitPowerType("player") == Enum.PowerType.Rage -- Bear Form
-    local hideSp = growlFirst and arc.frame:IsShown()
-    local hideGrowl = not growlFirst and spArc.frame:IsShown()
+    local spOn = spEnabled and spArc.frame:IsShown()
+    local growlOn = growlEnabled and arc.frame:IsShown()
+    local hideSp = not spEnabled or (growlFirst and growlOn)
+    local hideGrowl = not growlEnabled or (not growlFirst and spOn)
     -- Animations pause under a hidden parent, so a fade there would never finish and the arc would
     -- stay "shown": a loser mid-fade just ends (its Hide calls back here to set the gates).
     if hideSp and spArc.IsFading() then
@@ -116,6 +122,8 @@ ns.RegisterElement({
             return ns.ShiftingPowerArcShown() or arc.frame:IsVisible() or sampleArc.frame:IsVisible()
         end },
     options = {
+        { key = "shiftingPower", type = "checkbox", label = "Shifting Power", default = true },
+        { key = "growl", type = "checkbox", label = "Growl", default = true },
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
         { key = "readyPulse", type = "checkbox", label = "Shifting Power ready pulse",
             default = true },
@@ -125,5 +133,9 @@ ns.RegisterElement({
         gate:SetAlpha(alpha)
         sampleGate:SetAlpha(alpha)
         ns.SetShiftingPowerArcOpacity(alpha)
+        spEnabled, growlEnabled = get("shiftingPower") and true or false, get("growl") and true or false
+        ns.SetShiftingPowerArcEnabled(spEnabled)
+        sampleGate:SetShown(growlEnabled)
+        UpdatePriority()
     end,
 })

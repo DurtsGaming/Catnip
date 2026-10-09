@@ -26,11 +26,13 @@
 -- The design's 0.1s fade when the count changes isn't done: in combat we can't tell the count
 -- changed, so the rows just swap. (Out of combat it could be; not worth it while undecided.)
 --
--- Almost there: with no orbs, while mana is regenerating (outside the five-second rule) and the
--- first orb is at least NEAR of the way paid for, a ghost orb shows where it will appear: grey,
--- with the bottom half in the orb's colour (HALF_FILL). Only for the first orb: never 1.5 orbs.
--- Its curve is 1 between NEAR and one shift's worth, so it never overlaps a plain row; inside the
--- rule it's hidden (plain Lua, so this works in combat too).
+-- Almost there: with fewer than five orbs, while mana is regenerating (outside the five-second rule)
+-- and the next orb is at least NEAR of the way paid for, a ghost orb shows on the right of the row,
+-- where the next one will appear: fully grey (owner, 2026-10-09; was only for the first orb, grey
+-- with a coloured bottom half). Each count has an "almost" row (its orbs and the ghost, laid out
+-- as one more) whose curve is 1 from NEAR up to the next shift's worth; while ghosts can show, the
+-- plain rows' curves stop at NEAR, so the two never overlap. Inside the rule, or with the setting
+-- off, the plain rows' full curves are used and no ghost shows (plain Lua, so this works in combat).
 --
 -- Mana prediction (ManaPrediction.lua, via ns.onManaPrediction): while a cast would cost orbs,
 -- those orbs take the resource circle's dark spend colour. If the cast is cancelled the dim fades
@@ -48,8 +50,7 @@ local SPACING = ORB_SIZE * 1.25 -- centre to centre, along the chord
 local RADIUS = 89 -- inner edge ~77.6, ~3.4 outside the Shifting Power arc (make_textures.py SP_RADIUS)
 local STEP = 2 * math.asin(SPACING / 2 / RADIUS) -- angle between neighbouring orbs (~18.4 degrees)
 local STEALTH_ALPHA = 0.6 -- 30% was too much
-local NEAR = 0.8 -- the ghost orb shows once the first orb is this far paid for (owner's eyeball)
-local HALF_FILL = true -- ghost orb: false = plain grey; true = grey with a coloured bottom half
+local NEAR = 0.8 -- a ghost orb shows once the next orb is this far paid for (owner's eyeball)
 local GHOST_GREY = 0.55 -- the ghost's desaturated art is darkened to this
 local MANA = Enum.PowerType.Mana
 local SHIFT_SPELLS = { "Cat Form", "Dire Bear Form", "Bear Form" } -- all cost the same
@@ -75,10 +76,10 @@ holder:SetPoint("CENTER", hud, "CENTER")
 holder:SetFrameLevel(hud:GetFrameLevel() + 2)
 holder:Hide()
 
--- rows[n]: n orbs, centred on 6 o'clock. orbs: every coloured orb texture, for swapping the art.
--- ghostRow: the lone ghost orb, where the first orb appears. predictions: every orb's mana
--- prediction overlay ({ frame, index, dim }), in every row.
-local rows, orbs, predictions = {}, {}, {}
+-- rows[n]: n orbs, centred on 6 o'clock. almostRows[n] (n = 0 to 4): n orbs and the ghost of the
+-- next on their right, laid out as n + 1. orbs and ghosts: every orb texture, for swapping the art.
+-- predictions: every full orb's mana prediction overlay ({ frame, index, dim }), in every row.
+local rows, almostRows, orbs, ghosts, predictions = {}, {}, {}, {}, {}
 local currentArt = MANA_ART
 
 local function CreateBorder(parent, orb) -- same black rim as the combo points
@@ -139,22 +140,25 @@ for n = 1, MAX_ORBS do
     rows[n] = row
 end
 
-local ghostRow = CreateRow()
-local ghost = CreateOrb(ghostRow, 0, -RADIUS) -- grey: desaturated and darkened
-ghost:SetDesaturated(true)
-ghost:SetVertexColor(GHOST_GREY, GHOST_GREY, GHOST_GREY)
-local half -- the ghost's coloured bottom half (HALF_FILL)
-if HALF_FILL then
-    half = ghostRow:CreateTexture(nil, "ARTWORK", nil, 1)
-    half:SetTexture(ns.MEDIA .. currentArt)
-    half:SetSize(ORB_SIZE, ORB_SIZE / 2)
-    half:SetPoint("BOTTOM", ghost)
-    half:SetTexCoord(0, 1, 0.5, 1)
+for n = 0, MAX_ORBS - 1 do
+    local row = CreateRow()
+    for i = 1, n do
+        local x, y = OrbOffset(i, n + 1)
+        orbs[#orbs + 1] = CreateOrb(row, x, y, i)
+    end
+    local x, y = OrbOffset(n + 1, n + 1) -- the rightmost spot
+    local ghost = CreateOrb(row, x, y) -- grey: desaturated and darkened
+    ghost:SetDesaturated(true)
+    ghost:SetVertexColor(GHOST_GREY, GHOST_GREY, GHOST_GREY)
+    ghosts[#ghosts + 1] = ghost
+    almostRows[n] = row
 end
 
 local cost, maxMana -- mana per shift and max mana, as last read out of combat; cost nil = unknown
-local curves = {} -- curves[n]: 1 while mana is between n and n+1 shifts' worth, as a fraction of max
-local ghostCurve -- 1 between NEAR and one shift's worth
+-- Curves, as fractions of max mana: fullCurves[n] 1 from n to n+1 shifts' worth (no top for five),
+-- shortCurves[n] the same but stopping at n + NEAR (so the almost row can take over), and
+-- almostCurves[n] 1 from n + NEAR to n + 1.
+local fullCurves, shortCurves, almostCurves = {}, {}, {}
 local affordCurve -- 1 from one shift's worth of mana up: gates ShiftingPower.lua's ready pulse
 local hasShiftingPower = false
 local inCombat = false -- from PLAYER_REGEN_DISABLED / _ENABLED
@@ -166,7 +170,8 @@ local opacity, showGhost = 1, true
 local sampleState
 local SAMPLE_POWER = { cat = Enum.PowerType.Energy,
     bear = Enum.PowerType.Rage, caster = MANA }
-local SAMPLE_ORBS = { cat = MAX_ORBS, bear = MAX_ORBS, caster = 0 } -- caster: the ghost
+-- The sample: five orbs in every form, the rightmost grey (four and the fifth almost ready) while
+-- the Almost-ready orb setting is on (owner, 2026-10-09).
 
 -- The art for the current form and stealth state; nil (keep the current art) if the form is secret.
 local function OrbArt()
@@ -193,10 +198,8 @@ local function UpdateArt()
     for _, orb in ipairs(orbs) do
         orb:SetTexture(ns.MEDIA .. art)
     end
-    ghost:SetTexture(ns.MEDIA .. art)
-    if half then
-        half:SetTexture(ns.MEDIA .. art)
-        half:SetTexCoord(0, 1, 0.5, 1) -- in case SetTexture reset it
+    for _, ghost in ipairs(ghosts) do
+        ghost:SetTexture(ns.MEDIA .. art)
     end
 end
 
@@ -256,9 +259,12 @@ local function Rebuild()
         return curve
     end
     for n = 1, MAX_ORBS do
-        curves[n] = Band(n, n < MAX_ORBS and n + 1 or nil)
+        fullCurves[n] = Band(n, n < MAX_ORBS and n + 1 or nil)
+        shortCurves[n] = n < MAX_ORBS and Band(n, n + NEAR) or fullCurves[n]
     end
-    ghostCurve = Band(NEAR, 1)
+    for n = 0, MAX_ORBS - 1 do
+        almostCurves[n] = Band(n + NEAR, n + 1)
+    end
     affordCurve = C_CurveUtil.CreateCurve()
     affordCurve:SetType(Enum.LuaCurveType.Step)
     affordCurve:AddPoint(0, 0)
@@ -324,14 +330,15 @@ local function ShowSample()
     end
     holder:Show()
     UpdateArt()
-    local count = SAMPLE_ORBS[sampleState]
     for n, row in ipairs(rows) do
-        row:SetAlpha(n == count and 1 or 0)
+        row:SetAlpha((not showGhost and n == MAX_ORBS) and 1 or 0)
+    end
+    for n = 0, MAX_ORBS - 1 do
+        almostRows[n]:SetAlpha((showGhost and n == MAX_ORBS - 1) and 1 or 0)
     end
     for _, p in ipairs(predictions) do
         p.frame:SetAlpha(0)
     end
-    ghostRow:SetAlpha((count == 0 and showGhost) and 1 or 0)
 end
 
 local function Update()
@@ -346,17 +353,22 @@ local function Update()
         return
     end
     UpdateArt()
+    -- Ghosts only while regenerating, and if turned on; then the plain rows stop at NEAR and the
+    -- almost rows take over. (Curve results may be secret, so no `and`/`or` on them: that would
+    -- test them.)
+    local almost = showGhost and not ns.InFiveSecondRule()
+    local plainCurves = almost and shortCurves or fullCurves
     for n, row in ipairs(rows) do
-        row:SetAlpha(UnitPowerPercent("player", MANA, false, curves[n]))
+        row:SetAlpha(UnitPowerPercent("player", MANA, false, plainCurves[n]))
+    end
+    for n = 0, MAX_ORBS - 1 do
+        if almost then
+            almostRows[n]:SetAlpha(UnitPowerPercent("player", MANA, false, almostCurves[n]))
+        else
+            almostRows[n]:SetAlpha(0)
+        end
     end
     UpdatePrediction()
-    -- The ghost only while regenerating, and if it's turned on. (The curve result may be secret, so
-    -- no `and`/`or` on it: that would test it.)
-    if ns.InFiveSecondRule() or not showGhost then
-        ghostRow:SetAlpha(0)
-    else
-        ghostRow:SetAlpha(UnitPowerPercent("player", MANA, false, ghostCurve))
-    end
 end
 
 local function RebuildAndUpdate()
@@ -388,13 +400,10 @@ ns.OnStealthChanged(function()
     Update()
 end)
 
--- Settings (Elements.lua). The hit is the orbs themselves, picked as one: the sample's row (or
--- the ghost, where the first orb goes), else all five spots (the real count is secret in combat).
+-- Settings (Elements.lua). The hit is the orbs themselves, picked as one: all five spots (the
+-- sample's five, and the real count is secret in combat).
 local function OrbCentres()
-    local count = sampleState and SAMPLE_ORBS[sampleState] or MAX_ORBS
-    if count == 0 then
-        return { { 0, -RADIUS } }
-    end
+    local count = MAX_ORBS
     local centres = {}
     for i = 1, count do
         centres[i] = { OrbOffset(i, count) }
@@ -411,7 +420,7 @@ ns.RegisterElement({
         visible = function() return holder:IsVisible() end },
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
-        -- Previewed in Caster, whose sample has no orbs yet.
+        -- Previewed in every form: the fifth orb grey.
         { key = "ghost", type = "checkbox", label = "Almost-ready orb", default = true },
     },
     apply = function(get)
