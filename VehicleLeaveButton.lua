@@ -4,6 +4,7 @@
 -- calling its Update() by hand showed it). So while on a taxi, we call Update() for it.
 -- Only for routes with a connection to get off at: on a direct flight the button stays hidden.
 local addonName, ns = ...
+local CreateFrame, C_Timer = ns.Profiled("VehicleLeaveButton") -- timed by /catnip perf (Profiler.lua)
 
 local ticker
 local multiHop = false -- the flight we're taking (or about to) stops at a connection

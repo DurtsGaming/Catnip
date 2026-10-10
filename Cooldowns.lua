@@ -20,6 +20,7 @@
 -- Tracked entries (CatnipDB.chars[character].cdTracked, in priority order) are spell IDs (numbers) or item entries
 -- (strings: "potion", "item:<id>"), which CooldownItems.lua handles.
 local addonName, ns = ...
+local CreateFrame, C_Timer = ns.Profiled("Cooldowns") -- timed by /catnip perf (Profiler.lua)
 
 local SLOT = 64 -- icons are built at this size, then scaled to fit the box
 local OUTLINE = 1.12 -- dashed border size relative to the icon (the dashes sit just outside it); each icon's cell fits the border

@@ -3,6 +3,7 @@
 -- unfilled part shows it. It's an AuraContainer (see AuraContainer.lua): Blizzard shows the disc
 -- while Enrage is up, even in combat when the buff is secret to us.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("Enrage") -- timed by /catnip perf (Profiler.lua)
 
 local ENRAGE = 5229 -- the buff's aura ID (verified in Forever)
 local SIZE = ns.RESOURCE_SIZE

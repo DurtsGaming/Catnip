@@ -8,6 +8,7 @@
 -- cost turns 0. A proc while Clearcasting is already up (a refresh) leaves the cost at 0 and isn't
 -- seen.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("OmenRing") -- timed by /catnip perf (Profiler.lua)
 
 local ICD = 10 -- seconds
 local SEGMENTS = 5 -- 2s each; ring_omen_angular has them drawn in (make_textures.py)

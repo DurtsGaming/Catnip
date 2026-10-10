@@ -5,6 +5,7 @@
 -- After setup the buttons are forbidden objects to addon code, so never query them later.
 -- Technique from the Blood in the Water addon; see docs/api-research.md.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("AuraContainer") -- timed by /catnip perf (Profiler.lua)
 
 ns.HAS_AURA_CONTAINER = C_XMLUtil and C_XMLUtil.GetTemplateInfo
     and C_XMLUtil.GetTemplateInfo("CustomAuraContainerTemplate") and true or false

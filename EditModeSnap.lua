@@ -5,6 +5,7 @@
 -- Edit Mode frame jumps to it. Corners line up with that neighbour too. It only reads Blizzard's
 -- frames and never calls Edit Mode's code, so nothing of Blizzard's is tainted.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("EditModeSnap") -- timed by /catnip perf (Profiler.lua)
 
 local RANGE = 8 -- pixels; Blizzard's magnetismRange
 

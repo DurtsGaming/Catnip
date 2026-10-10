@@ -13,6 +13,7 @@
 -- rotated half-ring arcs instead (FiveSecondRule.lua's technique). That needs the cast's progress
 -- as a number; if it's secret, the cast falls back to the swipe, filling clockwise.
 local addonName, ns = ...
+local CreateFrame, C_Timer = ns.Profiled("Cast") -- timed by /catnip perf (Profiler.lua)
 
 local SIZE = ns.SWING_RING_SIZE
 local TEXT_OFFSET = ns.TIME_TEXT_OFFSET -- shared with Swing.lua's text, which hides while casting

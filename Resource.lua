@@ -1,5 +1,6 @@
 -- The big middle circle: energy / rage / mana, filling from the bottom, with the raw value in the middle.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("Resource") -- timed by /catnip perf (Profiler.lua)
 
 local SIZE = ns.RESOURCE_SIZE
 -- Fill textures carry their own colour (the Forever energy bar's gradient; see make_textures.py), so

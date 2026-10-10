@@ -21,6 +21,7 @@
 -- It's pickable only while the text is shown. Texts are checked first, then circles from the
 -- smallest, so the smaller thing on top wins.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("Preview") -- timed by /catnip perf (Profiler.lua)
 
 local hud = ns.hud
 local BLUE = { 0.25, 0.65, 1 }

@@ -5,6 +5,7 @@
 -- keybinds (action keys, form keys) still work. Invisible buttons would still catch clicks, so their
 -- mouse is switched off too: that touches protected buttons, so only out of combat.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("ActionBar") -- timed by /catnip perf (Profiler.lua)
 
 local BARS = {
     {

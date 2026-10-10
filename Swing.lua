@@ -4,6 +4,7 @@
 -- while Maul is queued. Below it, "elapsed / total" text while a swing counts down, also tinted
 -- while Maul is queued unless the Swing/Cast Timer's "Match Maul Color When Queued" is off.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("Swing") -- timed by /catnip perf (Profiler.lua)
 
 local SIZE = ns.SWING_RING_SIZE
 local GLOW_SCALE = 1.14 -- ring_glow's soft band sits just inside ring_bar's band (1.18 centres it; see tools/make_textures.py)
@@ -111,6 +112,10 @@ function ns.GetSwingDuration()
     return swingDuration
 end
 
+-- The text shows tenths, so it's only rewritten when the shown tenth (or the swing's length)
+-- changes, not every frame (/catnip perf, 2026-10-10: it was the second-costliest thing in combat).
+local shownTenth, shownDuration
+
 info:SetScript("OnUpdate", function()
     local start, duration = swingStart, swingDuration
     if sampleStart then
@@ -126,7 +131,11 @@ info:SetScript("OnUpdate", function()
         return
     end
     timeText:SetShown(not (ns.IsCasting and ns.IsCasting()))
-    timeText:SetText(string.format("%.1f / %.1fs", elapsed, duration))
+    local tenth = math.floor(elapsed * 10 + 0.5) -- as %.1f rounds it
+    if tenth ~= shownTenth or duration ~= shownDuration then
+        shownTenth, shownDuration = tenth, duration
+        timeText:SetText(string.format("%.1f / %.1fs", elapsed, duration))
+    end
 end)
 
 local function OnSwing(duration, weaponSlot)

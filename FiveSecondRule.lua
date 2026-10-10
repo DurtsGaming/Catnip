@@ -10,6 +10,7 @@
 -- and spell costs are readable in combat and the timer is our own clock; Clearcasting is the
 -- exception (see ns.IsClearcasting).
 local addonName, ns = ...
+local CreateFrame, C_Timer = ns.Profiled("FiveSecondRule") -- timed by /catnip perf (Profiler.lua)
 
 local RULE = 5
 -- Deep indigo, well darker than the mana fill's bright azure; the texture adds tube shading.
@@ -100,13 +101,25 @@ local function Progress()
     return math.min((GetTime() - lastSpend) / RULE, 1)
 end
 
--- The ring's fill: full right after a spend, empty once regenerating.
+-- The ring's fill: full right after a spend, empty once regenerating. Driven each frame only while
+-- it has something to draw (after a spend, or the looping Caster sample); once empty it stops until
+-- the next spend wakes it (/catnip perf, 2026-10-10: it ran every frame, forever).
+local driver = CreateFrame("Frame")
+
 local function Update()
-    SetFill(1 - Progress())
+    local progress = Progress()
+    SetFill(1 - progress)
+    if progress >= 1 and not (sampling and sampleSpend) then
+        driver:Hide()
+    end
 end
 
-holder:SetScript("OnUpdate", Update)
+driver:SetScript("OnUpdate", Update)
 Update()
+
+local function Wake()
+    driver:Show()
+end
 
 -- Settings (Elements.lua): Opacity is the holder's alpha (nothing else sets it). No hit shape: it
 -- lies on the resource circle's border, so it's picked from the list.
@@ -125,6 +138,7 @@ ns.RegisterElement({
     sample = function(state)
         sampling = state ~= nil
         sampleSpend = state == "caster" and GetTime() or nil
+        Wake() -- draws the sample, or puts back the real state
     end,
 })
 
@@ -150,6 +164,7 @@ end
 
 local function Spent(spellID, at, reason)
     lastSpend = math.max(lastSpend or 0, at)
+    Wake()
     local name = not ns.IsSecret(spellID) and C_Spell.GetSpellName(spellID) or spellID
     ns.Debug("5s rule:", name, "spent mana, ring reset (" .. reason .. ")")
     Notify()

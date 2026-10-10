@@ -5,6 +5,7 @@
 -- is up and our crescent rides on it; our code never learns whether the proc is up.
 -- Fallback without AuraContainer: the Cooldown Manager (user must track Omen of Clarity there).
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("Proc") -- timed by /catnip perf (Profiler.lua)
 
 local OMEN_OF_CLARITY = 16864 -- what the Cooldown Manager tracks
 local CLEARCASTING = 16870 -- the buff itself

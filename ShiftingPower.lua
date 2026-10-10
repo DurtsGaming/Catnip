@@ -16,6 +16,7 @@
 -- and gaps are drawn into sp_arc and sp_arc_outline (make_textures.py sp_arc_geometry, and
 -- sp_colour colours each of the four), so changing the segment count means redrawing those too.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("ShiftingPower") -- timed by /catnip perf (Profiler.lua)
 
 -- Geometry, in step with make_textures.py (SP_CANVAS, SP_SPAN): the arc textures are drawn on a
 -- canvas CANVAS units across, centred on the HUD's centre.

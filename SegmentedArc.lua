@@ -27,6 +27,7 @@
 -- arc.onShownChanged(shown), if set, is called when the arc itself shows or hides (its fade-out
 -- included), whatever its parents are doing: GrowlArc.lua decides which of two arcs shows from it.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("SegmentedArc") -- timed by /catnip perf (Profiler.lua)
 
 local HALF_PI = math.pi / 2
 local SEGMENT_PULSE = 0.55 -- peak brightness of the small pulse as each segment fills
@@ -205,20 +206,31 @@ function ns.CreateSegmentedArc(options)
 
     local filled = 0 -- segments done so far (full, or empty when draining), for their pulses
     local drawn = 0 -- the progress last drawn, for SetArt
+    local shares = {} -- each segment's share as last drawn
 
     -- progress 0-1. Each segment fills (or empties) over its own share of the time, edge to edge,
     -- so it's full (or empty) exactly as its share ends.
-    local function Draw(progress)
+    -- The clock calls this every frame, so it only touches the segments whose share changed
+    -- (usually just the one at the front), and nothing while the arc can't be seen (its slot or
+    -- gate hidden): the next call once it shows catches up. `force` redraws every segment, for
+    -- when the arc is about to show or its ends moved.
+    local function Draw(progress, force)
         drawn = progress
+        if not force and not frame:IsVisible() then
+            return
+        end
         for i, segment in ipairs(segments) do
             local share = math.min(math.max(progress * count - (i - 1), 0), 1)
-            local frontAngle = segment.startAngle + (segment.endAngle - segment.startAngle) * share
-            if options.drain then
-                segment.fill:SetShown(share < 1)
-                SetStart(segment.front, frontAngle)
-            else
-                segment.fill:SetShown(share > 0)
-                SetEnd(segment.front, frontAngle)
+            if force or share ~= shares[i] then
+                shares[i] = share
+                local frontAngle = segment.startAngle + (segment.endAngle - segment.startAngle) * share
+                if options.drain then
+                    segment.fill:SetShown(share < 1)
+                    SetStart(segment.front, frontAngle)
+                else
+                    segment.fill:SetShown(share > 0)
+                    SetEnd(segment.front, frontAngle)
+                end
             end
         end
     end
@@ -245,7 +257,7 @@ function ns.CreateSegmentedArc(options)
         frame:SetAlpha(1)
         progress = math.min(progress, 1)
         filled = math.floor(progress * count)
-        Draw(progress)
+        Draw(progress, true)
         SetShown(true)
     end
 
@@ -258,7 +270,7 @@ function ns.CreateSegmentedArc(options)
             texture:SetTexture(ns.MEDIA .. art)
         end
         Cut()
-        Draw(drawn)
+        Draw(drawn, true)
     end
 
     function arc.IsFading()
@@ -267,7 +279,7 @@ function ns.CreateSegmentedArc(options)
 
     -- Ends it (full, or empty when draining), flashes the whole arc and fades out.
     function arc.Finish()
-        Draw(1)
+        Draw(1, true)
         if options.noFlash then
             arc.Hide()
             return

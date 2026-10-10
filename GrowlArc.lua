@@ -14,6 +14,7 @@
 -- cast). The art is make_textures.py's Shifting Power arc in Growl's colours (growl_arc), with
 -- Shifting Power's own outline, so the two stay in step.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("GrowlArc") -- timed by /catnip perf (Profiler.lua)
 
 local CANVAS = 164 -- as ShiftingPower.lua
 local SPAN = math.pi / 4.2 -- either side of 6 o'clock

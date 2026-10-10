@@ -6,6 +6,7 @@
 -- case UPDATE_STEALTH doesn't exist or fire. Prowl breaks on entering combat, so this runs mostly
 -- out of combat; if IsStealthed is ever secret, the current state is kept.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("Stealth") -- timed by /catnip perf (Profiler.lua)
 
 local stealthed = false
 local override -- preview mode's state (Preview.lua: true while previewing Prowl, else false), or nil

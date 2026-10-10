@@ -2,6 +2,7 @@
 -- can see combat data we can't. In combat an item's spell ID stays readable and whether it's shown
 -- tracks its buff, even though the aura details are secret (verified in Forever).
 local addonName, ns = ...
+local CreateFrame, C_Timer = ns.Profiled("CooldownManager") -- timed by /catnip perf (Profiler.lua)
 
 local BUFF_VIEWERS = { "BuffIconCooldownViewer", "BuffBarCooldownViewer" }
 local ALL_VIEWERS = { "EssentialCooldownViewer", "UtilityCooldownViewer", "BuffIconCooldownViewer", "BuffBarCooldownViewer" }

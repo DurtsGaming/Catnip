@@ -1,6 +1,7 @@
 -- Moving and resizing the HUD. Unlock mode (Catnip Edit Mode): drag to move, click
 -- to open its settings (on/off, scale and opacity are set there).
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("Layout") -- timed by /catnip perf (Profiler.lua)
 
 local DEFAULTS = { x = 0, y = -285, scale = 1, hudAlpha = 0.95, hudEnabled = true }
 local MIN_SCALE, MAX_SCALE, SCALE_STEP = 0.5, 2.5, 0.05

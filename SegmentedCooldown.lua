@@ -20,6 +20,7 @@
 --   onStart, onReady(animate), onHide   optional callbacks
 --   command        "/catnip <command> [seconds]" runs a preview
 local addonName, ns = ...
+local CreateFrame, C_Timer = ns.Profiled("SegmentedCooldown") -- timed by /catnip perf (Profiler.lua)
 
 local HOLD_LIMIT = 10 -- seconds to hold a full arc waiting for the ready flag before giving up
 local RESET_GRACE = 0.5 -- ignore "not on cooldown" this soon after a cast (the cooldown may not be set yet)

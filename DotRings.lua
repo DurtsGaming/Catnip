@@ -16,6 +16,7 @@
 -- hides it with the DoT itself: a plain on/off for "is it still up", which the draining swipe makes
 -- hard to read near the end.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("DotRings") -- timed by /catnip perf (Profiler.lua)
 
 -- Forever: each rank's aura has its own ID. key: saved in the combo ring settings; order: in their
 -- dropdown; dot: its slot by default; textures: by segment shape; length: the sample's, in preview mode.

@@ -1,6 +1,7 @@
 -- Five combo point dots along the arc above the resource circle. Shown in Cat and Bear Form, so
 -- points and DoTs left over from Cat stay visible while tanking.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("ComboPoints") -- timed by /catnip perf (Profiler.lua)
 
 local COUNT = 5
 local DOT_SIZE = 38

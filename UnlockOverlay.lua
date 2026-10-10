@@ -2,6 +2,7 @@
 -- the blue nine-slice highlight over the frame, brighter while the mouse is over it (an additive
 -- copy on top) with "Click To Edit" in the middle. Clicking opens its settings.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("UnlockOverlay") -- timed by /catnip perf (Profiler.lua)
 
 local TEXTURE_KIT = "editmode-actionbar-highlight" -- Edit Mode's blue; "-selected" is its yellow
 local HOVER_GLOW = 0.4 -- strength of the additive copy that brightens it on hover

@@ -16,6 +16,7 @@
 -- back to a plain sweep if neither is known, or if the swing is no longer than the GCD. Cat keeps
 -- the exact duration object; its 1.0s GCD already roughly matches its swing.
 local addonName, ns = ...
+local CreateFrame = ns.Profiled("Gcd") -- timed by /catnip perf (Profiler.lua)
 
 local GCD_LENGTH = 1.5 -- Classic GCD outside cat form; not hasted
 

@@ -18,6 +18,7 @@
 -- ShiftOrbs.lua dims the orbs the cast would cost, fading the dim out with a refund: it's told
 -- through ns.onManaPrediction(cost, strength) and borrows the spend colour.
 local addonName, ns = ...
+local CreateFrame, C_Timer = ns.Profiled("ManaPrediction") -- timed by /catnip perf (Profiler.lua)
 
 local MANA = Enum.PowerType.Mana
 local SIZE = ns.RESOURCE_SIZE
