@@ -16,7 +16,8 @@ local addonName, ns = ...
 
 local SIZE = ns.SWING_RING_SIZE
 local TEXT_OFFSET = ns.TIME_TEXT_OFFSET -- shared with Swing.lua's text, which hides while casting
-local CAST_COLOR = { 1, 0.7, 0 } -- Blizzard cast bar gold
+local CAST_COLOR = { 1, 0.7, 0 } -- Blizzard cast bar gold; the "Color" setting's default
+local castColor = CAST_COLOR -- the setting's value
 local CHANNEL_COLOR = { 0.3, 0.8, 1 }
 
 local ring = CreateFrame("Cooldown", nil, ns.hud)
@@ -46,8 +47,7 @@ local function CreateSide(point)
     arc:SetTexture(ns.MEDIA .. "ring_bar_half")
     arc:SetSize(SIZE, SIZE)
     arc:SetPoint("CENTER", arcs)
-    arc:SetVertexColor(CAST_COLOR[1], CAST_COLOR[2], CAST_COLOR[3])
-    return arc
+    return arc -- coloured by the setting (below)
 end
 
 local leftArc = CreateSide("LEFT")
@@ -110,6 +110,8 @@ ns.RegisterElement({
         { key = "size", type = "slider", label = "Timer size", min = 6, max = 40, step = 1, format = "%.0f", default = 14 },
         { key = "nameSize", type = "slider", label = "Spell name size", min = 6, max = 40, step = 1, format = "%.0f",
             default = 12 },
+        -- Read by Swing.lua: the swing time takes the Maul queued colour while Maul is queued.
+        { key = "matchMaul", type = "checkbox", label = "Match Maul Color When Queued", default = true },
     },
     apply = function(get)
         local font, outline = ns.ElementOption("general", "font"), ns.ElementOption("general", "outline")
@@ -267,7 +269,7 @@ local function Update()
     if IsActive(UnitCastingInfo) then
         channel = false
         ring:SetReverse(true) -- fill, like a cast bar (only seen if the arcs can't be used)
-        ring:SetSwipeColor(CAST_COLOR[1], CAST_COLOR[2], CAST_COLOR[3], 1)
+        ring:SetSwipeColor(castColor[1], castColor[2], castColor[3], 1)
         shown = Start(UnitCastingDuration, UnitCastingInfo)
     elseif IsActive(UnitChannelInfo) then
         channel = true
@@ -368,7 +370,9 @@ function ns.CastBarShown()
     return ring:IsShown() or arcs:IsShown()
 end
 
--- Settings (Elements.lua): the ring's opacity, as frame alpha (nothing else sets it on these frames).
+-- Settings (Elements.lua): the ring's opacity, as frame alpha (nothing else sets it on these frames),
+-- and the cast colour (channels keep their blue). A cast already running takes a new colour on
+-- the arcs at once; on the swipe fallback, from the next cast.
 ns.RegisterElement({
     id = "swing.cast",
     zone = "swing",
@@ -378,11 +382,16 @@ ns.RegisterElement({
     hit = { kind = "ring", inner = ns.SWING_BAND.inner, outer = ns.SWING_BAND.outer, visible = ns.CastBarShown },
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "color", type = "color", label = "Color", default = CAST_COLOR },
     },
     apply = function(get)
         local alpha = get("opacity") / 100
         ring:SetAlpha(alpha)
         arcs:SetAlpha(alpha)
+        castColor = get("color")
+        for _, arc in ipairs({ leftArc, rightArc }) do
+            arc:SetVertexColor(castColor[1], castColor[2], castColor[3])
+        end
     end,
 })
 

@@ -185,6 +185,10 @@ PROWL_PERIWINKLE = [(59, 53, 146), (70, 63, 160), (80, 74, 173), (91, 84, 187), 
 # little at the full end like energy. Not measured; picked to match the amber swing ring (was pink until 2026-10-04).
 MAUL_AMBER = [(150, 62, 0), (163, 72, 0), (177, 83, 2), (191, 95, 4), (205, 107, 7), (218, 118, 11),
               (230, 129, 16), (241, 138, 21), (250, 145, 26), (255, 150, 30), (255, 164, 52), (255, 178, 74)]
+# The same shading in grey, white at the full end, for the Maul dot in a picked colour (tinted in code): each
+# stop's brightness relative to the brightest. Tinted, the full end is the picked colour.
+_MAUL_LIGHT = [sum(stop) / 3 for stop in MAUL_AMBER]
+MAUL_GREY = [(round(255 * v / max(_MAUL_LIGHT)),) * 3 for v in _MAUL_LIGHT]
 
 
 def sample(values, t):
@@ -567,6 +571,7 @@ TEXTURES = {
     "orb_energy": (64, combo_fill(64)),                     # Cat Form
     "orb_prowl": (64, combo_fill(64, PROWL_PERIWINKLE)),    # stealthed, any form
     "orb_maul": (64, combo_fill(64, MAUL_AMBER)),           # Swing.lua: Maul queued dot at 12 o'clock
+    "orb_maul_white": (64, combo_fill(64, MAUL_GREY)),      # the same in grey, tinted when a Maul colour is picked
     "orb_dot": (64, combo_fill(64, DOT_RED)),               # unused: DotRings.lua's old still-up orb (now a tick)
     "sp_orb": (64, sp_orb(64)),                             # Cat Form with Shifting Power: blue to yellow
     "sp_orb_prowl": (64, sp_orb(64, PROWL_PERIWINKLE)),     # the same, stealthed: blue to periwinkle

@@ -483,6 +483,46 @@ local function Checkbox(label, get, set)
     Place(row, 24, 4)
 end
 
+-- A colour: the label, and a swatch at the right that opens Blizzard's ColorPickerFrame (called as
+-- LibEditMode's colour widget does; unverified on Forever until tried). Dragging in the picker sets
+-- the colour live; Cancel puts back the one it opened with. Colours are { r, g, b }, 0-1.
+local function Color(label, get, set)
+    local row = CreateFrame("Frame", nil, Host())
+    local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    text:SetPoint("LEFT")
+    text:SetText(label)
+    local swatch = CreateFrame("Button", nil, row)
+    swatch:SetSize(36, 18)
+    swatch:SetPoint("RIGHT")
+    AddHover(swatch, Box(swatch, WELL, TRACK_EDGE), TRACK_EDGE)
+    local fill = swatch:CreateTexture(nil, "ARTWORK")
+    fill:SetPoint("TOPLEFT", 2, -2)
+    fill:SetPoint("BOTTOMRIGHT", -2, 2)
+
+    local function Picked()
+        local r, g, b = ColorPickerFrame:GetColorRGB()
+        set({ r, g, b })
+    end
+    swatch:SetScript("OnClick", function()
+        local old = get()
+        local info = {
+            r = old[1], g = old[2], b = old[3], hasOpacity = false,
+            swatchFunc = Picked,
+            cancelFunc = function() set({ old[1], old[2], old[3] }) end,
+        }
+        if not (ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow) then
+            ns.Print("the color picker isn't available in this client.")
+            return
+        end
+        ColorPickerFrame:SetupColorPickerAndShow(info)
+        ColorPickerFrame:SetFrameStrata("FULLSCREEN_DIALOG") -- over this window (DIALOG)
+    end)
+    refreshers[#refreshers + 1] = function()
+        fill:SetColorTexture(unpack(get()))
+    end
+    Place(row, 24, 4)
+end
+
 -- A < or > button for a slider (direction -1 or 1): two short bars meeting at a point, like the
 -- close X used to be (no reliance on a font glyph).
 local function Arrow(parent, direction)
@@ -983,7 +1023,7 @@ local function ElementOptionControl(element, option)
     local id, key = element.id, option.key
     local function Get() return ns.ElementOption(id, key) end
     local function Set(value)
-        if value == option.default then
+        if value == option.default or (option.type == "color" and ns.SameColor(value, option.default)) then
             value = nil
         end
         ns.SetElementOption(id, key, value)
@@ -995,6 +1035,8 @@ local function ElementOptionControl(element, option)
         Slider(option.label, option.min, option.max, option.step or 1, option.format or "%.0f", Get, Set)
     elseif option.type == "checkbox" then
         Checkbox(option.label, Get, Set)
+    elseif option.type == "color" then
+        Color(option.label, Get, Set)
     elseif option.type == "choice" then
         local values = option.values
         if option.inherit then

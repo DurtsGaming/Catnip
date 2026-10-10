@@ -15,7 +15,7 @@
 -- }
 --
 -- Option types: "slider" (min, max, step, format), "choice" (values = { { value = v, text = "..." } }),
--- "checkbox". An option with `inherit = "<key>"` falls back to the General element's option of that
+-- "checkbox", "color" (default = { r, g, b }, 0-1; stored as such a table). An option with `inherit = "<key>"` falls back to the General element's option of that
 -- key when it isn't set, and its control gets a "Same as General" choice.
 -- An option with `get` and `set` functions keeps its value somewhere else (e.g. on the ability a
 -- combo ring slot shows, ComboRings.lua); its control reads and writes through them. `enabled`, a
@@ -114,6 +114,19 @@ function ns.SetElementOption(id, key, value)
         Apply(element)
     end
     ns.SettingsChanged()
+end
+
+-- Whether two { r, g, b } colours match, to within what an 8-bit picker can tell apart.
+function ns.SameColor(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return false
+    end
+    for i = 1, 3 do
+        if math.abs(a[i] - b[i]) > 0.5 / 255 then
+            return false
+        end
+    end
+    return true
 end
 
 -- Puts every option of an element back to its default (or back to inheriting from General).

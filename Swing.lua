@@ -1,13 +1,15 @@
 -- Swing timer: a ring around the resource circle that appears full on each swing and empties
 -- clockwise from 12 o'clock until the next auto-attack. Driven by the PLAYER_SWING event
--- (Midnight-era API); tints amber, with an amber dot at 12 o'clock, while Maul is queued. Below it, "elapsed / total" text while a
--- swing counts down.
+-- (Midnight-era API); tints amber (the "Maul queued color" setting), with a dot in the same colour at 12 o'clock,
+-- while Maul is queued. Below it, "elapsed / total" text while a swing counts down, also tinted
+-- while Maul is queued unless the Swing/Cast Timer's "Match Maul Color When Queued" is off.
 local addonName, ns = ...
 
 local SIZE = ns.SWING_RING_SIZE
 local GLOW_SCALE = 1.14 -- ring_glow's soft band sits just inside ring_bar's band (1.18 centres it; see tools/make_textures.py)
-local COLOR = { 1, 1, 1 }
+local COLOR = { 1, 1, 1 } -- the defaults of the "Color" and "Maul queued color" settings (below)
 local MAUL_COLOR = { 1, 150 / 255, 30 / 255 } -- amber: warm like rage, apart from the red rage fill and DoT ticks
+local TEXT_COLOR = { 1, 1, 1 } -- the swing time, unless matching the Maul colour
 
 local hud = ns.hud
 
@@ -32,15 +34,13 @@ ns.swingRing = ring -- Cast.lua hides it (via alpha, so it keeps timing) while c
 
 -- The swipe colour's alpha is the "Bar opacity" setting (the frame's own alpha belongs to Cast.lua).
 local ringOpacity = 1
-local ringColor = COLOR
 local function SetRingColor(color)
-    ringColor = color
     ring:SetSwipeColor(color[1], color[2], color[3], ringOpacity)
 end
 
 SetRingColor(COLOR)
 
--- Maul marker: an amber dot on the ring's band at 12 o'clock (where each swing starts), shown while
+-- Maul marker: a dot (in the Maul colour) on the ring's band at 12 o'clock (where each swing starts), shown while
 -- Maul is queued, so it shows even when not swinging and the ring is empty. On its own frame so it
 -- draws over the ring's swipe; a soft black backing keeps it readable over the white ring.
 local MARKER_SIZE = 12
@@ -58,10 +58,22 @@ markerShadow:SetSize(MARKER_SIZE * 1.6, MARKER_SIZE * 1.6)
 markerShadow:SetPoint("CENTER")
 markerShadow:SetVertexColor(0, 0, 0, 0.8)
 
--- Shaded like the shift orbs: orb_maul carries its own amber gradient (drawn untinted), with their black rim
+-- Shaded like the shift orbs, with their black rim. In the default amber it's orb_maul, which carries
+-- its own gradient (drawn untinted); in a picked "Maul queued color", orb_maul_white tinted to it
+-- (the same shading in grey: SetMarkerColor).
 local markerDot = marker:CreateTexture(nil, "ARTWORK", nil, 1)
 markerDot:SetTexture(ns.MEDIA .. "orb_maul")
 markerDot:SetAllPoints()
+
+local function SetMarkerColor(color)
+    if ns.SameColor(color, MAUL_COLOR) then
+        markerDot:SetTexture(ns.MEDIA .. "orb_maul")
+        markerDot:SetVertexColor(1, 1, 1)
+    else
+        markerDot:SetTexture(ns.MEDIA .. "orb_maul_white")
+        markerDot:SetVertexColor(color[1], color[2], color[3])
+    end
+end
 
 local markerRim = marker:CreateTexture(nil, "OVERLAY")
 markerRim:SetTexture(ns.MEDIA .. "ring_small")
@@ -84,12 +96,14 @@ ns.swingInfo, ns.swingTimeText = info, timeText
 
 local swingStart, swingDuration
 
--- Preview mode (Preview.lua): while sampling, a made-up swing of SAMPLE_SWING seconds loops on the
--- ring and text (in the forms that swing), and real swings are only noted, not drawn.
-local SAMPLE_SWING = 2.5
-ns.SAMPLE_SWING = SAMPLE_SWING -- Gcd.lua paces its sample pie to it, as the real pie is to the swing
+-- Preview mode (Preview.lua): while sampling, a made-up swing loops on the ring and text (in the
+-- forms that swing: 1.0s in Cat, 2.5s in Bear, roughly their real speeds), and real swings are only
+-- noted, not drawn.
+local SAMPLE_SWINGS = { cat = 1.0, bear = 2.5 }
+ns.SAMPLE_SWING = SAMPLE_SWINGS.bear -- Gcd.lua paces its sample pie to it (every form but Cat)
 local sampling = false
 local sampleStart -- the looping sample swing's start, while it shows
+local sampleLength -- and its length
 
 -- Latest swing length (plain number from PLAYER_SWING), or nil before the first swing. Gcd.lua
 -- paces the bear GCD to it.
@@ -100,11 +114,11 @@ end
 info:SetScript("OnUpdate", function()
     local start, duration = swingStart, swingDuration
     if sampleStart then
-        if GetTime() - sampleStart >= SAMPLE_SWING then -- loop
+        if GetTime() - sampleStart >= sampleLength then -- loop
             sampleStart = GetTime()
-            ring:SetCooldown(sampleStart, SAMPLE_SWING)
+            ring:SetCooldown(sampleStart, sampleLength)
         end
-        start, duration = sampleStart, SAMPLE_SWING
+        start, duration = sampleStart, sampleLength
     end
     local elapsed = GetTime() - start
     if elapsed >= duration then
@@ -142,8 +156,8 @@ ns.RegisterElement({
     sample = function(state)
         sampling = state ~= nil
         if (state == "cat" or state == "bear") and not ns.IsStealthMode() then
-            sampleStart = GetTime()
-            ring:SetCooldown(sampleStart, SAMPLE_SWING)
+            sampleStart, sampleLength = GetTime(), SAMPLE_SWINGS[state]
+            ring:SetCooldown(sampleStart, sampleLength)
             info:Show()
             return
         end
@@ -162,11 +176,17 @@ local IsCurrentSpell = (C_Spell and C_Spell.IsCurrentSpell) or IsCurrentSpell
 local maulQueued = false
 local maulSampled = false -- preview mode's Bear sample shows Maul queued, whatever the game says
 
+local shownQueued = false -- what ShowMaul last drew (real or sampled), for a colour change to redraw
+
+-- The colours are read from the settings each time, so apply (below) can redraw with new ones.
 local function ShowMaul(queued)
-    local color = queued and MAUL_COLOR or COLOR
-    SetRingColor(color)
+    shownQueued = queued
+    local maulColor = ns.ElementOption("swing.ring", "maulColor")
+    SetRingColor(queued and maulColor or ns.ElementOption("swing.ring", "color"))
+    SetMarkerColor(maulColor)
     marker:SetShown(queued)
-    timeText:SetTextColor(color[1], color[2], color[3])
+    local textColor = (queued and ns.ElementOption("text.under", "matchMaul")) and maulColor or TEXT_COLOR
+    timeText:SetTextColor(textColor[1], textColor[2], textColor[3])
 end
 
 local function UpdateMaul()
@@ -205,11 +225,14 @@ ns.RegisterElement({
     options = {
         Percent("barOpacity", "Bar opacity", 100),
         Percent("glowOpacity", "Background opacity", 75),
+        { key = "color", type = "color", label = "Color", default = COLOR },
+        { key = "maulColor", type = "color", label = "Maul queued color", default = MAUL_COLOR },
     },
+    -- Every element reapplies on any change, so this also picks up "Match Maul Color When Queued" (Cast.lua).
     apply = function(get)
         ringOpacity = get("barOpacity") / 100
-        SetRingColor(ringColor)
         glow:SetVertexColor(0, 0, 0, get("glowOpacity") / 100)
+        ShowMaul(shownQueued)
     end,
     -- Bear shows Maul queued, so its amber look and orb can be seen; nil puts back the real state.
     sample = function(state)
