@@ -10,11 +10,16 @@
 --     apply = function(get) ... end, -- get(key) is the option's resolved value; called on load and on every change
 --     onChange = function() ... end, -- optional: after its own options are set or reset, before
 --                                    -- everything is reapplied (e.g. to clear a clashing pick elsewhere)
+--     onReset = function() ... end, -- optional: before its options are reset, to reset anything its
+--                                   -- page edits that's stored elsewhere (an option with get/set)
 -- }
 --
 -- Option types: "slider" (min, max, step, format), "choice" (values = { { value = v, text = "..." } }),
 -- "checkbox". An option with `inherit = "<key>"` falls back to the General element's option of that
 -- key when it isn't set, and its control gets a "Same as General" choice.
+-- An option with `get` and `set` functions keeps its value somewhere else (e.g. on the ability a
+-- combo ring slot shows, ComboRings.lua); its control reads and writes through them. `enabled`, a
+-- function, greys the control out while it returns false (choices only, for now).
 --
 -- Stored in CatnipDB.elements[id][key]; nil means the default (or General's value, for inherit).
 -- Shared across Edit Mode layouts.
@@ -113,6 +118,9 @@ end
 
 -- Puts every option of an element back to its default (or back to inheriting from General).
 function ns.ResetElement(id)
+    if byId[id] and byId[id].onReset then
+        byId[id].onReset()
+    end
     ns.db.elements[id] = nil
     if byId[id] and byId[id].onChange then
         byId[id].onChange()

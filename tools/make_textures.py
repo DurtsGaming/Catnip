@@ -360,6 +360,12 @@ COMBO_RING_UNITS = 46
 # DoT orbs (DotRings.lua): the rings' colours as a 12-step bar gradient, for combo_fill
 DOT_RED = [tuple(round(ch * 255) for ch in sample(DOT_STOPS, i / 11)) for i in range(12)]
 COMBO_RING_GAP = 2
+# The DoT rings' Angular segments (the default; Circular ones are cut like the cooldown rings') come
+# to a point on the band's inner edge (coloured_ring's `point`): each end is one diagonal cut, this
+# many units further back at the outer edge, and the gaps are narrower, so DoT durations read apart
+# from the cooldown rings' square-ended segments.
+DOT_POINT = 2
+DOT_GAP = 1
 
 
 def tick_bar(size, stops):
@@ -372,13 +378,18 @@ def tick_bar(size, stops):
     return colour
 
 
-def coloured_ring(size, thickness, stops, segments=0):
+def coloured_ring(size, thickness, stops, segments=0, gap=COMBO_RING_GAP, point=0):
     """A full ring coloured by angle clockwise from 12 o'clock (`stops`), with the tube shading
-    across the band. With `segments`, gaps are cut at each boundary (one at 12 o'clock) for a
-    Cooldown swipe to drain; without, SegmentedArc.lua cuts them."""
+    across the band. With `segments`, gaps `gap` units wide are cut at each boundary (one at
+    12 o'clock) for a Cooldown swipe to drain; without, SegmentedArc.lua cuts them. With `point`
+    (units), each segment end is cut on a diagonal, so the segment comes to a point on the band's
+    inner edge and is cut back that far at its outer edge."""
     band = ring(size, thickness)
     r = size / 2 - 1
-    half_gap = COMBO_RING_GAP * size / COMBO_RING_UNITS / 2  # px, measured along the circle
+    unit = size / COMBO_RING_UNITS  # px
+    half_gap = gap * unit / 2  # px, measured along the circle (at the inner edge, with `point`)
+    depth = point * unit
+    slant = math.hypot(1, depth / thickness)  # along-circle distance per distance across the cut
     def colour(d, dx, dy):
         angle = math.atan2(dx, -dy) % (2 * math.pi)  # dy grows downward
         a = band(d)
@@ -386,7 +397,8 @@ def coloured_ring(size, thickness, stops, segments=0):
             seg = 2 * math.pi / segments
             off = angle % seg
             along = min(off, seg - off) * max(d, 1)  # px from the nearest boundary
-            a = min(a, along - half_gap + 0.5)
+            back = depth * clamp01((d - (r - thickness)) / thickness)  # the cut's set-back here
+            a = min(a, (along - half_gap - back) / slant + 0.5)
         shade = soft_tube((d - (r - thickness)) / thickness)
         return a, tuple(ch * shade for ch in sample(stops, angle / (2 * math.pi)))
     return colour
@@ -562,8 +574,10 @@ TEXTURES = {
     "ring_primal_bite": (128, coloured_ring(128, 16, PRIMAL_BITE_STOPS)),  # Primal Bite cooldown ring
     "ring_omen": (128, coloured_ring(128, 16, OMEN_STOPS)),                # Omen of Clarity ICD ring
     "tick_dot": (64, tick_bar(64, DOT_STOPS[1:])),            # DotRings.lua still-up tick: red to orange-red up it
-    "ring_rake": (128, coloured_ring(128, 16, DOT_STOPS, 3)),          # Rake DoT ring: 3 segments (9s, 3s ticks)
-    "ring_rip_segments": (128, coloured_ring(128, 16, DOT_STOPS, 6)),  # Rip DoT ring: 6 segments (12s, 2s ticks)
+    "ring_rake": (128, coloured_ring(128, 16, DOT_STOPS, 3, DOT_GAP, DOT_POINT)),  # Rake DoT ring: 3 segments (9s, 3s ticks), pointed inside
+    "ring_rip_segments": (128, coloured_ring(128, 16, DOT_STOPS, 6, DOT_GAP, DOT_POINT)),  # Rip DoT ring: 6 segments (12s, 2s ticks), pointed inside
+    "ring_rake_circular": (128, coloured_ring(128, 16, DOT_STOPS, 3)),  # the same, Segments: Circular (square ends, 2-unit gaps)
+    "ring_rip_circular": (128, coloured_ring(128, 16, DOT_STOPS, 6)),
     "fill_energy": (128, power_fill(128, FOREVER_ENERGY)),  # 1, resource fill in Cat Form
     "fill_rage": (128, power_fill(128, FOREVER_RAGE)),      # 1, resource fill in Bear Form
     "fill_mana": (128, power_fill(128, FOREVER_MANA)),      # 1, resource fill otherwise

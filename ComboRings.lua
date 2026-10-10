@@ -9,8 +9,13 @@
 --                  slot's glyph colour in the settings list
 --   order          place in the dropdown
 --   defaultSlot    optional: the slot it starts in
---   Place(slot)    show the real ring in slot (nil: nowhere); slot = { index, gate, sampleGate }
---   StartSample(slot), StopSample()   preview mode's looping copy, in slot.sampleGate
+--   shaped         optional: its segments can be Angular or Circular (ns.ComboRingShape(key)); the
+--                  slot showing it offers the choice (greyed out for the others). The shape belongs
+--                  to the ability, so it follows it from slot to slot
+--   Place(slot)    show the real ring in slot (nil: nowhere); slot = { index, gate, sampleGate };
+--                  called again when its shape changes
+--   StartSample(slot), StopSample()   preview mode's looping copy, in slot.sampleGate (restarted
+--                  when its shape changes)
 local addonName, ns = ...
 
 local COUNT = 5
@@ -22,6 +27,21 @@ local LEVEL = 5 -- the rings' frame level above their slot's gate: over the dots
 local MIGRATE = { ["combo.ff"] = 1, ["combo.pb"] = 3, ["combo.rake"] = 4, ["combo.rip"] = 5 }
 
 local NONE_GLYPH = { kind = "ring", color = { 0.4, 0.38, 0.34 } }
+
+-- Segment shapes for `shaped` abilities (the DoTs): Angular, pointed on the inside edge, tells them
+-- apart from the cooldown rings; Circular is cut like those.
+local SHAPE_DEFAULT = "angular"
+local SHAPES = { { value = "angular", text = "Angular" }, { value = "circular", text = "Circular" } }
+
+-- An ability's own settings, stored as a pseudo-element ("dot.rip") so Reset all clears them too.
+local function AbilityId(key)
+    return "dot." .. key
+end
+
+-- A shaped ability's segment shape: "angular" or "circular".
+function ns.ComboRingShape(key)
+    return ns.ElementOption(AbilityId(key), "shape") or SHAPE_DEFAULT
+end
 
 local entries = {} -- by key
 local choices = { { value = NONE, text = "None", order = 0 } } -- the dropdown, filled as abilities are added
@@ -68,14 +88,15 @@ local function Arrange()
     end
     for key, entry in pairs(entries) do
         local slot = where[key]
-        if entry.slot ~= slot then
-            entry.slot = slot
+        local shape = entry.shaped and ns.ComboRingShape(key) or nil
+        if entry.slot ~= slot or entry.shape ~= shape then
+            entry.slot, entry.shape = slot, shape
             entry.Place(slot)
         end
         local sampleSlot = Sampling() and slot or nil
-        if entry.sampleSlot ~= sampleSlot then
+        if entry.sampleSlot ~= sampleSlot or entry.sampleShape ~= shape then
             entry.StopSample()
-            entry.sampleSlot = sampleSlot
+            entry.sampleSlot, entry.sampleShape = sampleSlot, shape
             if sampleSlot then
                 entry.StartSample(sampleSlot)
             end
@@ -114,6 +135,24 @@ for index = 1, COUNT do
     slot.sampleGate = ns.ComboRingGate(ns.comboSample)
     slot.spellOption = { key = "spell", type = "choice", label = "Shows", values = choices, default = NONE }
     slots[index] = slot
+    -- The shown ability's shape, if it has one (else greyed out, showing the default).
+    local function Shaped()
+        local key = Picked(slot)
+        return key and entries[key].shaped and key or nil
+    end
+    local shapeOption = { key = "segments", type = "choice", label = "Segments", values = SHAPES, default = SHAPE_DEFAULT,
+        enabled = function() return Shaped() ~= nil end,
+        get = function()
+            local key = Shaped()
+            return key and ns.ComboRingShape(key) or SHAPE_DEFAULT
+        end,
+        set = function(value)
+            local key = Shaped()
+            if key then
+                ns.SetElementOption(AbilityId(key), "shape", value ~= SHAPE_DEFAULT and value or nil)
+            end
+        end,
+    }
 
     ns.RegisterElement({
         id = slot.id,
@@ -129,8 +168,16 @@ for index = 1, COUNT do
         hit = ns.ComboRingHit(index, Sampling),
         options = {
             slot.spellOption,
+            shapeOption,
             { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
         },
+        onReset = function()
+            -- Reset to defaults puts the shown ability's shape back too: it's on this page.
+            local key = Shaped()
+            if key then
+                ns.db.elements[AbilityId(key)] = nil
+            end
+        end,
         onChange = function()
             -- An ability picked here leaves the slot it was in.
             local key = Picked(slot)

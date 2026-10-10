@@ -683,10 +683,11 @@ end
 -- arrows step through `values` ({ value, text }, wrapping round); clicking the value opens a menu
 -- of them all. `text` may be a function, re-read on every refresh. With fontOf, the value is
 -- drawn in the font fontOf(entry) names (a key of ns.FONTS), so the font list previews itself.
+-- With `enabled`, the control dims and ignores the mouse while enabled() returns false.
 local CHOICE_HEIGHT = 38
 
 -- The control itself, on `parent`, for the caller to place (CHOICE_HEIGHT tall).
-local function ChoiceWidget(parent, label, values, get, set, fontOf)
+local function ChoiceWidget(parent, label, values, get, set, fontOf, enabled)
     local holder = CreateFrame("Frame", nil, parent)
     local name = holder:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     name:SetPoint("TOPLEFT")
@@ -761,12 +762,19 @@ local function ChoiceWidget(parent, label, values, get, set, fontOf)
         end
         valueText:SetText(Text(entry))
         valueText:SetTextColor(unpack(GOLD))
+        if enabled then
+            local on = enabled() and true or false
+            holder:SetAlpha(on and 1 or 0.45)
+            for _, part in ipairs({ less, more, box }) do
+                part:EnableMouse(on)
+            end
+        end
     end
     return holder
 end
 
-local function Choice(label, values, get, set, fontOf)
-    Place(ChoiceWidget(Host(), label, values, get, set, fontOf), CHOICE_HEIGHT, 10)
+local function Choice(label, values, get, set, fontOf, enabled)
+    Place(ChoiceWidget(Host(), label, values, get, set, fontOf, enabled), CHOICE_HEIGHT, 10)
 end
 
 -- Two controls side by side on one row, `height` tall, as the frame controls pair their sliders:
@@ -980,6 +988,9 @@ local function ElementOptionControl(element, option)
         end
         ns.SetElementOption(id, key, value)
     end
+    if option.get then -- kept elsewhere (Elements.lua)
+        Get, Set = option.get, option.set
+    end
     if option.type == "slider" then
         Slider(option.label, option.min, option.max, option.step or 1, option.format or "%.0f", Get, Set)
     elseif option.type == "checkbox" then
@@ -1000,7 +1011,7 @@ local function ElementOptionControl(element, option)
         end
         Choice(option.label, values, Get, Set, option.fontPreview and function(entry)
             return entry.value or ns.ElementOption(id, key)
-        end)
+        end, option.enabled)
     end
 end
 
@@ -1434,8 +1445,8 @@ do
     end
 
     -- A makeTab for TabGroup: an element's row in the zone list being filled: its icon (added by
-    -- SetGlyph) and name on one line. `dot` marks an element with settings changed. Hovering a row
-    -- lights its element up on the HUD in preview mode (row.elementId).
+    -- SetGlyph) and name on one line. Hovering a row lights its element up on the HUD in preview
+    -- mode (row.elementId). (A green dot marking changed settings was removed 2026-10-09.)
     local ROW_TEXT = RGB(232, 225, 212)
     local function ElementRow(_, name)
         local row = CreateFrame("Button", nil, currentList)
@@ -1446,16 +1457,12 @@ do
         local fill = row:CreateTexture(nil, "BACKGROUND")
         fill:SetAllPoints()
         local outline = Outline(row)
-        local textWidth = LIST_WIDTH - 6 - GLYPH_SIZE - 8 - 18
+        local textWidth = LIST_WIDTH - 6 - GLYPH_SIZE - 8 - 6
         row.text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
         row.text:SetWidth(textWidth)
         row.text:SetJustifyH("LEFT")
         row.text:SetWordWrap(false)
         row.text:SetText(name)
-        row.dot = Shape(row, "circle_small", 6, "OVERLAY")
-        row.dot:SetPoint("RIGHT", -8, 0)
-        row.dot:SetVertexColor(unpack(ACCENT))
-        row.dot:Hide()
 
         local hovered = false
         local function Paint()
@@ -1500,8 +1507,7 @@ do
     rotation.subs = TabGroup(ElementRow, tree, detail, 0)
     rotation.subs.keepScroll = true -- picking an element keeps the list where it's scrolled to
 
-    -- Adds a row (in `zone`, under the last heading) and starts its page. The row's dot shows while
-    -- the element has any setting changed.
+    -- Adds a row (in `zone`, under the last heading) and starts its page.
     local function AddRow(zone, name, glyph, id)
         local tab = rotation.subs.Add(name)
         tab.zone, tab.elementId = zone, id
@@ -1511,9 +1517,10 @@ do
         zone.first = zone.first or tab
         if id then
             elementTabs[id] = tab
+        end
+        if type(glyph) == "function" then
             refreshers[#refreshers + 1] = function()
-                tab.dot:SetShown(ns.db.elements[id] ~= nil)
-                if type(glyph) == "function" and glyph() ~= shown then
+                if glyph() ~= shown then
                     shown = glyph()
                     tab.SetGlyph(shown)
                 end

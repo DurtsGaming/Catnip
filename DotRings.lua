@@ -5,23 +5,27 @@
 -- Each ring is an AuraContainer (see AuraContainer.lua) watching that DoT. We give its button a
 -- Cooldown frame whose swipe is our ring, and Blizzard drives it with the DoT's real remaining time,
 -- even in combat, including refreshes and target switches. AuraContainers can't be moved in combat,
--- so each DoT gets one per slot it has been in, made the first time it's picked there (after combat,
--- if picked in combat); only the current slot's shows.
+-- and their buttons can't be touched after setup, so each DoT gets one per slot and segment shape
+-- (Angular or Circular, the DoT's own setting) it has been shown in, made the first time (after
+-- combat, if that's in combat); only the current one shows.
 -- The timing is secret, so SegmentedArc.lua (which needs it as a number) can't draw these: the
--- segments are cut into the swipe texture instead (make_textures.py ring_rake, ring_rip_segments;
--- change the count there and regenerate). No per-segment pulses, for the same reason.
+-- segments are cut into the swipe texture instead (make_textures.py ring_rake, ring_rip_segments,
+-- and their _circular versions; change the count there and regenerate). No per-segment pulses, for
+-- the same reason.
 -- A red tick stands across each ring at 12 o'clock. It's on the button, so Blizzard shows and
 -- hides it with the DoT itself: a plain on/off for "is it still up", which the draining swipe makes
 -- hard to read near the end.
 local addonName, ns = ...
 
 -- Forever: each rank's aura has its own ID. key: saved in the combo ring settings; order: in their
--- dropdown; dot: its slot by default; length: the sample's, in preview mode.
+-- dropdown; dot: its slot by default; textures: by segment shape; length: the sample's, in preview mode.
 local DOTS = {
-    { key = "rake", label = "Rake", order = 4, dot = 4, texture = "ring_rake", length = 9,
+    { key = "rake", label = "Rake", order = 4, dot = 4, length = 9,
+        textures = { angular = "ring_rake", circular = "ring_rake_circular" },
         color = { 0.82, 0.23, 0.14 }, -- its glyph in the settings list
         spellIDs = { 1822, 1823, 1824, 9904 } },
-    { key = "rip", label = "Rip", order = 5, dot = 5, texture = "ring_rip_segments", length = 12,
+    { key = "rip", label = "Rip", order = 5, dot = 5, length = 12,
+        textures = { angular = "ring_rip_segments", circular = "ring_rip_circular" },
         color = { 0.69, 0.12, 0.12 },
         spellIDs = { 1079, 9492, 9493, 9752, 9894, 9896 } },
 }
@@ -70,14 +74,14 @@ local function StyleButton(button, texture)
 end
 
 -- Preview mode's stand-in: the same ring and tick, draining over the DoT's length in a loop (plain
--- numbers, so SetCooldown takes them); ns.PlaceComboRing moves it into a slot's sample gate.
--- Returns the frame, and Start/Stop.
+-- numbers, so SetCooldown takes them); ns.PlaceComboRing moves it into a slot's sample gate. Not an
+-- aura button, so Start can swap in the current shape's texture. Returns the frame, and Start/Stop.
 local function StandIn(dot)
     local frame = CreateFrame("Frame")
     frame:SetSize(RING_SIZE, RING_SIZE)
     ns.PlaceComboRing(frame, nil)
     frame:Hide()
-    local ring = BuildRing(frame, dot.texture)
+    local ring = BuildRing(frame, dot.textures.angular)
     local started
     local driver = CreateFrame("Frame")
     driver:Hide()
@@ -88,6 +92,7 @@ local function StandIn(dot)
         end
     end)
     local function Start()
+        ring:SetSwipeTexture(ns.MEDIA .. dot.textures[ns.ComboRingShape(dot.key)])
         started = GetTime()
         ring:SetCooldown(started, dot.length)
         frame:Show()
@@ -105,20 +110,21 @@ for _, dot in ipairs(DOTS) do
     -- The slot's AuraContainer, in a holder in the slot's gate (which carries the slot's Opacity:
     -- the buttons can't be touched after setup, so this applies live, even to the real ring, and
     -- hides with the combo dots outside Cat and Bear Form). Showing and hiding the holder picks
-    -- which slot's ring is live.
-    local holders = {} -- by slot index
+    -- which slot's ring, in which shape, is live.
+    local holders = {} -- by slot index and shape ("5 angular")
     local current
-    local function Holder(slot)
-        local holder = holders[slot.index]
+    local function Holder(slot, shape)
+        local id = slot.index .. " " .. shape
+        local holder = holders[id]
         if holder then
             return holder
         end
         holder = ns.ComboRingGate(slot.gate)
-        holders[slot.index] = holder
+        holders[id] = holder
         if ns.HAS_AURA_CONTAINER then
             local x, y = ns.ComboDotOffset(slot.index)
             ns.CreateAuraContainer({
-                label = dot.label .. " " .. slot.index,
+                label = dot.label .. " " .. id,
                 unit = "target",
                 filter = "HARMFUL",
                 spellIDs = dot.spellIDs,
@@ -129,7 +135,7 @@ for _, dot in ipairs(DOTS) do
                 level = LEVEL,
                 parent = holder,
                 initialize = function(button)
-                    StyleButton(button, dot.texture)
+                    StyleButton(button, dot.textures[shape])
                 end,
             })
             if IsLoggedIn() and InCombatLockdown() then
@@ -146,11 +152,12 @@ for _, dot in ipairs(DOTS) do
         color = dot.color,
         order = dot.order,
         defaultSlot = dot.dot,
+        shaped = true,
         Place = function(slot)
             if current then
                 current:Hide()
             end
-            current = slot and Holder(slot)
+            current = slot and Holder(slot, ns.ComboRingShape(dot.key))
             if current then
                 current:Show()
             end
