@@ -121,7 +121,9 @@ end
 local window = art.CreateWindow("CatnipOptions", "Catnip")
 window:SetSize(MIN_WIDTH, DEFAULT_HEIGHT) -- the saved size is applied once settings load
 window:SetPoint("CENTER")
-window:SetFrameStrata("DIALOG")
+-- FULLSCREEN: one strata over Blizzard's Edit Mode window (DIALOG), whose frame levels otherwise
+-- interleave with this window's; still under the colour picker and menus (FULLSCREEN_DIALOG).
+window:SetFrameStrata("FULLSCREEN")
 window:SetClampedToScreen(true)
 window:SetMovable(true)
 window:EnableMouse(true)
@@ -515,7 +517,7 @@ local function Color(label, get, set)
             return
         end
         ColorPickerFrame:SetupColorPickerAndShow(info)
-        ColorPickerFrame:SetFrameStrata("FULLSCREEN_DIALOG") -- over this window (DIALOG)
+        ColorPickerFrame:SetFrameStrata("FULLSCREEN_DIALOG") -- over this window (FULLSCREEN)
     end)
     refreshers[#refreshers + 1] = function()
         fill:SetColorTexture(unpack(get()))
