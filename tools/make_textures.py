@@ -582,6 +582,11 @@ TEXTURES = {
     "ring_faerie_angular": (128, coloured_ring(128, 16, FAERIE_STOPS, 6, DOT_GAP, DOT_POINT)),
     "ring_primal_bite_angular": (128, coloured_ring(128, 16, PRIMAL_BITE_STOPS, 6, DOT_GAP, DOT_POINT)),
     "ring_omen_angular": (128, coloured_ring(128, 16, OMEN_STOPS, 5, DOT_GAP, DOT_POINT)),
+    # Segments: Circular (square ends, 2-unit gaps), drawn in since the rings became radial StatusBars
+    # (2026-10-10), which can't cut gaps in-game
+    "ring_faerie_circular": (128, coloured_ring(128, 16, FAERIE_STOPS, 6)),
+    "ring_primal_bite_circular": (128, coloured_ring(128, 16, PRIMAL_BITE_STOPS, 6)),
+    "ring_omen_circular": (128, coloured_ring(128, 16, OMEN_STOPS, 5)),
     "tick_dot": (64, tick_bar(64, DOT_STOPS[1:])),            # DotRings.lua still-up tick: red to orange-red up it
     "ring_rake": (128, coloured_ring(128, 16, DOT_STOPS, 3, DOT_GAP, DOT_POINT)),  # Rake DoT ring: 3 segments (9s, 3s ticks), pointed inside
     "ring_rip_segments": (128, coloured_ring(128, 16, DOT_STOPS, 6, DOT_GAP, DOT_POINT)),  # Rip DoT ring: 6 segments (12s, 2s ticks), pointed inside

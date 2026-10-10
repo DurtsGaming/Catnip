@@ -33,9 +33,6 @@ local NONE_GLYPH = { kind = "ring", color = { 0.4, 0.38, 0.34 } }
 local SHAPE_NONE = "circular" -- shown, greyed out, for an empty slot
 local SHAPES = { { value = "angular", text = "Angular" }, { value = "circular", text = "Circular" } }
 
-local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- the rings' size (CooldownRings.lua, DotRings.lua)
-local GAP = 2 / (RING_SIZE * 55 / 128) -- 2 units between Circular segments, in radians, on the band's centre line
-
 local entries = {} -- by key
 
 -- An ability's own settings, stored as a pseudo-element ("dot.rip"; the name is from when only the
@@ -49,15 +46,10 @@ function ns.ComboRingShape(key)
     return ns.ElementOption(AbilityId(key), "shape") or entries[key].shape
 end
 
--- Gives a SegmentedArc.lua ring of ability `key` its shape's look: Circular cuts the gaps into
--- `art` (a plain ring), Angular uses `art`_angular, which has its pointed segments drawn in
--- (make_textures.py; its segment count must match the arc's).
+-- Gives a SegmentedArc.lua ring of ability `key` its shape's look: `art`_angular or `art`_circular,
+-- each with its segments and gaps drawn in (make_textures.py).
 function ns.ShapeComboRingArc(arc, key, art)
-    if ns.ComboRingShape(key) == "angular" then
-        arc.SetArt(art .. "_angular", 0)
-    else
-        arc.SetArt(art, GAP)
-    end
+    arc.SetArt(art .. "_" .. ns.ComboRingShape(key))
 end
 local choices = { { value = NONE, text = "None", order = 0 } } -- the dropdown, filled as abilities are added
 local slots = {}

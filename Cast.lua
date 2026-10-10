@@ -4,14 +4,12 @@
 -- 12 o'clock; channels start full and drain clockwise (the same shape, run backwards). Below the
 -- ring: "elapsed / total" (remaining for channels) and the spell name, in the swing text's place.
 --
--- Cast timings may be secret in combat, so the ring is driven by duration objects
--- (UnitCastingDuration / UnitChannelDuration -> Cooldown:SetCooldownFromDurationObject), the same
--- technique as Gcd.lua, and the time text passes the object's (possibly secret) numbers straight
--- to string.format. Both seen in the Forever-adapted ThreatPlates castbar.
---
--- A Cooldown swipe only runs clockwise, so a cast's counter-clockwise fill is drawn with two
--- rotated half-ring arcs instead (FiveSecondRule.lua's technique). That needs the cast's progress
--- as a number; if it's secret, the cast falls back to the swipe, filling clockwise.
+-- Cast timings may be secret in combat, so the ring is a radial StatusBar (RadialBar.lua) that
+-- Blizzard runs from the cast's duration object (UnitCastingDuration / UnitChannelDuration), exact
+-- in either direction, and the time text passes the object's (possibly secret) numbers straight to
+-- string.format (as the Forever-adapted ThreatPlates castbar does). Until 2026-10-10 the ring was a
+-- Cooldown swipe (clockwise only) plus two rotated half-ring arcs for the counter-clockwise cast fill,
+-- which needed the cast's progress as a number and fell back to the swipe when it was secret.
 local addonName, ns = ...
 local CreateFrame, C_Timer = ns.Profiled("Cast") -- timed by /catnip perf (Profiler.lua)
 
@@ -21,47 +19,21 @@ local CAST_COLOR = { 1, 0.7, 0 } -- Blizzard cast bar gold; the "Color" setting'
 local castColor = CAST_COLOR -- the setting's value
 local CHANNEL_COLOR = { 0.3, 0.8, 1 }
 
-local ring = CreateFrame("Cooldown", nil, ns.hud)
+local ring = CreateFrame("Frame", nil, ns.hud)
 ring:SetSize(SIZE, SIZE)
 ring:SetPoint("CENTER")
-ring:SetSwipeTexture(ns.MEDIA .. "ring_bar")
-ring:SetDrawEdge(false)
-ring:SetDrawBling(false)
-ring:SetHideCountdownNumbers(true)
 ring:Hide()
+local bar, barTexture = ns.CreateRadialBar(ring, "ring_bar")
 
--- The counter-clockwise fill: each side is a clip frame showing only its half, holding a left
--- half-ring that rotates into view. Shown instead of the swipe while the progress is readable.
-local arcs = CreateFrame("Frame", nil, ns.hud)
-arcs:SetSize(SIZE, SIZE)
-arcs:SetPoint("CENTER")
-arcs:SetFrameLevel(ring:GetFrameLevel())
-arcs:Hide()
-
-local function CreateSide(point)
-    local clip = CreateFrame("Frame", nil, arcs)
-    clip:SetPoint("TOP" .. point)
-    clip:SetPoint("BOTTOM" .. point)
-    clip:SetWidth(SIZE / 2)
-    clip:SetClipsChildren(true)
-    local arc = clip:CreateTexture(nil, "ARTWORK")
-    arc:SetTexture(ns.MEDIA .. "ring_bar_half")
-    arc:SetSize(SIZE, SIZE)
-    arc:SetPoint("CENTER", arcs)
-    return arc -- coloured by the setting (below)
+-- The whole ring from 12 o'clock: casts fill counter-clockwise; channels start full and drain
+-- clockwise.
+local function RunRing(duration, isChannel)
+    ns.ShapeRadialBar(barTexture, math.pi / 2, 2 * math.pi, not isChannel, isChannel)
+    ns.RunRadialBar(bar, duration, not isChannel)
 end
 
-local leftArc = CreateSide("LEFT")
-local rightArc = CreateSide("RIGHT")
-
--- progress 0-1 -> the fill's angle runs 0 to 2pi counter-clockwise from 12 o'clock: first down
--- the left side, then up the right. SetRotation turns counter-clockwise. The left half turned by
--- pi sits on the right (clipped away) and turning further enters the left side from 12 o'clock;
--- unturned it sits on the left (clipped away) and turning enters the right side from 6 o'clock.
-local function SetArcs(progress)
-    local angle = 2 * math.pi * math.max(0, math.min(progress, 1))
-    leftArc:SetRotation(math.pi + math.min(angle, math.pi))
-    rightArc:SetRotation(math.max(angle - math.pi, 0))
+local function SetRingColor(color)
+    bar:SetStatusBarColor(color[1], color[2], color[3])
 end
 
 -- Text under the ring: "0.0 / 2.5s", then the spell name.
@@ -127,33 +99,6 @@ ns.RegisterElement({
 -- The running cast: a duration object, or plain start/end seconds on a client without one.
 local channel, durationObject, startTime, endTime
 local fullFormat = true -- false once the object turns out to lack elapsed/total getters
-local useArcs = false -- whether this cast is drawn by the arcs (else the swipe)
-
--- The cast's progress 0-1, or nil if it can't be worked out (secret timings).
-local function Progress()
-    local ok, progress = pcall(function()
-        if durationObject then
-            return durationObject:GetElapsedDuration() / durationObject:GetTotalDuration()
-        end
-        return (GetTime() - startTime) / (endTime - startTime)
-    end)
-    if ok and type(progress) == "number" and not ns.IsSecret(progress) then
-        return progress
-    end
-end
-
--- Draws the arcs, or hands the cast over to the swipe if the progress can't be read.
-local function UpdateArcs()
-    local progress = Progress()
-    if progress then
-        SetArcs(progress)
-        return
-    end
-    ns.Debug("cast: progress unreadable, filling clockwise with the swipe")
-    useArcs = false
-    arcs:Hide()
-    ring:Show()
-end
 
 local function FormatFromObject()
     if fullFormat then
@@ -180,14 +125,18 @@ local sampling = false -- preview mode (Preview.lua) is showing a sample state; 
 local SAMPLE_CAST = 2.5 -- the sample cast's length, in seconds
 local sampleStart -- the looping sample cast's start, while it shows
 
--- The sample cast: fills the arcs and counts up over SAMPLE_CAST, then starts again.
+-- The sample cast: fills the ring and counts up over SAMPLE_CAST, then starts again.
+local function StartSampleCast()
+    sampleStart = GetTime()
+    RunRing(ns.Duration(sampleStart, SAMPLE_CAST), false)
+end
+
 local function DrawSample()
     local elapsed = GetTime() - sampleStart
     if elapsed >= SAMPLE_CAST then
-        sampleStart = GetTime()
+        StartSampleCast()
         elapsed = 0
     end
-    SetArcs(elapsed / SAMPLE_CAST)
     timeText:SetText(string.format("%.1f / %.1fs", elapsed, SAMPLE_CAST))
 end
 
@@ -197,9 +146,6 @@ info:SetScript("OnUpdate", function()
             DrawSample()
         end
         return
-    end
-    if useArcs then
-        UpdateArcs()
     end
     if durationObject then
         FormatFromObject()
@@ -225,10 +171,10 @@ local function Start(durationFn, infoFn)
     nameText:SetText(name) -- FontStrings accept secrets
     durationObject, startTime, endTime = nil, nil, nil
 
-    if durationFn and ring.SetCooldownFromDurationObject then
+    if durationFn then
         local ok, err = pcall(function()
             local object = durationFn("player")
-            ring:SetCooldownFromDurationObject(object)
+            RunRing(object, channel)
             durationObject = object
         end)
         if ok then
@@ -240,27 +186,21 @@ local function Start(durationFn, infoFn)
         return false
     end
     startTime, endTime = startMS / 1000, endMS / 1000
-    ring:SetCooldown(startTime, endTime - startTime)
+    RunRing(ns.Duration(startTime, endTime - startTime), channel)
     return true
 end
 
--- Our own state: the ring can't be asked, since a Cooldown hides itself when its timer runs out.
+-- Whether the ring and text are showing for a real cast.
 local isCasting = false
 
 local function SetCasting(casting)
     isCasting = casting
-    useArcs = casting and not channel and Progress() ~= nil
-    if useArcs then
-        UpdateArcs()
-    end
-    ring:SetShown(casting and not useArcs)
-    arcs:SetShown(useArcs)
+    ring:SetShown(casting)
     info:SetShown(casting)
     if ns.swingRing then
         ns.swingRing:SetAlpha(casting and 0 or 1)
     end
     if not casting then
-        ring:Clear()
         durationObject, startTime, endTime = nil, nil, nil
     end
 end
@@ -269,13 +209,11 @@ local function Update()
     local shown = false
     if IsActive(UnitCastingInfo) then
         channel = false
-        ring:SetReverse(true) -- fill, like a cast bar (only seen if the arcs can't be used)
-        ring:SetSwipeColor(castColor[1], castColor[2], castColor[3], 1)
+        SetRingColor(castColor)
         shown = Start(UnitCastingDuration, UnitCastingInfo)
     elseif IsActive(UnitChannelInfo) then
         channel = true
-        ring:SetReverse(false) -- drain, like a channel bar
-        ring:SetSwipeColor(CHANNEL_COLOR[1], CHANNEL_COLOR[2], CHANNEL_COLOR[3], 1)
+        SetRingColor(CHANNEL_COLOR)
         shown = Start(UnitChannelDuration, UnitChannelInfo)
     end
     SetCasting(shown)
@@ -339,7 +277,7 @@ events:SetScript("OnEvent", function(_, event)
 end)
 
 -- Preview mode's sample (Preview.lua's "Caster" state, which shows a spell being cast, unless
--- stealthed): a cast looping on the arcs and text (info's OnUpdate); in other states no cast. nil
+-- stealthed): a cast looping on the ring and text (info's OnUpdate); in other states no cast. nil
 -- hands back to the real cast, if any.
 local SAMPLE_NAME = "Regrowth"
 
@@ -351,29 +289,27 @@ local function Sample(state)
         return
     end
     local casting = state == "caster" and not ns.IsStealthMode() -- a cast would break Shadowmeld
-    ring:Hide()
-    arcs:SetShown(casting)
+    ring:SetShown(casting)
     info:SetShown(casting)
     if ns.swingRing then
         ns.swingRing:SetAlpha(casting and 0 or 1)
     end
     if casting then
-        sampleStart = GetTime()
+        SetRingColor(castColor)
+        StartSampleCast()
         nameText:SetText(SAMPLE_NAME)
         DrawSample()
     end
 end
 ns.GetElement("text.castTime").sample = Sample
 
--- Whether the cast ring (swipe or arcs) is showing, real or sampled. Swing.lua's ring isn't
--- pickable then.
+-- Whether the cast ring is showing, real or sampled. Swing.lua's ring isn't pickable then.
 function ns.CastBarShown()
-    return ring:IsShown() or arcs:IsShown()
+    return ring:IsShown()
 end
 
 -- Settings (Elements.lua): the ring's opacity, as frame alpha (nothing else sets it on these frames),
--- and the cast colour (channels keep their blue). A cast already running takes a new colour on
--- the arcs at once; on the swipe fallback, from the next cast.
+-- and the cast colour (channels keep their blue), which a cast already running takes at once.
 ns.RegisterElement({
     id = "swing.cast",
     zone = "swing",
@@ -388,10 +324,9 @@ ns.RegisterElement({
     apply = function(get)
         local alpha = get("opacity") / 100
         ring:SetAlpha(alpha)
-        arcs:SetAlpha(alpha)
         castColor = get("color")
-        for _, arc in ipairs({ leftArc, rightArc }) do
-            arc:SetVertexColor(castColor[1], castColor[2], castColor[3])
+        if not channel then
+            SetRingColor(castColor)
         end
     end,
 })

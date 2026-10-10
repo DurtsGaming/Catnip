@@ -1,12 +1,13 @@
 -- Short cooldowns as segmented rings around the combo points: Faerie Fire and Primal Bite, each in
 -- whichever combo ring slot the player picks for it (ComboRings.lua; by default dots 1 and 3). Each
--- ring starts full when we cast the spell and empties clockwise from 12 o'clock over its cooldown,
--- leaving nothing behind. As each segment empties the next one pulses, except the last one left;
--- when ready it's simply gone (no flash). Hidden with the combo dots outside Cat and Bear Form.
--- Each is a SegmentedArc.lua ring timed by SegmentedCooldown.lua, coloured from its spell's icon
--- (make_textures.py). Its segments are Circular by default or Angular, the player's pick
--- (ComboRings.lua); Angular ones are drawn into the art (`art`_angular), so change `segments` there
--- too and regenerate. The clock runs whether or not the ring is in a slot.
+-- ring starts full when the cooldown starts and empties clockwise from 12 o'clock over it, leaving
+-- nothing behind; when ready it's simply gone (no flash). (Segments pulsed as they emptied until
+-- 2026-10-10.) Hidden with the combo dots outside Cat and Bear Form.
+-- Each is a SegmentedArc.lua ring (a radial StatusBar) timed by SegmentedCooldown.lua (the game's
+-- own cooldown), coloured from its spell's icon (make_textures.py). Its segments are Circular by
+-- default or Angular, the player's pick (ComboRings.lua), both drawn into the art
+-- (`art`_circular, `art`_angular), so a different segment count means regenerating those. The
+-- timing runs whether or not the ring is in a slot.
 local addonName, ns = ...
 
 local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- same as DotRings.lua; the ring textures have ring_rip's band
@@ -24,7 +25,6 @@ local RINGS = {
         dot = 1, -- its slot by default
         art = "ring_faerie",
         color = { 0.69, 0.31, 0.82 }, -- its glyph in the settings list
-        segments = 6, -- 6s
         -- In Cat and Bear Form the spell becomes Faerie Fire (Feral) (unverified whether the
         -- spellbook finds it by that name, so the caster one stands in for "known").
         names = { "Faerie Fire (Feral)", "Faerie Fire" },
@@ -40,10 +40,9 @@ local RINGS = {
         dot = 3,
         art = "ring_primal_bite",
         color = { 0.91, 0.86, 0.75 },
-        segments = 6,
         names = { "Primal Bite" },
         castNames = { ["Primal Bite"] = true },
-        defaultLength = 6, -- a guess; learned from the first cast
+        defaultLength = 6, -- for the preview and the sample
         command = "pb",
     },
 }
@@ -54,11 +53,10 @@ for _, ring in ipairs(RINGS) do
         local arc = ns.CreateSegmentedArc({
             parent = UIParent,
             size = RING_SIZE,
-            art = ring.art,
+            art = ring.art .. "_circular", -- ns.ShapeComboRingArc sets the shape picked
             from = math.pi / 2, -- 12 o'clock
             span = 2 * math.pi,
             clockwise = true,
-            segments = ring.segments, -- cut by ns.ShapeComboRingArc
             drain = true,
             noFlash = true,
         })

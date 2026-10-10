@@ -1,30 +1,30 @@
 -- ns.CreateSegmentedCooldown(spec): runs a SegmentedArc.lua arc over a spell's cooldown. Used by
--- ShiftingPower.lua and CooldownRings.lua.
+-- ShiftingPower.lua, GrowlArc.lua and CooldownRings.lua.
 --
--- Cooldown timing is secret in combat, so the arc runs on our own clock, like FiveSecondRule.lua:
--- it starts when our cast of the spell succeeds (our casts' spell IDs are readable) and runs for the
--- cooldown's length, learned under the spell's name (ns.LearnedLength "cooldown", SpellTiming.lua;
--- spec.defaultLength until then). The ready flag (isActive, via ns.CooldownState) ends
--- it early if the cooldown is shorter or resets, and holds the arc full if our clock runs out first.
--- The length is learned from every cast, so a talent change is picked up after one cast: out of
--- combat from the real numbers, in combat from when the ready flag turns on (to the half second; a
--- little long if the GCD hid the moment, and too short after a reset, until the next cast fixes it).
+-- Since 2026-10-10 the game drives it (verified in combat with a probe, docs/api-research.md):
+-- isActive and isOnGCD stay readable in combat, and "isActive and isOnGCD ~= true" means the spell
+-- is on its own cooldown (isOnGCD is true while only the GCD covers it, false for an on-GCD spell on
+-- its own cooldown, nil for an off-GCD spell). When that turns on, the arc gets
+-- C_Spell.GetSpellCooldownDuration(id, true), the cooldown without the GCD, as a duration object:
+-- Blizzard times it exactly, secret or not. When it turns off (ready, reset, or only the GCD left)
+-- the arc finishes. Nothing ends a cooldown with an event, so the flags are checked every POLL
+-- seconds while one runs. Until then the arc ran on our own clock from the cast, over a length
+-- learned per spell (SpellTiming.lua), corrected by the flags.
 --
 -- spec:
---   label          the spell's name: debug output, and the key its learned length is saved under
+--   label          the spell's name, for debug output
 --   names          spellbook names to look for, first known wins; nothing shows while none is known
---   castNames      set of spell names whose successful casts start the clock
+--   castNames      set of spell names whose casts are this spell (a form's version may have its own
+--                  ID, whose cooldown is then the one read)
 --   castAllowed    optional function(): false to ignore a cast (e.g. a form without the cooldown)
---   defaultLength  seconds, until the real length is learned
+--   defaultLength  seconds, for the preview command
 --   arc            from ns.CreateSegmentedArc
 --   onStart, onReady(animate), onHide   optional callbacks
 --   command        "/catnip <command> [seconds]" runs a preview
 local addonName, ns = ...
-local CreateFrame, C_Timer = ns.Profiled("SegmentedCooldown") -- timed by /catnip perf (Profiler.lua)
+local CreateFrame = ns.Profiled("SegmentedCooldown") -- timed by /catnip perf (Profiler.lua)
 
-local HOLD_LIMIT = 10 -- seconds to hold a full arc waiting for the ready flag before giving up
-local RESET_GRACE = 0.5 -- ignore "not on cooldown" this soon after a cast (the cooldown may not be set yet)
-local POLL = 0.1 -- seconds between ready-flag checks while the clock runs (its end may fire no event)
+local POLL = 0.1 -- seconds between flag checks while a cooldown runs
 
 local function Call(callback, ...)
     if callback then
@@ -36,164 +36,102 @@ function ns.CreateSegmentedCooldown(spec)
     local arc = spec.arc
     local knownID -- the spellbook's spell, nil while none is known
     local castID -- the spell we last cast: in a form it may be a different spell from knownID
-    local state = "hidden" -- "hidden" (not known), "cooling", "holding" (clock done, still on cooldown), "ready"
-    local castAt, length, holdSince
-    local demo = false -- the preview command: a pretend cooldown, ignoring the real one
-
-    -- The arc's frame may be hidden with its parent (Faerie Fire's, outside Cat and Bear Form), so
-    -- the clock runs on its own frame.
-    local driver = CreateFrame("Frame")
-    driver:Hide()
+    local state = "hidden" -- "hidden" (not known), "cooling", "ready"
+    local demoEnd -- the preview command's end time, while it runs (the real cooldown is ignored)
 
     local function TimingID()
         return castID or knownID
     end
 
-    local function Length()
-        return ns.LearnedLength("cooldown", spec.label) or spec.defaultLength
-    end
+    -- The poll, on its own frame so it runs while the arc's parent is hidden.
+    local driver = CreateFrame("Frame")
+    driver:Hide()
 
-    local function StartCooling(start, duration)
-        castAt, length = start, duration
+    local function StartCooling(duration)
         state = "cooling"
         Call(spec.onStart)
-        arc.Start((GetTime() - castAt) / length)
+        arc.Start(duration)
         driver:Show()
     end
 
     local function BecomeReady(animate)
         local wasShowing = arc.frame:IsVisible() and not arc.IsFading()
         state = "ready"
-        demo = false
+        demoEnd = nil
         driver:Hide()
         if wasShowing and animate then
             arc.Finish()
         elseif not arc.IsFading() then
             arc.Hide()
         end
-        Call(spec.onReady, animate) -- animate: only when the cooldown actually runs out, not on login or after learning the spell
+        Call(spec.onReady, animate) -- animate: only when a cooldown actually ends, not on login or after learning the spell
     end
 
     local function Hide()
         state = "hidden"
-        demo = false
+        demoEnd = nil
         driver:Hide()
         arc.Hide()
         Call(spec.onHide)
     end
 
-    local function Learn(duration)
-        return ns.LearnLength("cooldown", spec.label, duration)
+    -- The cooldown without the GCD, as a duration object; nil if the client refuses.
+    local function CooldownDuration(id)
+        local ok, duration = pcall(C_Spell.GetSpellCooldownDuration, id, true)
+        return ok and duration or nil
     end
 
-    local function Timing()
-        return state == "cooling" or state == "holding"
-    end
-
-    local function JustCast()
-        return Timing() and GetTime() - castAt < RESET_GRACE
-    end
-
-    -- Compares what the game says with our clock: corrects it when the numbers are readable, ends it
-    -- early if the cooldown was reset, starts it if we missed the cast.
-    local function Sync()
-        if demo then
+    -- Reads the flags and moves between ready and cooling. `changedID`: the spell a
+    -- SPELL_UPDATE_COOLDOWN named, to refresh a running arc's timing when it's ours.
+    local function Sync(changedID)
+        if demoEnd then
             return
         end
-        if not knownID then
-            Hide()
+        local id = TimingID()
+        if not id then
+            if state ~= "hidden" then
+                Hide()
+            end
             return
         end
-        local start, duration = ns.ReadCooldown(TimingID())
-        if start then
-            if duration > 1.5 and start > 0 then -- longer than a GCD: the real cooldown
-                Learn(duration)
-                if not Timing() or castAt ~= start or length ~= duration then
-                    StartCooling(start, duration)
+        local info = C_Spell.GetSpellCooldown(id)
+        local active, onGCD = info and info.isActive, info and info.isOnGCD
+        if ns.IsSecret(active) or ns.IsSecret(onGCD) then
+            return -- unknown: keep what we have
+        end
+        if active == true and onGCD ~= true then
+            if state ~= "cooling" then
+                local duration = CooldownDuration(id)
+                if duration then
+                    StartCooling(duration)
+                    ns.Debug(spec.label .. ": cooldown started")
                 end
-            elseif state ~= "ready" and not JustCast() then
-                BecomeReady(Timing())
+            elseif changedID == id then
+                local duration = CooldownDuration(id)
+                if duration then
+                    arc.SetDuration(duration) -- e.g. shortened by a talent or effect
+                end
             end
-            return
-        end
-        -- In combat: only the flag. Unsure reads keep what we have.
-        local onCooldown, sure = ns.CooldownState(TimingID(), state ~= "ready")
-        if not sure then
-            if state == "hidden" then
-                BecomeReady(false)
-            end
-            return
-        end
-        if onCooldown and state == "ready" then
-            StartCooling(GetTime(), Length())
-            ns.Debug(spec.label .. ": on cooldown but we missed the cast; timing from now")
-        elseif not onCooldown and Timing() then
-            if not JustCast() then
-                ns.Debug(spec.label .. ": ready early (cooldown reset?)")
-                BecomeReady(true)
-            end
-        elseif not onCooldown and state == "hidden" then
+        elseif state == "cooling" then
+            ns.Debug(spec.label .. ": ready")
+            BecomeReady(true)
+        elseif state == "hidden" then
             BecomeReady(false)
         end
     end
 
-    -- The ready flag: onCooldown, sure (see ns.CooldownState); unsure without it.
-    local function ReadyFlag()
-        if not TimingID() then
-            return nil, false
-        end
-        return ns.CooldownState(TimingID(), nil)
-    end
-
-    -- Ready now, by the flag: the time since the cast is the cooldown's length (read within POLL of
-    -- the end, unless the GCD hid it).
-    local function ReadyByFlag()
-        local elapsed = GetTime() - castAt
-        if elapsed > 1.5 then
-            Learn(elapsed)
-        end
-        BecomeReady(true)
-    end
-
     local sincePoll = 0
     driver:SetScript("OnUpdate", function(_, elapsed)
-        if not Timing() then
-            driver:Hide()
-            return
-        end
-        local progress = (GetTime() - castAt) / length
-        arc.SetProgress(progress)
-        if demo then
-            if progress >= 1 then
+        if demoEnd then
+            if GetTime() >= demoEnd then
                 BecomeReady(true)
             end
             return
         end
-        if progress < 1 then
-            -- Ready before our clock ran out (too long a length, or a reset)?
-            sincePoll = sincePoll + elapsed
-            if sincePoll < POLL or JustCast() then
-                return
-            end
+        sincePoll = sincePoll + elapsed
+        if sincePoll >= POLL then
             sincePoll = 0
-            local onCooldown, sure = ReadyFlag()
-            if sure and not onCooldown then
-                ns.Debug(spec.label .. ": ready at", string.format("%.1f", GetTime() - castAt), "s, before our clock")
-                ReadyByFlag()
-            end
-            return
-        end
-        if state == "cooling" then
-            state, holdSince = "holding", GetTime()
-        end
-        -- Our clock is done: ready unless the game is sure it's still on cooldown. During the GCD it
-        -- can't tell, and waiting for a gap in the GCD made the flash come late (you could press the
-        -- spell before it showed).
-        local onCooldown, sure = ReadyFlag()
-        if sure and not onCooldown then
-            ReadyByFlag() -- a little after our clock: the real length may be longer
-        elseif not sure or GetTime() - holdSince > HOLD_LIMIT then
-            BecomeReady(true)
+            Sync()
         end
     end)
 
@@ -209,10 +147,7 @@ function ns.CreateSegmentedCooldown(spec)
         end
         knownID = knownID or id
         castID = id
-        demo = false
-        StartCooling(GetTime(), Length())
-        ns.Debug(spec.label .. ": cast, timing", Length(), "s")
-        C_Timer.After(0.1, Sync) -- out of combat the real numbers are readable: learn the length
+        Sync(id)
     end
 
     -- Finds the spell in the spellbook by name (its ID may differ by rank or client).
@@ -229,26 +164,24 @@ function ns.CreateSegmentedCooldown(spec)
     events:RegisterEvent("SPELLS_CHANGED")
     events:RegisterEvent("SPELL_UPDATE_COOLDOWN")
     events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
-    ns.TryRegisterEvent(events, "PLAYER_TALENT_UPDATE")
-    ns.TryRegisterEvent(events, "TRAIT_CONFIG_UPDATED")
     events:SetScript("OnEvent", function(_, event, ...)
         if event == "UNIT_SPELLCAST_SUCCEEDED" then
             OnCast((select(3, ...))) -- unit, castGUID, spellID
         elseif event == "SPELL_UPDATE_COOLDOWN" then
-            Sync()
+            local changedID = ... -- the spell whose cooldown changed (verified 2026-10-10)
+            Sync(not ns.IsSecret(changedID) and changedID or nil)
         else
-            if not demo then
-                Resolve()
-            end
+            Resolve()
             Sync()
         end
     end)
 
     if spec.command then
         ns.commands[spec.command] = function(arg)
-            demo = true
-            StartCooling(GetTime(), tonumber(arg) or Length())
-            ns.Print(spec.label .. " preview:", length, "s")
+            local seconds = tonumber(arg) or spec.defaultLength
+            demoEnd = GetTime() + seconds
+            StartCooling(ns.Duration(GetTime(), seconds))
+            ns.Print(spec.label .. " preview:", seconds, "s")
         end
     end
 

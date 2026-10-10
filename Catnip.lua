@@ -235,6 +235,7 @@ frame:SetScript("OnEvent", function(self, event, name)
     ns.db = CatnipDB
     ns.db.log = nil -- left over from a removed debug log
     ns.db.layouts = nil -- left over from per-Edit Mode layout settings (removed 2026-10-08)
+    ns.db.probeCooldowns = nil -- left by the temporary cooldown probe (2026-10-10)
     for key, value in pairs(ns.defaults) do
         if ns.db[key] == nil then
             ns.db[key] = value

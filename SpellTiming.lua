@@ -1,12 +1,11 @@
--- What we know about spell timing: whether a spell is on cooldown, the GCD, and the lengths learned
--- from earlier casts. Loads early so every module can use it (the GCD pie, the cooldown arcs and
--- rings, the cooldown box).
+-- What we know about spell timing: whether a spell is on cooldown, the GCD, and the GCD lengths
+-- learned from earlier casts. Loads early so every module can use it (the GCD pie, the cooldown arcs
+-- and rings, the cooldown box).
 --
 -- In combat a cooldown's start and duration are secret; only the isActive/isOnGCD flags are
--- readable. Anything that needs the timing as a number (our own clocks: the arcs, the rings, the GCD
--- pie paced to the swing) uses a length learned from earlier casts: out of combat from the real
--- numbers, in combat from when the ready flag turns on. The cooldown box doesn't need them: it hands
--- Blizzard a duration object, which counts down exactly.
+-- readable. The cooldown box, arcs and rings hand Blizzard duration objects, which count down
+-- exactly. Only the GCD pie, paced to the swing outside Cat Form, needs a length as a number, so it
+-- learns each spell's GCD (Gcd.lua).
 local addonName, ns = ...
 
 -- Forever reports the GCD on Classic's GCD spell; retail's 61304 doesn't exist here (EllesmereUI's
@@ -33,17 +32,18 @@ end
 
 -- Is the ability on a real cooldown (not just the GCD)? Returns (onCooldown, sure): when sure is
 -- false we couldn't tell and kept `previous`, and a timer shouldn't be restarted from this read.
--- isOnGCD isn't trustworthy: EllesmereUI found it nil outside SPELL_UPDATE_COOLDOWN, and here it
--- seems to turn on for every spell whenever any spell starts the GCD (seen 2026-10-01: Enrage's
--- icon vanished on the next cast). So an active cooldown with no GCD running counts as real; while
--- the GCD runs, only isOnGCD == false is believed.
+-- Verified in and out of combat (2026-10-10, docs/api-research.md): isOnGCD is true while only the
+-- GCD covers the spell, false for an on-GCD spell on its own cooldown, nil for an off-GCD spell, so
+-- "isActive and isOnGCD ~= true" is a real cooldown, at once. (Until then, after a 2026-10-01
+-- suspicion that isOnGCD turned true for Enrage on another spell's GCD, which the probe didn't
+-- see, a GCD made the answer unsure and the cooldown box re-checked 1.6s later.)
 function ns.CooldownState(spellID, previous)
     local info = C_Spell.GetSpellCooldown(spellID)
     if not info then
         return false, true
     end
     local active, onGCD = info.isActive, info.isOnGCD
-    if ns.IsSecret(active) then
+    if ns.IsSecret(active) or ns.IsSecret(onGCD) then
         return previous, false
     end
     if active == nil then -- older field set: fall back to the numbers, readable out of combat
@@ -53,20 +53,15 @@ function ns.CooldownState(spellID, previous)
         end
         return duration > 1.5, true
     end
-    if not active then
-        return false, true
-    end
-    if onGCD == false or not ns.GcdRunning() then
-        return true, true
-    end
-    return previous, false
+    return active and onGCD ~= true, true
 end
 
 -- Learned lengths ---------------------------------------------------------------------------------
 -- Per character, since talents change them: CatnipDB.chars[character].lengths[kind][spell name], in seconds, rounded to the half second (so a 10% shorter GCD
--- from Nature's Grace doesn't stick). Kinds: "cooldown" (the spell's own cooldown) and "gcd" (the
--- GCD it starts, e.g. 1.0s for Rejuvenation with Gift of the Earthmother). By name, since IDs
--- differ by rank.
+-- from Nature's Grace doesn't stick). Kinds: "gcd" (the GCD a spell starts, e.g. 1.0s for
+-- Rejuvenation with Gift of the Earthmother; Gcd.lua) and "cooldown" (a spell's own cooldown,
+-- unused since 2026-10-10: the cooldown arcs are timed by the game now; kept, not cleared). By
+-- name, since IDs differ by rank.
 
 -- The learned length, or nil if none yet.
 function ns.LearnedLength(kind, name)

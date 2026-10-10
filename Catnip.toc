@@ -12,6 +12,7 @@ libs\LibEditMode\embed.xml
 Catnip.lua
 Profiler.lua
 SpellTiming.lua
+RadialBar.lua
 Elements.lua
 Stealth.lua
 UnlockOverlay.lua

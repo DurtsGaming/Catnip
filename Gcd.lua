@@ -75,21 +75,22 @@ end
 
 -- Some spells have a shorter GCD, e.g. Rejuvenation, Swiftmend and Wild Growth (1.0s) with the Gift
 -- of the Earthmother talent. Detecting the talent by name failed (2026-10-08: a passive talent adds
--- no spell to the spellbook), so instead each spell's GCD is learned: out of combat the GCD's
--- duration is readable (verified: 0.99 for Rejuvenation), so an instant cast records it
--- (ns.LearnLength "gcd", SpellTiming.lua). Out of combat the sweep uses the real duration.
--- In combat we only see the GCD start, so the cast event says which spell it was; the two arrive in
--- either order (the GCD first, seen 2026-10-08), and whichever comes second applies the learned
--- length. Nature's Grace (a 10% shorter GCD for 3s after a crit) can't be seen in combat: no Druid
--- buff is readable then.
-
--- Seconds between the GCD start and its cast event to count as one cast. The cast event came 0.12s
--- after the GCD start (2026-10-08), so leave room for lag; no GCD is shorter than 1s.
-local PAIR_WINDOW = 0.4
+-- no spell to the spellbook), so instead each spell's GCD is learned (ns.LearnLength "gcd",
+-- SpellTiming.lua). The SPELL_UPDATE_COOLDOWN that starts the GCD names the spell being cast (its
+-- first argument; verified 2026-10-10, 0.1-0.17s before the cast events), so the sweep starts at
+-- that spell's length straight away, casts with a cast time included. Out of combat the GCD's
+-- duration is readable (verified: 0.99 for Rejuvenation), so it's used and learned then. In combat
+-- the GCD is timed instead: isActive stays readable, so it's checked every frame until it turns off
+-- (measured 1.50s and 0.99s to the frame, 2026-10-10). Back-to-back GCDs never read inactive between
+-- them, so only a GCD that started from idle is timed, and anything longer than MAX_GCD is dropped.
+-- Nature's Grace (a 10% shorter GCD for 3s after a crit) can't be seen in combat: no Druid buff is
+-- readable then. (Until 2026-10-10 the spell came from the cast event, paired with the GCD start
+-- within 0.4s, and lengths were only learned out of combat.)
+local MAX_GCD = 1.6 -- seconds; no GCD is longer, so a longer measurement spans two
+local MIN_GCD = 0.5
 local sweepStart = 0
 local sweepLength = 0
-local castTime = 0 -- GetTime() of the last cast event
-local castLength -- its learned GCD length, if any
+local wasActive = false -- the GCD as last read, to tell a fresh GCD from one already running
 
 -- The GCD's real start and duration, or nil when secret (in combat) or not running.
 local function ReadableGcd()
@@ -98,6 +99,38 @@ local function ReadableGcd()
         return start, duration
     end
 end
+
+local function SpellName(spellID)
+    if not spellID or ns.IsSecret(spellID) then
+        return nil
+    end
+    local name = C_Spell.GetSpellName(spellID)
+    if name and not ns.IsSecret(name) then
+        return name
+    end
+end
+
+-- Times a GCD in combat: from its start to the frame isActive turns off. Runs only meanwhile.
+local timer = CreateFrame("Frame")
+timer:Hide()
+local timedFrom, timedName
+timer:SetScript("OnUpdate", function()
+    local info = C_Spell.GetSpellCooldown(REFERENCE_SPELL)
+    local active = info and info.isActive
+    if ns.IsSecret(active) then
+        timer:Hide()
+        return
+    end
+    if active then
+        return
+    end
+    timer:Hide()
+    wasActive = false
+    local length = GetTime() - timedFrom
+    if length >= MIN_GCD and length <= MAX_GCD then
+        ns.LearnLength("gcd", timedName, length)
+    end
+end)
 
 local function DrawSweep(start, length)
     local swing, source = SwingLength()
@@ -111,56 +144,35 @@ local function DrawSweep(start, length)
     ns.Debug("GCD sweep:", length, "s, swing", swing, "from", source)
 end
 
-local function StartSweep()
+-- spellID: the spell the starting event named; fresh: the GCD was idle before it.
+local function StartSweep(spellID, fresh)
     local now = GetTime()
     if not IsPaced() then
         ball:SetCooldown(now, 1)
         sweepStart, sweepEnd = now, now + 1
         return
     end
+    local name = SpellName(spellID)
     local start, duration = ReadableGcd()
     if start then
+        if name and fresh then
+            ns.LearnLength("gcd", name, duration)
+        end
         DrawSweep(start, duration)
-    else
-        local paired = now - castTime < PAIR_WINDOW and castLength
-        DrawSweep(now, paired or GCD_LENGTH)
+        return
+    end
+    DrawSweep(now, name and ns.LearnedLength("gcd", name) or GCD_LENGTH)
+    if name and fresh then
+        timedFrom, timedName = now, name
+        timer:Show()
     end
 end
 
-local function OnCast(spellID)
-    if not spellID or ns.IsSecret(spellID) then
-        return
-    end
-    local name = C_Spell.GetSpellName(spellID)
-    if not name or ns.IsSecret(name) then
-        return
-    end
-    local now = GetTime()
-    -- Learn: a GCD that started just now is this cast's (an instant). A cast with a cast time
-    -- started its GCD when the cast began, so it's skipped.
-    local start, duration = ReadableGcd()
-    if start and now - start < PAIR_WINDOW then
-        ns.LearnLength("gcd", name, duration)
-    end
-    castTime, castLength = now, ns.LearnedLength("gcd", name)
-    if castLength and castLength ~= sweepLength and not start and IsPaced()
-        and now < sweepEnd and now - sweepStart < PAIR_WINDOW then
-        DrawSweep(sweepStart, castLength) -- the GCD started first; fix its length
-    end
-end
-
-local function UpdateFromFlag()
-    -- isActive, not isOnGCD: it's what the duration-object path reads, and it's readable in combat
-    local info = C_Spell.GetSpellCooldown(REFERENCE_SPELL)
-    local active = info and info.isActive
-    if ns.IsSecret(active) then
-        ns.Debug("GCD: isActive is secret")
-        active = false
-    end
+local function UpdateFromFlag(active, spellID, fresh)
     -- Time-based, so a GCD that ends without a cooldown event can't block the next one
     local sweeping = GetTime() < sweepEnd
     if active and not sweeping then
-        StartSweep()
+        StartSweep(spellID, fresh)
     elseif not active and sweeping then
         ball:Clear()
         sweepEnd = 0
@@ -169,7 +181,18 @@ end
 
 local sampling = false -- preview mode's looping sweep is showing (below); real GCDs wait
 
-local function Update()
+local function Update(spellID)
+    -- isActive, not isOnGCD: it's what the duration-object path reads, and it's readable in combat.
+    -- Read in every form, so a GCD running across a shapeshift isn't taken for a fresh one.
+    local info = C_Spell.GetSpellCooldown(REFERENCE_SPELL)
+    local active = info and info.isActive
+    if ns.IsSecret(active) then
+        ns.Debug("GCD: isActive is secret")
+        active = false
+    end
+    active = active and true or false
+    local fresh = active and not wasActive
+    wasActive = active
     if sampling then
         return
     end
@@ -177,18 +200,13 @@ local function Update()
         sweepEnd = 0
         return
     end
-    UpdateFromFlag()
+    UpdateFromFlag(active, spellID, fresh)
 end
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("SPELL_UPDATE_COOLDOWN")
-events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
-events:SetScript("OnEvent", function(_, event, _, _, spellID)
-    if event == "SPELL_UPDATE_COOLDOWN" then
-        Update()
-    else
-        OnCast(spellID)
-    end
+events:SetScript("OnEvent", function(_, _, spellID)
+    Update(spellID) -- the spell whose cooldown changed: at the GCD's start, the one being cast
 end)
 
 -- Settings and preview mode (Elements.lua, Preview.lua). Opacity scales the shade's own alpha (the

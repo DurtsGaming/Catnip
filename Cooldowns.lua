@@ -251,23 +251,12 @@ end
 -- State ---------------------------------------------------------------------------------------------
 -- Whether a spell is on cooldown: ns.CooldownState (SpellTiming.lua).
 
--- While the GCD hides what's really on cooldown, look again once it's over (its end fires no event).
-local recheckPending = false
-local function RecheckAfterGcd()
-    if recheckPending then
-        return
-    end
-    recheckPending = true
-    C_Timer.After(1.6, function() -- longer than any GCD
-        recheckPending = false
-        RequestUpdate()
-    end)
-end
-
+-- The icon's countdown: the spell's cooldown without the GCD (GetSpellCooldownDuration's second
+-- argument, 2026-10-10), so a GCD never sweeps across it.
 local function StartTimer(timer, spellID)
     if C_Spell.GetSpellCooldownDuration and timer.SetCooldownFromDurationObject then
         local ok = pcall(function()
-            local duration = C_Spell.GetSpellCooldownDuration(spellID)
+            local duration = C_Spell.GetSpellCooldownDuration(spellID, true)
             if duration then
                 timer:SetCooldownFromDurationObject(duration)
             end
@@ -613,9 +602,6 @@ local function Update()
             onCooldown, sure, start, duration = Items.CooldownState(entry, slot.onCooldown)
         else
             onCooldown, sure = ns.CooldownState(current, slot.onCooldown)
-            if not sure then
-                RecheckAfterGcd()
-            end
         end
         onCooldown = onCooldown and true or false
         if onCooldown ~= (slot.onCooldown or false) then

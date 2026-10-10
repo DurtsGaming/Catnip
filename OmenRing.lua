@@ -7,11 +7,13 @@
 -- Shred: 60 to 0 on the proc's UNIT_AURA, back to 60 when used). So the clock starts when that
 -- cost turns 0. A proc while Clearcasting is already up (a refresh) leaves the cost at 0 and isn't
 -- seen.
+--
+-- No game timer exists for the ICD, so it's our own: a duration object from the proc's time drives
+-- the ring (a radial StatusBar, SegmentedArc.lua) and one timer ends it.
 local addonName, ns = ...
-local CreateFrame = ns.Profiled("OmenRing") -- timed by /catnip perf (Profiler.lua)
+local CreateFrame, C_Timer = ns.Profiled("OmenRing") -- timed by /catnip perf (Profiler.lua)
 
-local ICD = 10 -- seconds
-local SEGMENTS = 5 -- 2s each; ring_omen_angular has them drawn in (make_textures.py)
+local ICD = 10 -- seconds; 5 segments of 2s, drawn into ring_omen_circular and _angular (make_textures.py)
 local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- as CooldownRings.lua
 -- Abilities Clearcasting makes free, first known wins. Shred is verified; the others are guesses
 -- for characters without it (Wrath: every druid has it, if its mana cost reads 0 the same way).
@@ -21,11 +23,10 @@ local function Arc()
     local arc = ns.CreateSegmentedArc({
         parent = UIParent,
         size = RING_SIZE,
-        art = "ring_omen",
+        art = "ring_omen_circular", -- ns.ShapeComboRingArc sets the shape picked
         from = math.pi / 2, -- 12 o'clock
         span = 2 * math.pi,
         clockwise = true,
-        segments = SEGMENTS, -- cut by ns.ShapeComboRingArc (Circular by default, or Angular)
         drain = true,
         noFlash = true,
     })
@@ -34,25 +35,19 @@ local function Arc()
 end
 
 local arc = Arc()
-local startedAt, length
-
--- The clock runs on its own frame, so it keeps time while the ring's slot is hidden.
-local driver = CreateFrame("Frame")
-driver:Hide()
-driver:SetScript("OnUpdate", function()
-    local progress = (GetTime() - startedAt) / length
-    if progress >= 1 then
-        driver:Hide()
-        arc.Finish()
-    else
-        arc.SetProgress(progress)
-    end
-end)
+local length -- the last run's, for the preview command's message
+local ending -- the timer that ends the current run
 
 local function Start(seconds)
-    startedAt, length = GetTime(), seconds
-    arc.Start(0)
-    driver:Show()
+    length = seconds
+    if ending then
+        ending:Cancel()
+    end
+    arc.Start(ns.Duration(GetTime(), seconds))
+    ending = C_Timer.NewTimer(seconds, function()
+        ending = nil
+        arc.Finish()
+    end)
 end
 
 -- Is Clearcasting up, judged by the watched ability's cost? nil if it can't be told.

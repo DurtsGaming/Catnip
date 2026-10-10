@@ -2,26 +2,25 @@
 -- the cooldown, each segment a quarter (4s, 3s or 2s), coloured blue, blue to white, white to
 -- yellow, yellow. Each segment has a thin black outline; unfilled parts are clear inside it (a dim
 -- copy of their colour was tried and dropped).
--- Each segment pulses briefly as it fills (at 4s, 8s, 12s of a 16s cooldown). At zero the arc
--- flashes and fades out, and in Cat Form a blue light pulses once inside the resource circle, if
--- your mana pays for a cast.
+-- At zero the arc flashes and fades out, and in Cat Form a blue light pulses once inside the
+-- resource circle, if your mana pays for a cast. (Each segment pulsed as it filled until
+-- 2026-10-10; that can't be timed now that Blizzard drives the arc.)
 --
 -- Growl's arc (GrowlArc.lua) shares the spot; it decides which shows (Growl in Bear Form, this one
 -- otherwise) by hiding this arc's parent (ns.shiftingPowerArcGate). The clock keeps running
 -- underneath, so the arc comes back where it should be; the ready pulse isn't in the gate and
 -- still plays.
 --
--- The arc is a SegmentedArc.lua arc timed by SegmentedCooldown.lua (our own clock from the cast,
--- length learned out of combat in CatnipDB.spLength: 16s, or 12s/8s with talents). Its segments
--- and gaps are drawn into sp_arc and sp_arc_outline (make_textures.py sp_arc_geometry, and
--- sp_colour colours each of the four), so changing the segment count means redrawing those too.
+-- The arc is a SegmentedArc.lua arc (a radial StatusBar) timed by SegmentedCooldown.lua (the
+-- game's own cooldown, exact in combat). Its segments and gaps are drawn into sp_arc and
+-- sp_arc_outline (make_textures.py sp_arc_geometry, and sp_colour colours each of the four), so
+-- changing the segment count means redrawing those.
 local addonName, ns = ...
 local CreateFrame = ns.Profiled("ShiftingPower") -- timed by /catnip perf (Profiler.lua)
 
 -- Geometry, in step with make_textures.py (SP_CANVAS, SP_SPAN): the arc textures are drawn on a
 -- canvas CANVAS units across, centred on the HUD's centre.
 local CANVAS = 164
-local SEGMENTS = 4 -- drawn into the art
 local SPAN = math.pi / 4.2 -- either side of 6 o'clock
 local PULSE_COLOR = { 60 / 255, 150 / 255, 1 } -- the mana bar's blue, brightened
 local PULSE_ADD = 1 -- an additive copy on top, for a brighter core
@@ -52,7 +51,6 @@ local function ArcOptions(parent)
         outlineColor = { 0, 0, 0 }, -- in its own colours it read as a neon glow
         from = 1.5 * math.pi - SPAN, -- left end
         span = 2 * SPAN,
-        segments = SEGMENTS, -- the gaps are in the art
     }
 end
 
@@ -113,7 +111,7 @@ ns.CreateSegmentedCooldown({
     label = "Shifting Power",
     names = { "Shifting Power" },
     castNames = { ["Shifting Power"] = true },
-    defaultLength = 16,
+    defaultLength = 16, -- for the preview command
     arc = arc,
     command = "sp", -- /catnip sp [seconds]
     onStart = HidePulse,

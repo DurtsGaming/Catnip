@@ -1,7 +1,7 @@
 -- Growl cooldown: Shifting Power's arc (ShiftingPower.lua) in its spot under the swing ring, in
 -- Growl's colours: four segments that fill left to right over the cooldown (2s each of ~8s), brown
--- through red to orange, each with a thin black outline. Each segment pulses as it fills; at zero
--- the arc flashes and fades out. In every form.
+-- through red to orange, each with a thin black outline. At zero the arc flashes and fades out. In
+-- every form.
 --
 -- When both are cooling (should be rare), one arc shows: Growl in Bear Form, Shifting Power
 -- otherwise (Cat Form and out of form). The other's gate (a parent frame) is hidden while the
@@ -10,8 +10,7 @@
 -- ring around combo point 2 until 2026-10-04: Growl isn't pressed on cooldown, so it moved off the
 -- rotation's dots. Over the top of the swing ring, its band crossed the combo point rings.)
 --
--- Timed by SegmentedCooldown.lua like the others (CatnipDB.growlLength, learned from the first
--- cast). The art is make_textures.py's Shifting Power arc in Growl's colours (growl_arc), with
+-- Timed by SegmentedCooldown.lua like the others (the game's own cooldown). The art is make_textures.py's Shifting Power arc in Growl's colours (growl_arc), with
 -- Shifting Power's own outline, so the two stay in step.
 local addonName, ns = ...
 local CreateFrame = ns.Profiled("GrowlArc") -- timed by /catnip perf (Profiler.lua)
@@ -31,8 +30,7 @@ local function ArcOptions(parent)
         outline = "sp_arc_outline", -- same shape
         outlineColor = { 0, 0, 0 },
         from = 1.5 * math.pi - SPAN, -- left end
-        span = 2 * SPAN,
-        segments = 4, -- drawn into the art
+        span = 2 * SPAN, -- four segments, drawn into the art
     }
 end
 
@@ -79,7 +77,7 @@ ns.CreateSegmentedCooldown({
     label = "Growl",
     names = { "Growl" },
     castNames = { ["Growl"] = true },
-    defaultLength = 8, -- ~8s seen 2026-10-04 (Classic's 10s ran long); learned from the first cast
+    defaultLength = 8, -- for the preview command (~8s seen 2026-10-04)
     command = "growl", -- /catnip growl [seconds]
     arc = arc,
 })
