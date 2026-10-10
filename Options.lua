@@ -770,6 +770,19 @@ local function Choice(label, values, get, set, fontOf)
     Place(ChoiceWidget(Host(), label, values, get, set, fontOf), CHOICE_HEIGHT, 10)
 end
 
+-- Two controls side by side on one row, `height` tall, as the frame controls pair their sliders:
+-- makeLeft(parent) and makeRight(parent) each return one (SliderWidget, ChoiceWidget).
+local function Pair(height, makeLeft, makeRight)
+    local GAP = 22
+    local row = CreateFrame("Frame", nil, Host())
+    local left, right = makeLeft(row), makeRight(row)
+    left:SetPoint("TOPLEFT")
+    left:SetPoint("BOTTOMRIGHT", row, "BOTTOM", -GAP / 2, 0)
+    right:SetPoint("TOPLEFT", row, "TOP", GAP / 2, 0)
+    right:SetPoint("BOTTOMRIGHT")
+    Place(row, height, 10)
+end
+
 -- A red button on its own row, at its natural width.
 local function Button(text, onClick)
     local holder = CreateFrame("Frame", nil, Host())
@@ -1577,14 +1590,14 @@ do
     rotation.subs.Select(generalZone.first)
 end
 
--- Cooldown tab: Abilities and Layout sub-tabs ----------------------------------------------------
+-- Cooldown tab: frame controls, Icons and Abilities on one page -------------------------------------
 
 local cooldowns = topTabs.Add("Cooldown")
 cooldowns.wide, cooldowns.cooldownPreview = true, true
 
 -- Frame controls across the top, as on the Rotation tab (owner, 2026-10-09): the switch, Reset...
 -- and Edit Mode, then size and position (size up to the whole screen; position as an offset from
--- the screen centre, like the HUD's). Opacity stays in Layout, with the icons.
+-- the screen centre, like the HUD's). Opacity is in Icons, at the bottom.
 do
     local function SetCooldownBox(changes)
         local db = ns.db
@@ -1595,15 +1608,15 @@ do
         name = "Cooldown Frame",
         isOn = function() return ns.db.cdEnabled end,
         setOn = ns.Cooldowns.SetEnabled,
-        resetText = "Width, Height, position, Opacity, Alignment and the Cooldown Frame switch go back to their defaults. Tracked abilities stay.",
+        resetText = "Height, Width, position, Icon size, Overflow, both opacities, Alignment and the Cooldown Frame switch go back to their defaults. Tracked abilities stay.",
         reset = ns.Cooldowns.ResetLayout,
         sliders = {
-            { "Width", ns.Cooldowns.MIN_SIZE, function() return math.floor(UIParent:GetWidth()) end, 1, "%.0f",
-                function() return ns.db.cdWidth end,
-                function(width) SetCooldownBox({ width = width }) end },
             { "Height", ns.Cooldowns.MIN_SIZE, function() return math.floor(UIParent:GetHeight()) end, 1, "%.0f",
                 function() return ns.db.cdHeight end,
                 function(height) SetCooldownBox({ height = height }) end },
+            { "Width", ns.Cooldowns.MIN_SIZE, function() return math.floor(UIParent:GetWidth()) end, 1, "%.0f",
+                function() return ns.db.cdWidth end,
+                function(width) SetCooldownBox({ width = width }) end },
             { "Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
                 function() return ns.db.cdX end,
                 function(x) SetCooldownBox({ x = x }) end },
@@ -1612,27 +1625,38 @@ do
                 function(y) SetCooldownBox({ y = y }) end },
         },
     })
-    -- Room above the sub-pages: the frame controls, then the bookmarks' height.
-    cooldowns.pageTop = PAD + cdPanel:GetHeight() + TAB_HEIGHT
-end
+    -- The rest of the tab (Abilities, then Icons: one page, no sub-tabs since 2026-10-09, owner) is
+    -- laid out on `body`, under the frame controls, so it can dim as one.
+    local body = CreateFrame("Frame", nil, cooldowns.page)
+    body:SetPoint("TOPLEFT", cdPanel, "BOTTOMLEFT", -PAD, 0)
+    body:SetPoint("BOTTOMRIGHT", cooldowns.page, "BOTTOMRIGHT")
+    cooldowns.bodyTop = PAD + cdPanel:GetHeight()
+    page, y = body, -PAD
+    origin, originY, originLeft, originRight = body, 0, "TOPLEFT", "TOPRIGHT"
 
--- Abilities / Layout: bookmarks standing on their page's first panel, under the frame controls.
-cooldowns.subs = TabGroup(BookmarkTabs(cooldowns.page, PAD + 10, cooldowns.pageTop + PAD + art.EDGE_INSET,
-    TAB_HEIGHT, cooldowns.page:GetFrameLevel() + 10), cooldowns.page, cooldowns.page, -cooldowns.pageTop)
+    -- While the Cooldown Frame is off, only its switch can be used, as on the Rotation tab (owner,
+    -- 2026-10-09): as well as FramePanel's sliders, the body dims, and a blocker over it catches
+    -- the mouse.
+    local blocker = ScrollBlocker(cooldowns.page, cooldowns.page:GetFrameLevel() + 40) -- under Reset...'s confirmation (+60)
+    blocker:SetAllPoints(body)
+    refreshers[#refreshers + 1] = function()
+        local on = ns.db.cdEnabled and true or false
+        blocker:SetShown(not on)
+        body:SetAlpha(on and 1 or 0.45)
+    end
+end
 
 -- Abilities ----------------------------------------------------------------------------------------
 
-local abilities = cooldowns.subs.Add("Abilities")
+Section("Abilities")
 
-Section()
-
-Hint("Tick the abilities to show. Drag ticked ones up or down to set their priority: higher ones sit closer to the anchor point (chosen in Layout). Unticked items drop off the list.")
+Hint("Tick the abilities to show. Drag ticked ones up or down to set their priority: higher ones sit closer to the anchor point (Alignment, below). Unticked items drop off the list.")
 
 -- The list: one row per ability with a cooldown, in its own scrolling area. Rows are pooled and
 -- rebuilt on every refresh from ns.Cooldowns.Candidates() (tracked first, in priority order). It
 -- stretches to fill the window, at least LIST_ROWS rows tall.
 local ROW_HEIGHT = 26
-local LIST_ROWS = 6
+local LIST_ROWS = 10 -- 6 left it short once the Icons panel moved under it (2026-10-09)
 
 local list = CreateFrame("ScrollFrame", nil, Host())
 Box(list, WELL, BRONZE_DIM)
@@ -1868,17 +1892,33 @@ y = y - 4
 Place(drop, DROP_HEIGHT)
 Hint("Items with a Use: effect (Hearthstone, trinkets) get their own icon. Every potion shares one Potions icon; a dropped potion's buff (e.g. Mighty Rage Potion) shows as Potions being active.")
 
-EndTab(abilities)
-
--- Layout -------------------------------------------------------------------------------------------
-
-local layout = cooldowns.subs.Add("Layout")
+-- Icons ----------------------------------------------------------------------------------------------
 
 Section("Icons")
 
-Slider("Opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
-    function() return ns.db.cdAlpha * 100 end,
-    function(percent) ns.Cooldowns.SetAlpha(percent / 100) end)
+-- Icon size, apart from the box's size (owner, 2026-10-09): the width sets how many fit in a row.
+Pair(SLIDER_HEIGHT, function(parent)
+    return SliderWidget(parent, "Icon size", ns.Cooldowns.MIN_ICON_SIZE, ns.Cooldowns.MAX_ICON_SIZE, 1, "%.0f",
+        function() return ns.db.cdIconSize end,
+        ns.Cooldowns.SetIconSize)
+end, function(parent)
+    return ChoiceWidget(parent, "Overflow", {
+        { value = "hide", text = "Hidden" },
+        { value = "spill", text = "Spill" },
+    }, function() return ns.db.cdOverflow end, ns.Cooldowns.SetOverflow)
+end)
+Hint("Icons that don't fit in the box: hidden, lowest priority first, or shown past its edge.")
+
+-- Active: icons whose buff or debuff is up; inactive: grey icons on cooldown (owner, 2026-10-09).
+Pair(SLIDER_HEIGHT, function(parent)
+    return SliderWidget(parent, "Active opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
+        function() return ns.db.cdActiveAlpha * 100 end,
+        function(percent) ns.Cooldowns.SetActiveAlpha(percent / 100) end)
+end, function(parent)
+    return SliderWidget(parent, "Inactive opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
+        function() return ns.db.cdAlpha * 100 end,
+        function(percent) ns.Cooldowns.SetAlpha(percent / 100) end)
+end)
 
 AnchorGrid("Alignment", function() return ns.db.cdAlign end, ns.Cooldowns.SetAlignment)
 Hint("Where the shown icons gather in the box: a corner, the middle of a side, or the centre.")
@@ -1887,9 +1927,12 @@ Hint("Where the shown icons gather in the box: a corner, the middle of a side, o
 -- taint error in Blizzard's chat (2026-10-02; see docs/api-research.md). Players change it in WoW's options.
 Hint("Countdown numbers follow WoW's own setting: Options > Action Bars > Show Numbers for Cooldowns.")
 
-EndTab(layout)
-
-cooldowns.subs.Select(abilities)
+-- End of the tab: its height counts the frame controls above the body, and the Abilities list
+-- (the body's Stretch) grows to fill the window (UpdateCanvas reads it from the tab's page).
+ClosePanel()
+cooldowns.height = cooldowns.bodyTop - y
+cooldowns.page:SetHeight(cooldowns.height)
+cooldowns.page.stretch = page.stretch
 
 -- Wiring -----------------------------------------------------------------------------------------
 
@@ -1960,7 +2003,7 @@ function ns.OpenElementSettings(id)
 end
 
 -- While the settings window is open, turns it to `where` ("hud" or "cooldowns") unless it's already
--- on that tab (so a Cooldown sub-tab stays put). Clicking a frame in Blizzard's Edit Mode calls this.
+-- on that tab (so where it's scrolled to stays put). Clicking a frame in Blizzard's Edit Mode calls this.
 function ns.FollowSettings(where)
     if not window:IsShown() then
         return

@@ -29,7 +29,9 @@ local LEARN_DELAY = 0.3 -- after a cast, when to look for the buff it gave
 local LEARN_WINDOW = 0.5 -- how close to the cast the buff must have started, in seconds
 local ICON_CROP = 0.08 -- trims the border baked into spell icons
 local MIN_SIZE = 24
-local DEFAULTS = { cdX = 0, cdY = -500, cdWidth = 240, cdHeight = 138, cdAlign = "TOP", cdAlpha = 1, cdEnabled = true }
+local MIN_ICON_SIZE, MAX_ICON_SIZE = 16, 128
+local DEFAULTS = { cdX = 0, cdY = -500, cdWidth = 240, cdHeight = 138, cdAlign = "TOP", cdAlpha = 1, cdActiveAlpha = 1,
+    cdIconSize = 40, cdOverflow = "hide", cdEnabled = true }
 
 for key, value in pairs(DEFAULTS) do
     ns.defaults[key] = value
@@ -106,9 +108,10 @@ local function AddDashes(frame)
     return spinner
 end
 
--- Full strength, ignoring the box's Opacity: at partial opacity every layer is see-through, so the
--- grey cooldown icon underneath would show through. We can't hide that one instead: in combat we
--- never learn that the buff is up.
+-- Free of the box's alpha (Inactive opacity, on the widget): active icons have Active opacity of
+-- their own, and the outlines are always full strength. Below 100% an active icon is see-through,
+-- so a grey cooldown icon under it shows; we can't hide that one instead: in combat we never learn
+-- that the buff is up.
 local function IgnoreBoxOpacity(frame)
     if frame.SetIgnoreParentAlpha then
         frame:SetIgnoreParentAlpha(true)
@@ -118,8 +121,7 @@ end
 -- The buff's look, on the AuraContainer button Blizzard shows while the buff is up. Must be static
 -- after this runs (the button becomes off-limits to our code), hence AddDashes' looping animation.
 local function StyleActiveButton(button)
-    ns.HideAuraButtonArt(button)
-    IgnoreBoxOpacity(button)
+    ns.HideAuraButtonArt(button) -- its opacity comes from the slot's activeGate
     button:SetIcon(CreateIcon(button)) -- Blizzard fills in the buff's icon
     local spinner = AddDashes(button)
 
@@ -218,6 +220,12 @@ local function CreateSlot(entry)
 
     -- "Active" is our buff on us (Barkskin) or our debuff on the target (Growl's taunt, Faerie Fire):
     -- one AuraContainer for each, both drawn the same way.
+    -- They sit in activeGate, a frame of ours free of the box's alpha and carrying Active opacity:
+    -- the buttons themselves can't be changed once styled (Rake and Rip's gates do the same).
+    slot.activeGate = CreateFrame("Frame", nil, slot)
+    slot.activeGate:SetAllPoints()
+    IgnoreBoxOpacity(slot.activeGate)
+    slot.activeGate:SetAlpha(ns.db and ns.db.cdActiveAlpha or 1)
     slot.auras = {}
     if ns.HAS_AURA_CONTAINER then
         for _, watch in ipairs({ { unit = "player", filter = "HELPFUL" }, { unit = "target", filter = "HARMFUL" } }) do
@@ -228,7 +236,7 @@ local function CreateSlot(entry)
                 spellIDs = EntryAuraIDs(entry),
                 width = SLOT,
                 height = SLOT,
-                parent = slot, -- moves, scales and hides with the slot
+                parent = slot.activeGate, -- moves, scales and hides with the slot
                 relativeTo = slot,
                 level = 5,
                 initialize = StyleActiveButton,
@@ -337,11 +345,13 @@ end
 -- priority order (one placeholder when none are), most on cooldown and every fourth from the second
 -- active (never a cooldown-only one), each with a looping timer. They're our own frames, so the
 -- active look, drawn on an AuraContainer for real, can show too. The real icons hide meanwhile,
--- their AuraContainers with them. In the settings window a faint blue outline marks the box, and
--- hovering an Abilities row outlines its icon.
+-- their AuraContainers with them. In the settings window the box gets the HUD preview's idle
+-- outline (Edit Mode's blue frame, faint), and hovering an Abilities row gives its icon the hover
+-- one (the same frame at full strength, brightened), matching Preview.lua (owner, 2026-10-09).
 
 local PLACEHOLDER_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
-local HIGHLIGHT_COLOR = { 116 / 255, 192 / 255, 1 } -- the HUD preview's hover blue (Preview.lua)
+local IDLE_ALPHA = 0.4 -- Preview.lua's, for outlines not hovered
+local GLOW_ALPHA = 0.4 -- Preview.lua's: the additive copy brightening a hovered outline
 local samples = {} -- sample icons, by position
 local sampleCount = 0 -- how many show (0 while not sampling)
 local settingsWanted = false -- the settings window is open on the Cooldown tab
@@ -351,30 +361,31 @@ local function Sampling()
     return previewing or unlocked or (settingsWanted and not InCombatLockdown())
 end
 
--- A square outline of `thickness` round `frame` (four textures), in `color`.
-local function Outline(frame, thickness, color, alpha)
-    local edges = {}
-    for _, side in ipairs({ { "TOPLEFT", "TOPRIGHT", true }, { "BOTTOMLEFT", "BOTTOMRIGHT", true },
-        { "TOPLEFT", "BOTTOMLEFT", false }, { "TOPRIGHT", "BOTTOMRIGHT", false } }) do
-        local edge = frame:CreateTexture(nil, "OVERLAY")
-        edge:SetColorTexture(color[1], color[2], color[3], alpha)
-        edge:SetPoint(side[1])
-        edge:SetPoint(side[2])
-        if side[3] then
-            edge:SetHeight(thickness)
-        else
-            edge:SetWidth(thickness)
+-- Edit Mode's blue frame (UnlockOverlay.lua) round `frame`, as Preview.lua outlines the HUD's
+-- texts; `hover` adds its additive copy, brightening it.
+local function EditModeOutline(frame, hover)
+    local look = CreateFrame("Frame", nil, frame)
+    look:SetAllPoints()
+    ns.ApplyEditModeLook(look)
+    if hover then
+        local glow = CreateFrame("Frame", nil, frame)
+        glow:SetAllPoints()
+        ns.ApplyEditModeLook(glow)
+        for _, region in ipairs({ glow:GetRegions() }) do
+            if region.SetBlendMode then
+                region:SetBlendMode("ADD")
+            end
         end
-        edges[#edges + 1] = edge
+        glow:SetAlpha(GLOW_ALPHA)
     end
-    return edges
 end
 
 -- The box's outline in the settings preview, full strength whatever the box's Opacity.
 local boxOutline = CreateFrame("Frame", nil, widget)
 boxOutline:SetAllPoints()
 IgnoreBoxOpacity(boxOutline)
-Outline(boxOutline, 1, HIGHLIGHT_COLOR, 0.5)
+EditModeOutline(boxOutline)
+boxOutline:SetAlpha(IDLE_ALPHA)
 boxOutline:Hide()
 
 -- Runs `timer` round and round over `duration` seconds, `elapsed` of it already gone.
@@ -411,18 +422,19 @@ local function CreateSample()
     sample.active = CreateFrame("Frame", nil, sample)
     sample.active:SetAllPoints()
     sample.active:SetFrameLevel(sample:GetFrameLevel() + 5)
-    IgnoreBoxOpacity(sample.active)
+    IgnoreBoxOpacity(sample.active) -- Active opacity instead (ApplyLayout)
+    sample.active:SetAlpha(ns.db and ns.db.cdActiveAlpha or 1)
     sample.activeIcon = CreateIcon(sample.active)
     local spinner = AddDashes(sample.active)
     sample.activeTimer = LoopingTimer(sample.active)
     sample.activeTimer:SetFrameLevel(spinner:GetFrameLevel() + 1)
-    -- The hovered Abilities row's icon: a blue square round it, outside the dashes.
+    -- The hovered Abilities row's icon: the hover outline round it, outside the dashes.
     sample.highlight = CreateFrame("Frame", nil, sample)
     sample.highlight:SetSize(SLOT * 1.2, SLOT * 1.2)
     sample.highlight:SetPoint("CENTER")
     sample.highlight:SetFrameLevel(sample:GetFrameLevel() + 10)
     IgnoreBoxOpacity(sample.highlight)
-    Outline(sample.highlight, 3, HIGHLIGHT_COLOR, 1)
+    EditModeOutline(sample.highlight, true)
     return sample
 end
 
@@ -478,19 +490,6 @@ end
 
 -- Layout ----------------------------------------------------------------------------------------------
 
--- The largest square cell that fits `count` icons in the box, and how many columns that takes.
-local function CellSize(count, width, height)
-    local best, bestColumns = 0, 1
-    for columns = 1, count do
-        local rows = math.ceil(count / columns)
-        local cell = math.min(width / columns, height / rows)
-        if cell > best then
-            best, bestColumns = cell, columns
-        end
-    end
-    return best, bestColumns
-end
-
 -- Spot (0 = left or top) for the `rank`th icon (0 = highest priority) of `count` in a line, nearest
 -- the anchor first: from the start, from the end, or from the middle outward. In the middle, ties
 -- (an equal distance either side, or the two middle spots of an even count) go to `tieToStart`'s side.
@@ -519,8 +518,11 @@ end
 -- anchor points), higher priority nearer the anchor: rows fill outward from the anchor's edge
 -- (from the middle row for the middle anchors, then below, then above), and each row fills outward
 -- from the anchor's side (from its middle for the centre anchors, then left, then right). E.g. top
--- centre: middle of the top row, then the rest of it, then the middle of the second row. Sized so
--- every tracked ability fits at once, so icons don't change size as they come and go.
+-- centre: middle of the top row, then the rest of it, then the middle of the second row. Icons are
+-- the Icon size setting (CatnipDB.cdIconSize), not sized to the box (owner, 2026-10-09): a row takes
+-- as many as fit across the box's width, and rows past its far edge are hidden or spill outside it
+-- (Overflow). Shows the icons it places and hides overflow, so Update only marks which it wants
+-- (showWanted); the samples always want to show.
 local function Arrange()
     if not (ns.char and ns.char.cdTracked) then
         return -- before PLAYER_LOGIN (ApplyLayout at load resizes the box)
@@ -535,13 +537,27 @@ local function Arrange()
     else
         for _, entry in ipairs(tracked) do
             local slot = slots[entry]
-            if slot and slot:IsShown() then
+            if slot and slot.showWanted then
                 shown[#shown + 1] = slot
             end
         end
     end
-    local cell, columns = CellSize(math.max(#tracked, sampleCount, 1), width, height)
-    local scale = math.max(cell / OUTLINE, 1) / SLOT
+    local size = ns.db.cdIconSize or DEFAULTS.cdIconSize
+    local cell = size * OUTLINE -- room for the dashed border round an active icon
+    local columns = math.max(1, math.floor(width / cell + 0.001))
+    -- Overflow (CatnipDB.cdOverflow): "hide" drops the icons past the rows that fit, lowest priority
+    -- first; "spill" lets their rows run past the box's far edge.
+    if (ns.db.cdOverflow or DEFAULTS.cdOverflow) == "hide" then
+        local fit = columns * math.max(1, math.floor(height / cell + 0.001))
+        for i = #shown, fit + 1, -1 do
+            shown[i]:Hide()
+            shown[i] = nil
+        end
+    end
+    for _, slot in ipairs(shown) do
+        slot:Show()
+    end
+    local scale = size / SLOT
     local align = ns.db.cdAlign or DEFAULTS.cdAlign
     local horizontal = align:find("LEFT") and "LEFT" or align:find("RIGHT") and "RIGHT" or "CENTER"
     local vertical = align:find("TOP") and "TOP" or align:find("BOTTOM") and "BOTTOM" or "MIDDLE"
@@ -619,10 +635,14 @@ local function Update()
             slot.timer:Clear()
         end
         slot.onCooldown = onCooldown
-        slot:SetShown(not sampling and (onCooldown or BuffSeenUp(entry)))
+        slot.showWanted = not sampling and (onCooldown or BuffSeenUp(entry))
+        if not slot.showWanted then
+            slot:Hide()
+        end
     end
     for _, slot in pairs(slots) do
         if not slot.wanted then
+            slot.showWanted = false
             slot:Hide()
         end
     end
@@ -654,7 +674,13 @@ end
 local function ApplyLayout()
     local db = ns.db
     widget:SetShown(db.cdEnabled)
-    widget:SetAlpha(db.cdAlpha) -- the icons inherit it; active buff icons and the unlock overlay don't
+    widget:SetAlpha(db.cdAlpha) -- Inactive opacity: the icons inherit it; active ones and the unlock overlay don't
+    for _, slot in pairs(slots) do
+        slot.activeGate:SetAlpha(db.cdActiveAlpha)
+    end
+    for _, sample in ipairs(samples) do
+        sample.active:SetAlpha(db.cdActiveAlpha)
+    end
     widget:SetSize(db.cdWidth, db.cdHeight)
     widget:ClearAllPoints()
     widget:SetPoint("CENTER", UIParent, "CENTER", db.cdX, db.cdY)
@@ -688,9 +714,31 @@ function Cooldowns.SetAlignment(point)
     ns.SettingsChanged()
 end
 
--- Opacity of the whole box, ns.MIN_ALPHA to 1.
+-- Inactive opacity (the box's alpha: grey cooldown icons), ns.MIN_ALPHA to 1.
 function Cooldowns.SetAlpha(alpha)
     ns.db.cdAlpha = math.min(1, math.max(ns.MIN_ALPHA, alpha))
+    ApplyLayout()
+    ns.SettingsChanged()
+end
+
+-- Icon size: an icon's side, without its dashed border.
+function Cooldowns.SetIconSize(size)
+    ns.db.cdIconSize = math.min(MAX_ICON_SIZE, math.max(MIN_ICON_SIZE, size))
+    Arrange()
+    ns.SettingsChanged()
+end
+Cooldowns.MIN_ICON_SIZE, Cooldowns.MAX_ICON_SIZE = MIN_ICON_SIZE, MAX_ICON_SIZE
+
+-- Overflow: "hide" (icons that don't fit in the box don't show) or "spill" (they show past its edge).
+function Cooldowns.SetOverflow(mode)
+    ns.db.cdOverflow = mode
+    Update()
+    ns.SettingsChanged()
+end
+
+-- Active opacity (icons whose buff or debuff is up), ns.MIN_ALPHA to 1.
+function Cooldowns.SetActiveAlpha(alpha)
+    ns.db.cdActiveAlpha = math.min(1, math.max(ns.MIN_ALPHA, alpha))
     ApplyLayout()
     ns.SettingsChanged()
 end

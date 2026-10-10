@@ -109,7 +109,16 @@ AddButtons(cooldowns, { { text = "Catnip Settings", click = function() ns.OpenSe
 
 -- Entering and leaving -----------------------------------------------------------------------------
 
+-- Blizzard closes open windows as Edit Mode starts, Catnip's settings among them. Opened from them
+-- (ns.OpenEditMode), they come back once it has; opened from the game menu, they stay closed
+-- (owner, 2026-10-09).
+local reopenSettings = false
+
 lib:RegisterCallback("enter", function()
+    if reopenSettings then
+        reopenSettings = false
+        C_Timer.After(0, ns.ShowSettings) -- after Blizzard's closing has run
+    end
     if ns.IsHudUnlocked() then
         ns.SetHudUnlocked(false) -- Blizzard's Edit Mode takes over from Catnip's own
     end
@@ -126,5 +135,9 @@ function ns.OpenEditMode()
         ns.Print("Edit Mode can't open in combat.")
         return
     end
+    reopenSettings = _G.CatnipOptions and _G.CatnipOptions:IsShown() or false
     ShowUIPanel(EditModeManagerFrame)
+    if not (EditModeManagerFrame and EditModeManagerFrame:IsShown()) then
+        reopenSettings = false -- it didn't open
+    end
 end
