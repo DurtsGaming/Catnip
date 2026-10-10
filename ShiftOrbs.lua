@@ -421,7 +421,7 @@ ns.RegisterElement({
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
         -- Previewed in every form: the fifth orb grey.
-        { key = "ghost", type = "checkbox", label = "Almost-ready orb", default = true },
+        { key = "ghost", type = "checkbox", label = "Almost-ready orb", default = false },
     },
     apply = function(get)
         opacity = get("opacity") / 100
