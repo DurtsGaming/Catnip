@@ -1,9 +1,10 @@
--- Short cooldowns as segmented rings around the combo points: Faerie Fire (dot 1) and Primal Bite
--- (dot 3); dot 2 is free (Growl moved to GrowlArc.lua). Each ring starts full when we cast the spell and empties clockwise from
--- 12 o'clock over its cooldown, leaving nothing behind. As each segment empties the next one
--- pulses, except the last one left; when ready it's simply gone (no flash). Hidden with the combo
--- dots outside Cat and Bear Form. Each is a SegmentedArc.lua ring timed by SegmentedCooldown.lua,
--- coloured from its spell's icon (make_textures.py); change `segments` freely.
+-- Short cooldowns as segmented rings around the combo points: Faerie Fire and Primal Bite, each in
+-- whichever combo ring slot the player picks for it (ComboRings.lua; by default dots 1 and 3). Each
+-- ring starts full when we cast the spell and empties clockwise from 12 o'clock over its cooldown,
+-- leaving nothing behind. As each segment empties the next one pulses, except the last one left;
+-- when ready it's simply gone (no flash). Hidden with the combo dots outside Cat and Bear Form.
+-- Each is a SegmentedArc.lua ring timed by SegmentedCooldown.lua, coloured from its spell's icon
+-- (make_textures.py); change `segments` freely. The clock runs whether or not the ring is in a slot.
 local addonName, ns = ...
 
 local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- same as DotRings.lua; the ring textures have ring_rip's band
@@ -17,11 +18,12 @@ end
 
 local RINGS = {
     {
-        id = "combo.ff", -- the settings element (Elements.lua)
+        key = "ff", -- saved in the combo ring settings
         label = "Faerie Fire",
-        dot = 1,
+        order = 1, -- in the settings dropdown
+        dot = 1, -- its slot by default
         art = "ring_faerie",
-        color = { 0.69, 0.31, 0.82 }, -- its icon in the settings list
+        color = { 0.69, 0.31, 0.82 }, -- its glyph in the settings list
         segments = 6, -- 6s
         -- In Cat and Bear Form the spell becomes Faerie Fire (Feral) (unverified whether the
         -- spellbook finds it by that name, so the caster one stands in for "known").
@@ -32,8 +34,9 @@ local RINGS = {
         command = "ff",
     },
     {
-        id = "combo.pb",
+        key = "pb",
         label = "Primal Bite",
+        order = 2,
         dot = 3,
         art = "ring_primal_bite",
         color = { 0.91, 0.86, 0.75 },
@@ -46,14 +49,11 @@ local RINGS = {
 }
 
 for _, ring in ipairs(RINGS) do
-    local x, y = ns.ComboDotOffset(ring.dot)
-    local function ArcOptions(parent)
-        return {
-            parent = parent,
+    -- Made out of sight; ns.PlaceComboRing moves each into its slot.
+    local function Arc()
+        local arc = ns.CreateSegmentedArc({
+            parent = UIParent,
             size = RING_SIZE,
-            x = x,
-            y = y,
-            level = 5, -- with the DoT rings, over the dots
             art = ring.art,
             from = math.pi / 2, -- 12 o'clock
             span = 2 * math.pi,
@@ -62,47 +62,39 @@ for _, ring in ipairs(RINGS) do
             gap = GAP,
             drain = true,
             noFlash = true,
-        }
+        })
+        ns.PlaceComboRing(arc.frame, nil)
+        return arc
     end
 
-    -- Gates (ns.ComboRingGate, at the group's level) carry the Opacity setting: the real arc's in
-    -- comboLive (hides with the combo dots outside Cat and Bear Form), preview mode's looping copy
-    -- (ns.ArcSampler) in comboSample.
-    local gate = ns.ComboRingGate(ns.comboLive)
-    local sampleGate = ns.ComboRingGate(ns.comboSample)
-
+    local arc = Arc()
     ns.CreateSegmentedCooldown({
         label = ring.label,
         names = ring.names,
         castNames = ring.castNames,
         castAllowed = ring.castAllowed,
         defaultLength = ring.defaultLength,
-        command = ring.command, -- /catnip <command> [seconds], in Cat or Bear Form
-        arc = ns.CreateSegmentedArc(ArcOptions(gate)),
+        command = ring.command, -- /catnip <command> [seconds], in Cat or Bear Form (shows only while in a slot)
+        arc = arc,
     })
 
-    local sampleArc = ns.CreateSegmentedArc(ArcOptions(sampleGate))
+    -- Preview mode's looping copy (ns.ArcSampler).
+    local sampleArc = Arc()
     local StartSample, StopSample = ns.ArcSampler(sampleArc, ring.defaultLength)
-    ns.RegisterElement({
-        id = ring.id,
-        zone = "combo",
-        name = ring.label .. " ring",
-        glyph = { kind = "ring", color = ring.color },
-        order = ring.dot,
-        hit = ns.ComboRingHit(ring.dot, function() return sampleArc.frame:IsVisible() end),
-        options = {
-            { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
-        },
-        apply = function(get)
-            gate:SetAlpha(get("opacity") / 100)
-            sampleGate:SetAlpha(get("opacity") / 100)
+
+    ns.AddComboRingSpell({
+        key = ring.key,
+        label = ring.label .. " Cooldown",
+        color = ring.color,
+        order = ring.order,
+        defaultSlot = ring.dot,
+        Place = function(slot)
+            ns.PlaceComboRing(arc.frame, slot and slot.gate, slot and slot.index)
         end,
-        sample = function(state)
-            if state == "cat" or state == "bear" then
-                StartSample()
-            else
-                StopSample()
-            end
+        StartSample = function(slot)
+            ns.PlaceComboRing(sampleArc.frame, slot.sampleGate, slot.index)
+            StartSample()
         end,
+        StopSample = StopSample,
     })
 end

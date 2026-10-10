@@ -5,8 +5,11 @@
 --     id = "resource.number", zone = "resource", name = "Resource number",
 --     hidden = true, -- optional: not offered in the settings for now (see Stored below)
 --     glyph = { kind = "text", color = { 1, 1, 1 } }, -- its icon there: disc, ring, arc, dots or text
+--                                                     -- (or a function returning one, if it can change)
 --     options = { { key = "size", type = "slider", label = "Size", min = 8, max = 40, step = 1, default = 20 }, ... },
 --     apply = function(get) ... end, -- get(key) is the option's resolved value; called on load and on every change
+--     onChange = function() ... end, -- optional: after its own options are set or reset, before
+--                                    -- everything is reapplied (e.g. to clear a clashing pick elsewhere)
 -- }
 --
 -- Option types: "slider" (min, max, step, format), "choice" (values = { { value = v, text = "..." } }),
@@ -99,6 +102,9 @@ function ns.SetElementOption(id, key, value)
     if next(elements[id]) == nil then
         elements[id] = nil
     end
+    if byId[id] and byId[id].onChange then
+        byId[id].onChange()
+    end
     for _, element in ipairs(ns.elements) do
         Apply(element)
     end
@@ -108,6 +114,9 @@ end
 -- Puts every option of an element back to its default (or back to inheriting from General).
 function ns.ResetElement(id)
     ns.db.elements[id] = nil
+    if byId[id] and byId[id].onChange then
+        byId[id].onChange()
+    end
     for _, element in ipairs(ns.elements) do
         Apply(element)
     end

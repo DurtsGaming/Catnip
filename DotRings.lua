@@ -1,9 +1,12 @@
--- DoT timers: a segmented red ring around a combo point for each of our DoTs on the target (Rake
--- on dot 4 in 3 segments, one per 3s tick; Rip on dot 5 in 6, one per 2s tick), full when the DoT
--- goes up and draining clockwise from 12 o'clock.
+-- DoT timers: a segmented red ring around a combo point for each of our DoTs on the target (Rake in
+-- 3 segments, one per 3s tick; Rip in 6, one per 2s tick), full when the DoT goes up and draining
+-- clockwise from 12 o'clock. Each sits in whichever combo ring slot the player picks for it
+-- (ComboRings.lua; by default dots 4 and 5).
 -- Each ring is an AuraContainer (see AuraContainer.lua) watching that DoT. We give its button a
 -- Cooldown frame whose swipe is our ring, and Blizzard drives it with the DoT's real remaining time,
--- even in combat, including refreshes and target switches.
+-- even in combat, including refreshes and target switches. AuraContainers can't be moved in combat,
+-- so each DoT gets one per slot it has been in, made the first time it's picked there (after combat,
+-- if picked in combat); only the current slot's shows.
 -- The timing is secret, so SegmentedArc.lua (which needs it as a number) can't draw these: the
 -- segments are cut into the swipe texture instead (make_textures.py ring_rake, ring_rip_segments;
 -- change the count there and regenerate). No per-segment pulses, for the same reason.
@@ -12,11 +15,13 @@
 -- hard to read near the end.
 local addonName, ns = ...
 
-local DOTS = { -- Forever: each rank's aura has its own ID. length: the sample's, in preview mode
-    { id = "combo.rake", label = "Rake", dot = 4, texture = "ring_rake", length = 9,
-        color = { 0.82, 0.23, 0.14 }, -- its icon in the settings list
+-- Forever: each rank's aura has its own ID. key: saved in the combo ring settings; order: in their
+-- dropdown; dot: its slot by default; length: the sample's, in preview mode.
+local DOTS = {
+    { key = "rake", label = "Rake", order = 3, dot = 4, texture = "ring_rake", length = 9,
+        color = { 0.82, 0.23, 0.14 }, -- its glyph in the settings list
         spellIDs = { 1822, 1823, 1824, 9904 } },
-    { id = "combo.rip", label = "Rip", dot = 5, texture = "ring_rip_segments", length = 12,
+    { key = "rip", label = "Rip", order = 4, dot = 5, texture = "ring_rip_segments", length = 12,
         color = { 0.69, 0.12, 0.12 },
         spellIDs = { 1079, 9492, 9493, 9752, 9894, 9896 } },
 }
@@ -64,14 +69,13 @@ local function StyleButton(button, texture)
     button:SetDurationCooldown(ring) -- Blizzard runs it with the aura's real (secret) timing
 end
 
--- Preview mode's stand-in: the same ring and tick, in comboSample, draining over the DoT's length
--- in a loop (plain numbers, so SetCooldown takes them). Returns the frame, and Start/Stop.
-local function StandIn(dot, parent)
-    local x, y = ns.ComboDotOffset(dot.dot)
-    local frame = CreateFrame("Frame", nil, parent)
+-- Preview mode's stand-in: the same ring and tick, draining over the DoT's length in a loop (plain
+-- numbers, so SetCooldown takes them); ns.PlaceComboRing moves it into a slot's sample gate.
+-- Returns the frame, and Start/Stop.
+local function StandIn(dot)
+    local frame = CreateFrame("Frame")
     frame:SetSize(RING_SIZE, RING_SIZE)
-    frame:SetPoint("CENTER", ns.hud, "CENTER", x, y)
-    frame:SetFrameLevel(ns.hud:GetFrameLevel() + LEVEL)
+    ns.PlaceComboRing(frame, nil)
     frame:Hide()
     local ring = BuildRing(frame, dot.texture)
     local started
@@ -98,51 +102,64 @@ local function StandIn(dot, parent)
 end
 
 for _, dot in ipairs(DOTS) do
-    -- Gates (ns.ComboRingGate) carry the Opacity setting: the real one holds the AuraContainer,
-    -- whose buttons can't be touched after setup, so this applies live, even to the real ring.
-    local gate = ns.ComboRingGate(ns.comboLive) -- hides with the combo dots outside Cat and Bear Form
-    local sampleGate = ns.ComboRingGate(ns.comboSample)
-    if ns.HAS_AURA_CONTAINER then
-        local x, y = ns.ComboDotOffset(dot.dot)
-        ns.CreateAuraContainer({
-            label = dot.label,
-            unit = "target",
-            filter = "HARMFUL",
-            spellIDs = dot.spellIDs,
-            width = RING_SIZE,
-            height = RING_SIZE,
-            x = x,
-            y = y,
-            level = LEVEL,
-            parent = gate,
-            initialize = function(button)
-                StyleButton(button, dot.texture)
-            end,
-        })
+    -- The slot's AuraContainer, in a holder in the slot's gate (which carries the slot's Opacity:
+    -- the buttons can't be touched after setup, so this applies live, even to the real ring, and
+    -- hides with the combo dots outside Cat and Bear Form). Showing and hiding the holder picks
+    -- which slot's ring is live.
+    local holders = {} -- by slot index
+    local current
+    local function Holder(slot)
+        local holder = holders[slot.index]
+        if holder then
+            return holder
+        end
+        holder = ns.ComboRingGate(slot.gate)
+        holders[slot.index] = holder
+        if ns.HAS_AURA_CONTAINER then
+            local x, y = ns.ComboDotOffset(slot.index)
+            ns.CreateAuraContainer({
+                label = dot.label .. " " .. slot.index,
+                unit = "target",
+                filter = "HARMFUL",
+                spellIDs = dot.spellIDs,
+                width = RING_SIZE,
+                height = RING_SIZE,
+                x = x,
+                y = y,
+                level = LEVEL,
+                parent = holder,
+                initialize = function(button)
+                    StyleButton(button, dot.texture)
+                end,
+            })
+            if IsLoggedIn() and InCombatLockdown() then
+                ns.Print(dot.label .. " shows around combo point " .. slot.index .. " after combat.")
+            end
+        end
+        return holder
     end
 
-    local standIn, StartSample, StopSample = StandIn(dot, sampleGate)
-    ns.RegisterElement({
-        id = dot.id,
-        zone = "combo",
-        name = dot.label .. " ring",
-        glyph = { kind = "ring", color = dot.color },
-        order = dot.dot,
-        hit = ns.ComboRingHit(dot.dot, function() return standIn:IsVisible() end),
-        options = {
-            { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
-        },
-        apply = function(get)
-            gate:SetAlpha(get("opacity") / 100)
-            sampleGate:SetAlpha(get("opacity") / 100)
-        end,
-        sample = function(state)
-            if state == "cat" or state == "bear" then
-                StartSample()
-            else
-                StopSample()
+    local standIn, StartSample, StopSample = StandIn(dot)
+    ns.AddComboRingSpell({
+        key = dot.key,
+        label = dot.label .. " Duration",
+        color = dot.color,
+        order = dot.order,
+        defaultSlot = dot.dot,
+        Place = function(slot)
+            if current then
+                current:Hide()
+            end
+            current = slot and Holder(slot)
+            if current then
+                current:Show()
             end
         end,
+        StartSample = function(slot)
+            ns.PlaceComboRing(standIn, slot.sampleGate, slot.index)
+            StartSample()
+        end,
+        StopSample = StopSample,
     })
 end
 

@@ -19,6 +19,7 @@ CooldownManager.lua
 AuraContainer.lua
 Resource.lua
 ComboPoints.lua
+ComboRings.lua
 Swing.lua
 StealthSmoke.lua
 Cast.lua

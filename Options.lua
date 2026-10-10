@@ -727,7 +727,8 @@ local function ChoiceWidget(parent, label, values, get, set, fontOf)
     end
 
     -- Clicking the value opens Blizzard's menu (as EllesmereUI does on Forever) listing every
-    -- value, the current one marked; font names are drawn in their font. Without MenuUtil it steps.
+    -- value as a plain row (no radio bullets, owner's call 2026-10-09: the box shows the current
+    -- one); font names are drawn in their font. Without MenuUtil it steps.
     box:SetScript("OnClick", function(self)
         if not (MenuUtil and MenuUtil.CreateContextMenu) then
             Step(1)
@@ -735,15 +736,13 @@ local function ChoiceWidget(parent, label, values, get, set, fontOf)
         end
         MenuUtil.CreateContextMenu(self, function(_, root)
             for _, entry in ipairs(values) do
-                local radio = root:CreateRadio(Text(entry),
-                    function() return values[Index()] == entry end,
-                    function()
-                        set(entry.value)
-                        return MenuResponse and MenuResponse.Close
-                    end)
-                if fontOf and radio.AddInitializer then
+                local row = root:CreateButton(Text(entry), function()
+                    set(entry.value)
+                    return MenuResponse and MenuResponse.Close
+                end)
+                if fontOf and row.AddInitializer then
                     -- SetFontObject, not SetFont: the menu forbids SetFont on its labels.
-                    radio:AddInitializer(function(button)
+                    row:AddInitializer(function(button)
                         local label = button.fontString
                         if label then
                             local size = math.floor((select(2, label:GetFont())) or 12)
@@ -1477,7 +1476,11 @@ do
             Paint() -- TabGroup sets row.selected first
         end
         function row.SetGlyph(glyph)
+            if row.icon then
+                row.icon:Hide()
+            end
             local icon = Glyph(row, glyph)
+            row.icon = icon
             icon:SetPoint("LEFT", 6, 0)
             row.text:SetPoint("LEFT", icon, "RIGHT", 8, 0)
         end
@@ -1502,12 +1505,18 @@ do
     local function AddRow(zone, name, glyph, id)
         local tab = rotation.subs.Add(name)
         tab.zone, tab.elementId = zone, id
-        tab.SetGlyph(glyph)
+        -- A glyph may be a function: it follows a setting (a combo ring's colour, its ability's).
+        local shown = type(glyph) == "function" and glyph() or glyph
+        tab.SetGlyph(shown)
         zone.first = zone.first or tab
         if id then
             elementTabs[id] = tab
             refreshers[#refreshers + 1] = function()
                 tab.dot:SetShown(ns.db.elements[id] ~= nil)
+                if type(glyph) == "function" and glyph() ~= shown then
+                    shown = glyph()
+                    tab.SetGlyph(shown)
+                end
             end
         end
         return tab
