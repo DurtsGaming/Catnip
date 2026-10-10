@@ -37,6 +37,7 @@ ShiftingPower.lua
 GrowlArc.lua
 ShiftOrbs.lua
 CooldownRings.lua
+OmenRing.lua
 CooldownItems.lua
 Cooldowns.lua
 EditMode.lua

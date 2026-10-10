@@ -346,6 +346,9 @@ def sp_orb(size, second=FOREVER_ENERGY):
 FAERIE_STOPS = [(0.32, 0.08, 0.62), (0.62, 0.20, 0.95), (0.92, 0.32, 0.88), (1.0, 0.72, 0.95)]
 # Primal Bite (dot 3): the icon's teeth, warm bone through ivory to near white.
 PRIMAL_BITE_STOPS = [(0.50, 0.42, 0.32), (0.75, 0.68, 0.55), (0.92, 0.88, 0.78), (1.0, 0.98, 0.94)]
+# Omen of Clarity ICD (OmenRing.lua, dot 2): the talent's icon (spell_nature_crystalball, the
+# owner's pick over Clearcasting's blue), its ball sampled: deep sea green through jade to pale mint.
+OMEN_STOPS = [(0.10, 0.40, 0.32), (0.28, 0.68, 0.50), (0.52, 0.86, 0.64), (0.88, 0.98, 0.92)]
 
 
 # DoT rings (DotRings.lua): Rake and Rip share one red, sampled by eye from their icons, dark
@@ -557,6 +560,7 @@ TEXTURES = {
     "sp_orb_prowl": (64, sp_orb(64, PROWL_PERIWINKLE)),     # the same, stealthed: blue to periwinkle
     "ring_faerie": (128, coloured_ring(128, 16, FAERIE_STOPS)),        # Faerie Fire cooldown ring; same band as ring_rip
     "ring_primal_bite": (128, coloured_ring(128, 16, PRIMAL_BITE_STOPS)),  # Primal Bite cooldown ring
+    "ring_omen": (128, coloured_ring(128, 16, OMEN_STOPS)),                # Omen of Clarity ICD ring
     "tick_dot": (64, tick_bar(64, DOT_STOPS[1:])),            # DotRings.lua still-up tick: red to orange-red up it
     "ring_rake": (128, coloured_ring(128, 16, DOT_STOPS, 3)),          # Rake DoT ring: 3 segments (9s, 3s ticks)
     "ring_rip_segments": (128, coloured_ring(128, 16, DOT_STOPS, 6)),  # Rip DoT ring: 6 segments (12s, 2s ticks)

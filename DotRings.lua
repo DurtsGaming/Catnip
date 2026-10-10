@@ -18,10 +18,10 @@ local addonName, ns = ...
 -- Forever: each rank's aura has its own ID. key: saved in the combo ring settings; order: in their
 -- dropdown; dot: its slot by default; length: the sample's, in preview mode.
 local DOTS = {
-    { key = "rake", label = "Rake", order = 3, dot = 4, texture = "ring_rake", length = 9,
+    { key = "rake", label = "Rake", order = 4, dot = 4, texture = "ring_rake", length = 9,
         color = { 0.82, 0.23, 0.14 }, -- its glyph in the settings list
         spellIDs = { 1822, 1823, 1824, 9904 } },
-    { key = "rip", label = "Rip", order = 4, dot = 5, texture = "ring_rip_segments", length = 12,
+    { key = "rip", label = "Rip", order = 5, dot = 5, texture = "ring_rip_segments", length = 12,
         color = { 0.69, 0.12, 0.12 },
         spellIDs = { 1079, 9492, 9493, 9752, 9894, 9896 } },
 }
