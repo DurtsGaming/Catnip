@@ -4,12 +4,12 @@
 -- leaving nothing behind. As each segment empties the next one pulses, except the last one left;
 -- when ready it's simply gone (no flash). Hidden with the combo dots outside Cat and Bear Form.
 -- Each is a SegmentedArc.lua ring timed by SegmentedCooldown.lua, coloured from its spell's icon
--- (make_textures.py); change `segments` freely. The clock runs whether or not the ring is in a slot.
+-- (make_textures.py). Its segments are Circular by default or Angular, the player's pick
+-- (ComboRings.lua); Angular ones are drawn into the art (`art`_angular), so change `segments` there
+-- too and regenerate. The clock runs whether or not the ring is in a slot.
 local addonName, ns = ...
 
 local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- same as DotRings.lua; the ring textures have ring_rip's band
-local BAND_RADIUS = RING_SIZE * 55 / 128 -- the band's centre line (63 out, 16 thick, in 128)
-local GAP = 2 / BAND_RADIUS -- 2 units between segments, in radians
 
 local function InFeralForm()
     local powerType = UnitPowerType("player")
@@ -58,8 +58,7 @@ for _, ring in ipairs(RINGS) do
             from = math.pi / 2, -- 12 o'clock
             span = 2 * math.pi,
             clockwise = true,
-            segments = ring.segments,
-            gap = GAP,
+            segments = ring.segments, -- cut by ns.ShapeComboRingArc
             drain = true,
             noFlash = true,
         })
@@ -88,10 +87,13 @@ for _, ring in ipairs(RINGS) do
         color = ring.color,
         order = ring.order,
         defaultSlot = ring.dot,
+        shape = "circular", -- by default
         Place = function(slot)
+            ns.ShapeComboRingArc(arc, ring.key, ring.art)
             ns.PlaceComboRing(arc.frame, slot and slot.gate, slot and slot.index)
         end,
         StartSample = function(slot)
+            ns.ShapeComboRingArc(sampleArc, ring.key, ring.art)
             ns.PlaceComboRing(sampleArc.frame, slot.sampleGate, slot.index)
             StartSample()
         end,

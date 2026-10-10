@@ -9,9 +9,9 @@
 --                  slot's glyph colour in the settings list
 --   order          place in the dropdown
 --   defaultSlot    optional: the slot it starts in
---   shaped         optional: its segments can be Angular or Circular (ns.ComboRingShape(key)); the
---                  slot showing it offers the choice (greyed out for the others). The shape belongs
---                  to the ability, so it follows it from slot to slot
+--   shape          optional: its segments can be "angular" or "circular" (ns.ComboRingShape(key)),
+--                  and this is its default; the slot showing it offers the choice (greyed out for
+--                  None). The shape belongs to the ability, so it follows it from slot to slot
 --   Place(slot)    show the real ring in slot (nil: nowhere); slot = { index, gate, sampleGate };
 --                  called again when its shape changes
 --   StartSample(slot), StopSample()   preview mode's looping copy, in slot.sampleGate (restarted
@@ -28,22 +28,37 @@ local MIGRATE = { ["combo.ff"] = 1, ["combo.pb"] = 3, ["combo.rake"] = 4, ["comb
 
 local NONE_GLYPH = { kind = "ring", color = { 0.4, 0.38, 0.34 } }
 
--- Segment shapes for `shaped` abilities (the DoTs): Angular, pointed on the inside edge, tells them
--- apart from the cooldown rings; Circular is cut like those.
-local SHAPE_DEFAULT = "angular"
+-- Segment shapes: Angular, pointed on the inside edge with 1-unit gaps (the DoTs' default, telling
+-- them apart from the cooldowns); Circular, square-ended with 2-unit gaps (the cooldowns' default).
+local SHAPE_NONE = "circular" -- shown, greyed out, for an empty slot
 local SHAPES = { { value = "angular", text = "Angular" }, { value = "circular", text = "Circular" } }
 
--- An ability's own settings, stored as a pseudo-element ("dot.rip") so Reset all clears them too.
+local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- the rings' size (CooldownRings.lua, DotRings.lua)
+local GAP = 2 / (RING_SIZE * 55 / 128) -- 2 units between Circular segments, in radians, on the band's centre line
+
+local entries = {} -- by key
+
+-- An ability's own settings, stored as a pseudo-element ("dot.rip"; the name is from when only the
+-- DoTs had any) so Reset all clears them too.
 local function AbilityId(key)
     return "dot." .. key
 end
 
 -- A shaped ability's segment shape: "angular" or "circular".
 function ns.ComboRingShape(key)
-    return ns.ElementOption(AbilityId(key), "shape") or SHAPE_DEFAULT
+    return ns.ElementOption(AbilityId(key), "shape") or entries[key].shape
 end
 
-local entries = {} -- by key
+-- Gives a SegmentedArc.lua ring of ability `key` its shape's look: Circular cuts the gaps into
+-- `art` (a plain ring), Angular uses `art`_angular, which has its pointed segments drawn in
+-- (make_textures.py; its segment count must match the arc's).
+function ns.ShapeComboRingArc(arc, key, art)
+    if ns.ComboRingShape(key) == "angular" then
+        arc.SetArt(art .. "_angular", 0)
+    else
+        arc.SetArt(art, GAP)
+    end
+end
 local choices = { { value = NONE, text = "None", order = 0 } } -- the dropdown, filled as abilities are added
 local slots = {}
 local sampleState -- preview mode's state (nil while not previewing)
@@ -88,7 +103,7 @@ local function Arrange()
     end
     for key, entry in pairs(entries) do
         local slot = where[key]
-        local shape = entry.shaped and ns.ComboRingShape(key) or nil
+        local shape = entry.shape and ns.ComboRingShape(key) or nil
         if entry.slot ~= slot or entry.shape ~= shape then
             entry.slot, entry.shape = slot, shape
             entry.Place(slot)
@@ -135,21 +150,21 @@ for index = 1, COUNT do
     slot.sampleGate = ns.ComboRingGate(ns.comboSample)
     slot.spellOption = { key = "spell", type = "choice", label = "Shows", values = choices, default = NONE }
     slots[index] = slot
-    -- The shown ability's shape, if it has one (else greyed out, showing the default).
+    -- The shown ability's shape, if it has one (else greyed out).
     local function Shaped()
         local key = Picked(slot)
-        return key and entries[key].shaped and key or nil
+        return key and entries[key].shape and key or nil
     end
-    local shapeOption = { key = "segments", type = "choice", label = "Segments", values = SHAPES, default = SHAPE_DEFAULT,
+    local shapeOption = { key = "segments", type = "choice", label = "Segments", values = SHAPES,
         enabled = function() return Shaped() ~= nil end,
         get = function()
             local key = Shaped()
-            return key and ns.ComboRingShape(key) or SHAPE_DEFAULT
+            return key and ns.ComboRingShape(key) or SHAPE_NONE
         end,
         set = function(value)
             local key = Shaped()
             if key then
-                ns.SetElementOption(AbilityId(key), "shape", value ~= SHAPE_DEFAULT and value or nil)
+                ns.SetElementOption(AbilityId(key), "shape", value ~= entries[key].shape and value or nil)
             end
         end,
     }

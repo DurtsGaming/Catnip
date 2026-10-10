@@ -23,6 +23,7 @@
 --                as each segment empties the next one pulses (not the last one left)
 --   noFlash      at the end just hide, without flashing the whole arc
 --
+-- arc.SetArt(art, gap) swaps the art and gap, even mid-run (ComboRings.lua's segment shapes).
 -- arc.onShownChanged(shown), if set, is called when the arc itself shows or hides (its fade-out
 -- included), whatever its parents are doing: GrowlArc.lua decides which of two arcs shows from it.
 local addonName, ns = ...
@@ -84,6 +85,7 @@ function ns.CreateSegmentedArc(options)
     local count = options.segments
     local dir = options.clockwise and -1 or 1
     local gap = options.gap or 0
+    local art = options.art
     assert(options.span / count < math.pi, "SegmentedArc: each segment must span under 180 degrees")
 
     local frame = CreateFrame("Frame", nil, options.parent)
@@ -92,9 +94,11 @@ function ns.CreateSegmentedArc(options)
     frame:SetFrameLevel(options.parent:GetFrameLevel() + (options.level or 4))
     frame:Hide()
 
+    local arts = {} -- every copy of the art, for SetArt
     local function Art(layer, sublevel)
         local texture = frame:CreateTexture(nil, layer, nil, sublevel)
-        texture:SetTexture(ns.MEDIA .. options.art)
+        arts[#arts + 1] = texture
+        texture:SetTexture(ns.MEDIA .. art)
         texture:SetAllPoints(frame)
         return texture
     end
@@ -134,13 +138,8 @@ function ns.CreateSegmentedArc(options)
     local flashStops, pulseStops = {}, {}
     local flashPlays = {}
     for i = 1, count do
-        local segment = {
-            startAngle = Angle((i - 1) / count) + dir * gap / 2,
-            endAngle = Angle(i / count) - dir * gap / 2,
-        }
         local startMask, endMask, front = EdgeMask(), EdgeMask(), EdgeMask()
-        SetStart(startMask, segment.startAngle)
-        SetEnd(endMask, segment.endAngle)
+        local segment = { startMask = startMask, endMask = endMask } -- its ends are set by Cut
         -- Filling, the front is the visible part's end; draining, its start.
         local function Wedge(texture, toFront)
             texture:AddMaskTexture(toFront and options.drain and front or startMask)
@@ -166,6 +165,17 @@ function ns.CreateSegmentedArc(options)
 
         segments[i] = segment
     end
+
+    -- Sets each segment's ends, `gap` apart at the boundaries.
+    local function Cut()
+        for i, segment in ipairs(segments) do
+            segment.startAngle = Angle((i - 1) / count) + dir * gap / 2
+            segment.endAngle = Angle(i / count) - dir * gap / 2
+            SetStart(segment.startMask, segment.startAngle)
+            SetEnd(segment.endMask, segment.endAngle)
+        end
+    end
+    Cut()
 
     local fadeOut = AlphaAnimation(frame, 1, 0, FADE_OUT, "IN")
 
@@ -194,10 +204,12 @@ function ns.CreateSegmentedArc(options)
     end)
 
     local filled = 0 -- segments done so far (full, or empty when draining), for their pulses
+    local drawn = 0 -- the progress last drawn, for SetArt
 
     -- progress 0-1. Each segment fills (or empties) over its own share of the time, edge to edge,
     -- so it's full (or empty) exactly as its share ends.
     local function Draw(progress)
+        drawn = progress
         for i, segment in ipairs(segments) do
             local share = math.min(math.max(progress * count - (i - 1), 0), 1)
             local frontAngle = segment.startAngle + (segment.endAngle - segment.startAngle) * share
@@ -235,6 +247,18 @@ function ns.CreateSegmentedArc(options)
         filled = math.floor(progress * count)
         Draw(progress)
         SetShown(true)
+    end
+
+    function arc.SetArt(newArt, newGap)
+        if newArt == art and newGap == gap then
+            return
+        end
+        art, gap = newArt, newGap
+        for _, texture in ipairs(arts) do
+            texture:SetTexture(ns.MEDIA .. art)
+        end
+        Cut()
+        Draw(drawn)
     end
 
     function arc.IsFading()

@@ -10,9 +10,8 @@
 local addonName, ns = ...
 
 local ICD = 10 -- seconds
-local SEGMENTS = 5 -- 2s each
+local SEGMENTS = 5 -- 2s each; ring_omen_angular has them drawn in (make_textures.py)
 local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- as CooldownRings.lua
-local GAP = 2 / (RING_SIZE * 55 / 128) -- 2 units between segments, in radians
 -- Abilities Clearcasting makes free, first known wins. Shred is verified; the others are guesses
 -- for characters without it (Wrath: every druid has it, if its mana cost reads 0 the same way).
 local WATCHED = { "Shred", "Claw", "Wrath" }
@@ -25,8 +24,7 @@ local function Arc()
         from = math.pi / 2, -- 12 o'clock
         span = 2 * math.pi,
         clockwise = true,
-        segments = SEGMENTS,
-        gap = GAP,
+        segments = SEGMENTS, -- cut by ns.ShapeComboRingArc (Circular by default, or Angular)
         drain = true,
         noFlash = true,
     })
@@ -118,10 +116,13 @@ ns.AddComboRingSpell({
     color = { 0.4, 0.8, 0.6 }, -- its glyph in the settings list
     order = 3, -- after the spell cooldowns, before the DoTs
     defaultSlot = 2,
+    shape = "circular", -- by default
     Place = function(slot)
+        ns.ShapeComboRingArc(arc, "omen", "ring_omen")
         ns.PlaceComboRing(arc.frame, slot and slot.gate, slot and slot.index)
     end,
     StartSample = function(slot)
+        ns.ShapeComboRingArc(sampleArc, "omen", "ring_omen")
         ns.PlaceComboRing(sampleArc.frame, slot.sampleGate, slot.index)
         StartSample()
     end,

@@ -152,7 +152,7 @@ for _, dot in ipairs(DOTS) do
         color = dot.color,
         order = dot.order,
         defaultSlot = dot.dot,
-        shaped = true,
+        shape = "angular", -- by default
         Place = function(slot)
             if current then
                 current:Hide()

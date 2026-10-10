@@ -364,10 +364,10 @@ COMBO_RING_UNITS = 46
 # DoT orbs (DotRings.lua): the rings' colours as a 12-step bar gradient, for combo_fill
 DOT_RED = [tuple(round(ch * 255) for ch in sample(DOT_STOPS, i / 11)) for i in range(12)]
 COMBO_RING_GAP = 2
-# The DoT rings' Angular segments (the default; Circular ones are cut like the cooldown rings') come
-# to a point on the band's inner edge (coloured_ring's `point`): each end is one diagonal cut, this
-# many units further back at the outer edge, and the gaps are narrower, so DoT durations read apart
-# from the cooldown rings' square-ended segments.
+# Angular segments (the combo rings' Segments setting: the DoTs' default, the cooldowns' option; the
+# cooldowns' Circular ones are cut in-game by SegmentedArc.lua) come to a point on the band's inner
+# edge (coloured_ring's `point`): each end is one diagonal cut, this many units further back at the
+# outer edge, and the gaps are narrower, so they read apart from square-ended segments.
 DOT_POINT = 2
 DOT_GAP = 1
 
@@ -578,6 +578,10 @@ TEXTURES = {
     "ring_faerie": (128, coloured_ring(128, 16, FAERIE_STOPS)),        # Faerie Fire cooldown ring; same band as ring_rip
     "ring_primal_bite": (128, coloured_ring(128, 16, PRIMAL_BITE_STOPS)),  # Primal Bite cooldown ring
     "ring_omen": (128, coloured_ring(128, 16, OMEN_STOPS)),                # Omen of Clarity ICD ring
+    # The same, Segments: Angular, cut here (segment counts as CooldownRings.lua and OmenRing.lua)
+    "ring_faerie_angular": (128, coloured_ring(128, 16, FAERIE_STOPS, 6, DOT_GAP, DOT_POINT)),
+    "ring_primal_bite_angular": (128, coloured_ring(128, 16, PRIMAL_BITE_STOPS, 6, DOT_GAP, DOT_POINT)),
+    "ring_omen_angular": (128, coloured_ring(128, 16, OMEN_STOPS, 5, DOT_GAP, DOT_POINT)),
     "tick_dot": (64, tick_bar(64, DOT_STOPS[1:])),            # DotRings.lua still-up tick: red to orange-red up it
     "ring_rake": (128, coloured_ring(128, 16, DOT_STOPS, 3, DOT_GAP, DOT_POINT)),  # Rake DoT ring: 3 segments (9s, 3s ticks), pointed inside
     "ring_rip_segments": (128, coloured_ring(128, 16, DOT_STOPS, 6, DOT_GAP, DOT_POINT)),  # Rip DoT ring: 6 segments (12s, 2s ticks), pointed inside
