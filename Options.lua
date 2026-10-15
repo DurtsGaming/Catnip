@@ -9,6 +9,7 @@
 -- the bottom-right corner (size saved in CatnipDB.optionsWidth/optionsHeight). Controls stretch to
 -- the window's width.
 local addonName, ns = ...
+local L = ns.L
 
 local art = ns.OptionsArt
 
@@ -310,12 +311,13 @@ local SIDE_TAB_ICONS = {
 
 -- A makeTab for TabGroup: side tabs down the window's right edge, as on Blizzard's Character
 -- window. They sit under the frame (its border stays whole), and show their name in a tooltip.
-local function SideTab(parent, name, previous)
+-- `key` (English, untranslated) picks the icon.
+local function SideTab(parent, name, previous, key)
     local tab = CreateFrame("Button", nil, parent) -- below window.overlays: under the frame's border
     tab:SetSize(art.SIDE_TAB_WIDTH, art.SIDE_TAB_HEIGHT)
     tab.index = previous and previous.index + 1 or 0
     tab:SetPoint("TOPLEFT", window, "TOPRIGHT", -SIDE_TAB_TUCK, -(SIDE_TAB_TOP + tab.index * SIDE_TAB_STEP))
-    tab.SetSelected = art.SideTab(tab, SIDE_TAB_ICONS[name], SIDE_TAB_FALLBACKS[name])
+    tab.SetSelected = art.SideTab(tab, SIDE_TAB_ICONS[key], SIDE_TAB_FALLBACKS[key])
     tab:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
         GameTooltip:SetText(name)
@@ -348,9 +350,10 @@ local function TabGroup(makeTab, buttonParent, pageParent, pageTop)
         UpdateCanvas()
     end
 
-    -- Adds a tab and starts laying out its page (Place calls go to it until the next Add).
-    function group.Add(name)
-        local tab = makeTab(buttonParent, name, group.tabs[#group.tabs])
+    -- Adds a tab and starts laying out its page (Place calls go to it until the next Add). `key`:
+    -- an untranslated name, for makeTab (the side tabs pick their icon by it).
+    function group.Add(name, key)
+        local tab = makeTab(buttonParent, name, group.tabs[#group.tabs], key)
         tab:SetScript("OnClick", function() group.Select(tab) end)
         tab.page = CreateFrame("Frame", nil, pageParent)
         tab.page:SetPoint("TOPLEFT", pageParent, "TOPLEFT", 0, pageTop)
@@ -514,7 +517,7 @@ local function Color(label, get, set)
             cancelFunc = function() set({ old[1], old[2], old[3] }) end,
         }
         if not (ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow) then
-            ns.Print("The color picker isn't available in this version of the game.")
+            ns.Print(L["The color picker isn't available in this version of the game."])
             return
         end
         ColorPickerFrame:SetupColorPickerAndShow(info)
@@ -1044,7 +1047,7 @@ local function ElementOptionControl(element, option)
         local values = option.values
         if option.inherit then
             values = { { text = function()
-                return "General (" .. ChoiceText(option.values, ns.ElementOption("general", option.inherit)) .. ")"
+                return L["General (%s)"]:format(ChoiceText(option.values, ns.ElementOption("general", option.inherit)))
             end } }
             for _, entry in ipairs(option.values) do
                 values[#values + 1] = entry
@@ -1107,17 +1110,17 @@ local function FramePanel(parent, spec)
     panel:SetHeight(2 * INSET + SWITCH_ROW + math.ceil(#spec.sliders / 2) * (10 + SLIDER_HEIGHT))
     art.Panel(panel)
 
-    local switch = Switch(panel, spec.name, "Enabled", "Disabled", spec.isOn, spec.setOn)
+    local switch = Switch(panel, spec.name, L["Enabled"], L["Disabled"], spec.isOn, spec.setOn)
     switch:SetPoint("TOPLEFT", INSET, -INSET)
 
     local editButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    editButton:SetText("Move in Edit Mode")
+    editButton:SetText(L["Move in Edit Mode"])
     editButton:SetSize(editButton:GetFontString():GetStringWidth() + 32, 22)
     editButton:SetPoint("TOPRIGHT", -INSET, -(INSET + (SWITCH_ROW - 22) / 2))
     editButton:SetScript("OnClick", function() ns.OpenEditMode() end)
 
     local resetButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    resetButton:SetText("Reset...")
+    resetButton:SetText(L["Reset..."])
     resetButton:SetSize(resetButton:GetFontString():GetStringWidth() + 32, 22)
     resetButton:SetPoint("RIGHT", editButton, "LEFT", -6, 0)
 
@@ -1130,7 +1133,7 @@ local function FramePanel(parent, spec)
     confirm:Hide()
     local confirmTitle = confirm:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     confirmTitle:SetPoint("TOPLEFT", CONFIRM_INSET, -CONFIRM_INSET)
-    confirmTitle:SetText("Reset " .. spec.name)
+    confirmTitle:SetText(L["Reset %s"]:format(spec.name))
     local confirmText = confirm:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     confirmText:SetPoint("TOPLEFT", confirmTitle, "BOTTOMLEFT", 0, -6)
     confirmText:SetWidth(CONFIRM_WIDTH - 2 * CONFIRM_INSET)
@@ -1138,7 +1141,7 @@ local function FramePanel(parent, spec)
     confirmText:SetTextColor(unpack(MUTED))
     confirmText:SetText(spec.resetText)
     local everything = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
-    everything:SetText("Reset")
+    everything:SetText(L["Reset"])
     everything:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
     everything:SetPoint("TOPLEFT", confirmText, "BOTTOMLEFT", 0, -10)
     everything:SetScript("OnClick", function()
@@ -1146,7 +1149,7 @@ local function FramePanel(parent, spec)
         spec.reset()
     end)
     local cancel = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
-    cancel:SetText("Cancel")
+    cancel:SetText(L["Cancel"])
     cancel:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
     cancel:SetPoint("TOPLEFT", everything, "BOTTOMLEFT", 0, -4)
     cancel:SetScript("OnClick", function() confirm:Hide() end)
@@ -1208,38 +1211,38 @@ window:HookScript("OnHide", UpdatePreview) -- and on show, in the OnShow script 
 
 -- General tab ------------------------------------------------------------------------------------
 
-local general = topTabs.Add("General")
+local general = topTabs.Add(L["General"], "General")
 
-Section("Blizzard UI")
+Section(L["Blizzard UI"])
 
-Checkbox("Hide Blizzard's cast bar",
+Checkbox(L["Hide Blizzard's cast bar"],
     function() return ns.db.hideBlizzardCastBar end,
     function(hide)
         ns.db.hideBlizzardCastBar = hide
         if InCombatLockdown() then
-            ns.Print("Blizzard's cast bar will change after combat.")
+            ns.Print(L["Blizzard's cast bar will change after combat."])
         end
         ns.UpdateBlizzardCastBar()
     end)
 
-Checkbox("Hide Action Bar 1",
+Checkbox(L["Hide Action Bar 1"],
     function() return ns.db.hideActionBar1 end,
     function(hide)
         ns.db.hideActionBar1 = hide
         ns.UpdateBlizzardBars()
     end)
 
-Checkbox("Hide Stance Bar",
+Checkbox(L["Hide Stance Bar"],
     function() return ns.db.hideStanceBar end,
     function(hide)
         ns.db.hideStanceBar = hide
         ns.UpdateBlizzardBars()
     end)
-Hint("Keybinds still work while the bars are hidden.")
+Hint(L["Keybinds still work while the bars are hidden."])
 
-Section("Troubleshooting")
+Section(L["Troubleshooting"])
 
-Checkbox("Debug messages in chat",
+Checkbox(L["Debug messages in chat"],
     function() return ns.db.debug end,
     function(debug) ns.db.debug = debug end)
 
@@ -1251,7 +1254,7 @@ EndTab(general)
 -- Under them two panes: on the left a strip of zones (General, then Elements.lua's ns.ZONES) and the shown
 -- zone's elements; on the right the selected element's page. The element rows are the tabs of a
 -- TabGroup, so each element's page is built like any sub-tab's. (docs/settings-plan.md)
-local rotation = topTabs.Add("Rotation")
+local rotation = topTabs.Add(L["Rotation"], "Rotation")
 local elementTabs = {} -- element id -> its row (tab); ns.OpenElementSettings reads it
 
 -- The tab is built in a block of its own so its many locals end with it: a Lua function, this
@@ -1265,26 +1268,26 @@ do
     -- dead centre, range half the screen), or dragged in Edit Mode.
     local HUD_INSET = art.EDGE_INSET + PANEL_PAD -- the preview strip's, matching the HUD controls'
     local hudPanel = FramePanel(rotation.page, {
-        name = "Rotation Frame",
+        name = L["Rotation Frame"],
         isOn = function() return ns.db.hudEnabled end,
         setOn = ns.SetHudEnabled,
-        resetText = "Resets every element, plus the frame's scale, opacity and position.",
+        resetText = L["Resets every element, plus the frame's scale, opacity and position."],
         reset = function()
             ns.ResetAllElements()
             ns.ResetHudLook()
             ns.ResetHudPosition()
         end,
         sliders = {
-            { "Scale", ns.MIN_SCALE * 100, ns.MAX_SCALE * 100, ns.SCALE_STEP * 100, "%.0f%%",
+            { L["Scale"], ns.MIN_SCALE * 100, ns.MAX_SCALE * 100, ns.SCALE_STEP * 100, "%.0f%%",
                 function() return ns.db.scale * 100 end,
                 function(percent) ns.SetHudScale(percent / 100) end },
-            { "Overall opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
+            { L["Overall opacity"], ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
                 function() return ns.db.hudAlpha * 100 end,
                 function(percent) ns.SetHudAlpha(percent / 100) end },
-            { "Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
+            { L["Horizontal position"], function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
                 function() return ns.db.x end,
                 function(x) ns.SetHudPosition(x, ns.db.y) end },
-            { "Vertical position", function() return -HalfHeight() end, HalfHeight, 1, "%.0f",
+            { L["Vertical position"], function() return -HalfHeight() end, HalfHeight, 1, "%.0f",
                 function() return ns.db.y end,
                 function(y) ns.SetHudPosition(ns.db.x, y) end },
         },
@@ -1307,7 +1310,7 @@ do
 
     local previewLabel = previewPanel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     previewLabel:SetPoint("LEFT", previewPanel, "TOPLEFT", HUD_INSET, -(HUD_INSET + SEGMENT_HEIGHT / 2))
-    previewLabel:SetText("Preview")
+    previewLabel:SetText(L["Preview"])
     -- The buttons: rounded, in the Cooldown tab's bookmark look (owner, 2026-10-09). The picked one
     -- is bright with white text, the others darker with gold text, white on hover.
     local function PreviewButton(width)
@@ -1353,7 +1356,8 @@ do
     local stealthHovered = false
     local function PaintStealth()
         local form, can, on = ns.Preview.GetState(), ns.Preview.CanStealth(), ns.Preview.GetStealthed()
-        stealthText:SetText(form == "caster" and "Shadowmeld" or form == "cat" and "Prowl" or "Stealth")
+        stealthText:SetText(form == "caster" and (ns.SpellName(ns.SPELL.SHADOWMELD) or "Shadowmeld")
+            or form == "cat" and (ns.SpellName(ns.SPELL.PROWL) or "Prowl") or L["Stealth"])
         stealthToggle:SetAlpha(can and 1 or 0.4)
         stealthToggle.SetShade(on)
         stealthText:SetTextColor(unpack((on or stealthHovered and can) and WHITE or GOLD))
@@ -1422,7 +1426,7 @@ do
 
 
     -- The zones: General (built here: the text defaults and the HUD's position), then ns.ZONES.
-    local generalZone = { id = "general", name = "General" }
+    local generalZone = { id = "general", name = L["General"] }
     local zones = { generalZone }
     for _, zone in ipairs(ns.ZONES) do
         zones[#zones + 1] = { id = zone.id, name = zone.name, groups = zone.groups }
@@ -1579,7 +1583,7 @@ do
         local tab = AddRow(zone, element.name, element.glyph, element.id)
         Section(element.name)
         ElementControls(element)
-        paneButtons[#paneButtons + 1] = Button("Reset to defaults", function() ns.ResetElement(element.id) end)
+        paneButtons[#paneButtons + 1] = Button(L["Reset to defaults"], function() ns.ResetElement(element.id) end)
         EndTab(tab)
     end
 
@@ -1589,10 +1593,10 @@ do
     local generalElement = ns.GetElement("general")
     if not generalElement.hidden then
         local textPage = AddRow(generalZone, generalElement.name, generalElement.glyph, "general")
-        Section("Text")
-        Hint("Default font and outline. Elements can choose their own.")
+        Section(L["Text"])
+        Hint(L["Default font and outline. Elements can choose their own."])
         ElementControls(generalElement)
-        paneButtons[#paneButtons + 1] = Button("Reset to defaults", function() ns.ResetElement("general") end)
+        paneButtons[#paneButtons + 1] = Button(L["Reset to defaults"], function() ns.ResetElement("general") end)
         EndTab(textPage)
     end
     ElementPage(ns.GetElement("stealth"), generalZone) -- Stealth Mode (Layout.lua)
@@ -1653,7 +1657,7 @@ end
 
 -- Cooldown tab: frame controls, Icons and Abilities on one page -------------------------------------
 
-local cooldowns = topTabs.Add("Cooldown")
+local cooldowns = topTabs.Add(L["Cooldown"], "Cooldown")
 cooldowns.wide, cooldowns.cooldownPreview = true, true
 
 -- Frame controls across the top, as on the Rotation tab (owner, 2026-10-09): the switch, Reset...
@@ -1666,22 +1670,22 @@ do
             changes.width or db.cdWidth, changes.height or db.cdHeight)
     end
     local cdPanel = FramePanel(cooldowns.page, {
-        name = "Cooldown Frame",
+        name = L["Cooldown Frame"],
         isOn = function() return ns.db.cdEnabled end,
         setOn = ns.Cooldowns.SetEnabled,
-        resetText = "Resets the frame's size, position, icons and opacity. Your tracked abilities are kept.",
+        resetText = L["Resets the frame's size, position, icons and opacity. Your tracked abilities are kept."],
         reset = ns.Cooldowns.ResetLayout,
         sliders = {
-            { "Height", ns.Cooldowns.MIN_SIZE, function() return math.floor(UIParent:GetHeight()) end, 1, "%.0f",
+            { L["Height"], ns.Cooldowns.MIN_SIZE, function() return math.floor(UIParent:GetHeight()) end, 1, "%.0f",
                 function() return ns.db.cdHeight end,
                 function(height) SetCooldownBox({ height = height }) end },
-            { "Width", ns.Cooldowns.MIN_SIZE, function() return math.floor(UIParent:GetWidth()) end, 1, "%.0f",
+            { L["Width"], ns.Cooldowns.MIN_SIZE, function() return math.floor(UIParent:GetWidth()) end, 1, "%.0f",
                 function() return ns.db.cdWidth end,
                 function(width) SetCooldownBox({ width = width }) end },
-            { "Horizontal position", function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
+            { L["Horizontal position"], function() return -HalfWidth() end, HalfWidth, 1, "%.0f",
                 function() return ns.db.cdX end,
                 function(x) SetCooldownBox({ x = x }) end },
-            { "Vertical position", function() return -HalfHeight() end, HalfHeight, 1, "%.0f",
+            { L["Vertical position"], function() return -HalfHeight() end, HalfHeight, 1, "%.0f",
                 function() return ns.db.cdY end,
                 function(y) SetCooldownBox({ y = y }) end },
         },
@@ -1709,9 +1713,9 @@ end
 
 -- Abilities ----------------------------------------------------------------------------------------
 
-Section("Abilities")
+Section(L["Abilities"])
 
-Hint("Check the abilities to show, then drag them to set their order. Higher ones sit closer to the anchor (see Alignment). Unchecked items are removed from the list.")
+Hint(L["Check the abilities to show, then drag them to set their order. Higher ones sit closer to the anchor (see Alignment). Unchecked items are removed from the list."])
 
 -- The list: one row per ability with a cooldown, in its own scrolling area. Rows are pooled and
 -- rebuilt on every refresh from ns.Cooldowns.Candidates() (tracked first, in priority order). It
@@ -1735,7 +1739,7 @@ Stretch(list, ROW_HEIGHT * LIST_ROWS)
 local empty = list:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 empty:SetPoint("CENTER")
 empty:SetTextColor(unpack(MUTED))
-empty:SetText("No abilities with a cooldown found.")
+empty:SetText(L["No abilities with a cooldown found."])
 
 -- Where a dragged row would land: a line between rows.
 local dropLine = content:CreateTexture(nil, "OVERLAY")
@@ -1921,7 +1925,7 @@ local drop = CreateFrame("Button", nil, Host())
 local dropBorder = Box(drop, WELL, BRONZE_DIM)
 local dropText = drop:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 dropText:SetPoint("CENTER")
-dropText:SetText("Drop an item here to track it")
+dropText:SetText(L["Drop an item here to track it"])
 dropText:SetTextColor(unpack(MUTED))
 
 local function CursorItem()
@@ -1951,42 +1955,42 @@ drop:SetScript("OnLeave", function()
 end)
 y = y - 4
 Place(drop, DROP_HEIGHT)
-Hint("Items with a Use: effect, like trinkets, get their own icon. All potions share one Potions icon, which lights up while a potion's buff is active.")
+Hint(L["Items with a Use: effect, like trinkets, get their own icon. All potions share one Potions icon, which lights up while a potion's buff is active."])
 
 -- Icons ----------------------------------------------------------------------------------------------
 
-Section("Icons")
+Section(L["Icons"])
 
 -- Icon size, apart from the box's size (owner, 2026-10-09): the width sets how many fit in a row.
 Pair(SLIDER_HEIGHT, function(parent)
-    return SliderWidget(parent, "Icon size", ns.Cooldowns.MIN_ICON_SIZE, ns.Cooldowns.MAX_ICON_SIZE, 1, "%.0f",
+    return SliderWidget(parent, L["Icon size"], ns.Cooldowns.MIN_ICON_SIZE, ns.Cooldowns.MAX_ICON_SIZE, 1, "%.0f",
         function() return ns.db.cdIconSize end,
         ns.Cooldowns.SetIconSize)
 end, function(parent)
-    return ChoiceWidget(parent, "Overflow", {
-        { value = "hide", text = "Hide" },
-        { value = "spill", text = "Spill" },
+    return ChoiceWidget(parent, L["Overflow"], {
+        { value = "hide", text = L["Hide"] },
+        { value = "spill", text = L["Spill"] },
     }, function() return ns.db.cdOverflow end, ns.Cooldowns.SetOverflow)
 end)
-Hint("When icons don't fit: hide the lowest-priority ones, or let them spill past the edge.")
+Hint(L["When icons don't fit: hide the lowest-priority ones, or let them spill past the edge."])
 
 -- Active: icons whose buff or debuff is up; inactive: grey icons on cooldown (owner, 2026-10-09).
 Pair(SLIDER_HEIGHT, function(parent)
-    return SliderWidget(parent, "Active opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
+    return SliderWidget(parent, L["Active opacity"], ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
         function() return ns.db.cdActiveAlpha * 100 end,
         function(percent) ns.Cooldowns.SetActiveAlpha(percent / 100) end)
 end, function(parent)
-    return SliderWidget(parent, "Inactive opacity", ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
+    return SliderWidget(parent, L["Inactive opacity"], ns.MIN_ALPHA * 100, 100, 5, "%.0f%%",
         function() return ns.db.cdAlpha * 100 end,
         function(percent) ns.Cooldowns.SetAlpha(percent / 100) end)
 end)
 
-AnchorGrid("Alignment", function() return ns.db.cdAlign end, ns.Cooldowns.SetAlignment)
-Hint("Where icons gather inside the frame.")
+AnchorGrid(L["Alignment"], function() return ns.db.cdAlign end, ns.Cooldowns.SetAlignment)
+Hint(L["Where icons gather inside the frame."])
 
 -- No checkbox for the countdownForCooldowns CVar: SetCVar from our code was the likely source of a
 -- taint error in Blizzard's chat (2026-10-02; see docs/api-research.md). Players change it in WoW's options.
-Hint("To show countdown numbers, turn on Options > Action Bars > Show Numbers for Cooldowns.")
+Hint(L["To show countdown numbers, turn on Options > Action Bars > Show Numbers for Cooldowns."])
 
 -- End of the tab: its height counts the frame controls above the body, and the Abilities list
 -- (the body's Stretch) grows to fill the window (UpdateCanvas reads it from the tab's page).

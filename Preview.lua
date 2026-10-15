@@ -21,6 +21,7 @@
 -- It's pickable only while the text is shown. Texts are checked first, then circles from the
 -- smallest, so the smaller thing on top wins.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("Preview") -- timed by /catnip perf (Profiler.lua)
 
 local hud = ns.hud
@@ -47,9 +48,9 @@ local selectedId, listHoverId, mouseHoverId
 -- smoke; ns.SetStealthPreview) over Cat Form (Prowl) or Caster (Shadowmeld). The form decides
 -- what's shown, stealth only the look.
 Preview.STATES = { -- short: the settings window's button for it; in the owner's order
-    { value = "caster", text = "Caster", short = "Caster" }, -- shows a spell being cast, unless stealthed
-    { value = "bear", text = "Bear Form", short = "Bear" },
-    { value = "cat", text = "Cat Form", short = "Cat" },
+    { value = "caster", text = L["Caster"], short = L["Caster"] }, -- shows a spell being cast, unless stealthed
+    { value = "bear", text = ns.SpellName(ns.SPELL.BEAR_FORM) or "Bear Form", short = L["Bear"] },
+    { value = "cat", text = ns.SpellName(ns.SPELL.CAT_FORM) or "Cat Form", short = L["Cat"] },
 }
 local state = "cat"
 local stealthed = false -- the Stealth toggle
@@ -350,7 +351,7 @@ local function SetMouseHover(element)
     if element then
         GameTooltip:SetOwner(catcher, "ANCHOR_CURSOR")
         GameTooltip:SetText(element.name)
-        GameTooltip:AddLine("Click to edit", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine(L["Click to edit"], 0.8, 0.8, 0.8)
         GameTooltip:Show()
     elseif GameTooltip:IsOwned(catcher) then
         GameTooltip:Hide()

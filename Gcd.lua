@@ -16,6 +16,7 @@
 -- back to a plain sweep if neither is known, or if the swing is no longer than the GCD. Cat keeps
 -- the exact duration object; its 1.0s GCD already roughly matches its swing.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("Gcd") -- timed by /catnip perf (Profiler.lua)
 
 local GCD_LENGTH = 1.5 -- Classic GCD outside cat form; not hasted
@@ -233,11 +234,11 @@ end)
 ns.RegisterElement({
     id = "resource.gcd",
     zone = "resource",
-    name = "GCD Pie",
+    name = L["GCD Pie"],
     hidden = true, -- not offered in the settings for now (Elements.lua)
     glyph = { kind = "disc", color = { 0.43, 0.40, 0.36 } },
     options = {
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "opacity", type = "slider", label = L["Opacity"], min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
     },
     apply = function(get)
         ball:SetSwipeColor(SHADE[1], SHADE[2], SHADE[3], SHADE[4] * get("opacity") / 100)

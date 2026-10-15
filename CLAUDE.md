@@ -31,3 +31,4 @@ Forever does **not** use the Classic API. It uses the modern retail (Midnight, 1
 - Use the addon namespace (`local addonName, ns = ...`); no unnecessary globals.
 - Keep files small and focused.
 - Ask before adding third-party libraries.
+- All text a player sees goes through `L["..."]`, and spells are found by ID, never by English name (see Localization in `docs/architecture.md`). After changing text, run `py tools/locales.py`.

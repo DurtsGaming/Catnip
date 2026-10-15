@@ -10,6 +10,7 @@
 -- and spell costs are readable in combat and the timer is our own clock; Clearcasting is the
 -- exception (see ns.IsClearcasting).
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame, C_Timer = ns.Profiled("FiveSecondRule") -- timed by /catnip perf (Profiler.lua)
 
 local RULE = 5
@@ -126,11 +127,11 @@ end
 ns.RegisterElement({
     id = "resource.fsr",
     zone = "resource",
-    name = "Five-Second Ring",
+    name = L["Five-Second Ring"],
     hidden = true, -- not offered in the settings for now (Elements.lua)
     glyph = { kind = "ring", color = { 0.35, 0.31, 0.78 } },
     options = {
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "opacity", type = "slider", label = L["Opacity"], min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
     },
     apply = function(get)
         holder:SetAlpha(get("opacity") / 100)

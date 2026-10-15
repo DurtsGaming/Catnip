@@ -6,6 +6,7 @@ How the code is organised, so a new session can start a feature without reading 
 
 | File | Owns |
 |------|------|
+| `Locales/enUS.lua`, `Locales/zhCN.lua`... | Translations (see **Localization** below). Load first, before Catnip.lua |
 | `Catnip.lua` | Core: the HUD frame (`ns.hud`, 240×240), shared sizes, saved settings, slash commands, debug helpers |
 | `Profiler.lua` | `/catnip perf`: times Catnip's own code. `ns.Profiled(module)` returns a `CreateFrame` and `C_Timer` for that module; every runtime file starts with `local CreateFrame[, C_Timer] = ns.Profiled("<File>")`, so its plain frames (type `Frame`, no template) time each script they run (OnEvent keyed by event name) and its timer callbacks are timed too. Off, a wrapper only checks a flag. Reports ms of our code per second of play, in and out of combat, plus Blizzard's `C_AddOnProfiler` numbers if the client has them; saved in `CatnipDB.perfReports` (last 10). Loads right after Catnip.lua, before every file it times. The settings window, Edit Mode and AddOns page files aren't timed (they only run while open) |
 | `SpellTiming.lua` | What we know about spell timing, shared by the GCD pie, the cooldown arcs and rings, and the cooldown box: `ns.GCD_SPELL`, `ns.ReadCooldown`, `ns.GcdRunning`, `ns.CooldownState` (a real cooldown is `isActive and isOnGCD ~= true`, verified in combat 2026-10-10), and learned lengths (`ns.LearnedLength`/`ns.LearnLength`, per character in `ns.char.lengths.gcd` by spell name, rounded to 0.5s; `.cooldown` is unused since the arcs are timed by the game, kept, not cleared). Moves the old per-arc keys (`spLength`...) and `gcdLengths` into it on load |
@@ -114,6 +115,17 @@ The cooldown widget (`CatnipCooldowns`) is its own frame on UIParent: icons at +
 - **Resizing something built from AuraContainer buttons**: build at a fixed size and `SetScale` the frame they live in; the buttons themselves are forbidden after setup. Example: `Cooldowns.lua`.
 - **Moving decoration on an AuraContainer button**: a looping animation started once with `Play()` at setup (no `OnShow`/`OnHide` handlers: blocked on these buttons). For motion a rotation can't do (dashes running around a square), a `FlipBook` animation over a grid of pre-drawn frames. Example: `Cooldowns.lua` (`square_dashed`).
 - **Timer rings**: a `Cooldown` frame with `SetSwipeTexture(<ring texture>)`, `SetDrawEdge(false)`, `SetDrawBling(false)`, `SetHideCountdownNumbers(true)`. Starts full and empties clockwise. Plain-number timings go to `SetCooldown`; secret ones need a duration object (`SetCooldownFromDurationObject`). A spell's cooldown without the GCD is `C_Spell.GetSpellCooldownDuration(id, true)`.
+
+## Localization
+
+Every piece of text a player sees goes through `local L = ns.L` (each file sets it under `local addonName, ns = ...`): `L["Reset to defaults"]`. The key is the English text; `Locales/enUS.lua` makes a missing key return itself, so English needs no entries and untranslated text shows in English. Other languages are `Locales/<locale>.lua` files (zhCN so far), each starting `if GetLocale() ~= "<locale>" then return end` and listed in `Catnip.toc` after enUS.
+
+- **After changing any text, run `py tools/locales.py`.** It rewrites each language file from the code: translations kept, new keys added as commented placeholders grouped by the file that uses them, translations whose English is gone moved to a "No longer used" section. `--check` changes nothing and exits 1 if a file is out of date (`.github/workflows/locales.yml` runs it on every push and pull request that touches Lua, so a stale file fails the build); `py tools/locales.py zhTW` starts a new language. Changing English wording orphans its translation, so reword deliberately.
+- Write keys as plain double-quoted literals (`L["..."]`, never `L[variable]`), or the script can't find them.
+- Text built from parts is a format string, so a translator can reorder it: `L["Reset %s"]:format(name)`, not `"Reset " .. name`.
+- **Spell names come from the game, not `L`**: `ns.SpellName(ns.SPELL.PROWL) or "Prowl"` (the English fallback only covers spell data not being loaded). A phrase containing a spell name is one key (`L["Shifting Power ready pulse"]`); the translator writes the spell's name in.
+- **Display text is never an ID.** Things keyed by name get an untranslated key next to the label: `topTabs.Add(L["General"], "General")` (the side tab icons are looked up by the second). Element `label`s on AuraContainer, SegmentedCooldown and ActionBar specs only reach debug output and stay English; the combo ring dropdown text is a separate `choice` field.
+- Left in English: `ns.Debug` output, `/catnip dev` tools and their output (`perf`, `cdm`, `spells`, `item`, `art`, `icon`, the ring previews), slash command names, font names.
 
 ## Textures
 

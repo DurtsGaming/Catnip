@@ -11,6 +11,7 @@
 -- No game timer exists for the ICD, so it's our own: a duration object from the proc's time drives
 -- the ring (a radial StatusBar, SegmentedArc.lua) and one timer ends it.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame, C_Timer = ns.Profiled("OmenRing") -- timed by /catnip perf (Profiler.lua)
 
 local ICD = 10 -- seconds; 5 segments of 2s, drawn into ring_omen_circular and _angular (make_textures.py)
@@ -108,7 +109,7 @@ local StartSample, StopSample = ns.ArcSampler(sampleArc, ICD)
 
 ns.AddComboRingSpell({
     key = "omen",
-    label = "Omen of Clarity Internal Cooldown",
+    label = L["Omen of Clarity Internal Cooldown"],
     color = { 0.4, 0.8, 0.6 }, -- its glyph in the settings list
     order = 3, -- after the spell cooldowns, before the DoTs
     defaultSlot = 2,

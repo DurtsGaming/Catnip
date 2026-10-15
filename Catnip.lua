@@ -1,4 +1,5 @@
 local addonName, ns = ...
+local L = ns.L
 
 ns.MEDIA = "Interface\\AddOns\\" .. addonName .. "\\media\\"
 ns.RESOURCE_SIZE = 100
@@ -55,6 +56,9 @@ ns.SPELL = {
     MAUL = 6807,
     PRIMAL_BITE = 407995,
     PROWL = 5215,
+    RAKE = 1822,
+    REGROWTH = 8936,
+    RIP = 1079,
     SHADOWMELD = 20580,
     SHIFTING_POWER = 1322605, -- from /dump in-game, 2026-10-15 (the rank the player knew)
     SHRED = 5221,
@@ -136,10 +140,10 @@ SlashCmdList.CATNIP = function(msg)
     if handler then
         handler(arg)
     else
-        ns.Print("/catnip: open settings")
-        ns.Print("/catnip edit: settings and Edit Mode")
-        ns.Print("/catnip debug: debug messages on or off")
-        ns.Print("/catnip dev: tools for testing and development")
+        ns.Print("/catnip: " .. L["open settings"])
+        ns.Print("/catnip edit: " .. L["settings and Edit Mode"])
+        ns.Print("/catnip debug: " .. L["debug messages on or off"])
+        ns.Print("/catnip dev: " .. L["tools for testing and development"])
     end
 end
 
@@ -152,7 +156,7 @@ end
 
 ns.commands.debug = function()
     ns.db.debug = not ns.db.debug
-    ns.Print("Debug messages " .. (ns.db.debug and "on" or "off"))
+    ns.Print(ns.db.debug and L["Debug messages on"] or L["Debug messages off"])
     ns.SettingsChanged()
 end
 

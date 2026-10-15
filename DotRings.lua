@@ -16,16 +16,17 @@
 -- hides it with the DoT itself: a plain on/off for "is it still up", which the draining swipe makes
 -- hard to read near the end.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("DotRings") -- timed by /catnip perf (Profiler.lua)
 
--- Forever: each rank's aura has its own ID. key: saved in the combo ring settings; order: in their
--- dropdown; dot: its slot by default; textures: by segment shape; length: the sample's, in preview mode.
+-- Forever: each rank's aura has its own ID. key: saved in the combo ring settings; label: for debug
+-- output; choice and order: its text and place in their dropdown; dot: its slot by default; textures: by segment shape; length: the sample's, in preview mode.
 local DOTS = {
-    { key = "rake", label = "Rake", order = 4, dot = 4, length = 9,
+    { key = "rake", label = "Rake", choice = L["Rake Duration"], order = 4, dot = 4, length = 9,
         textures = { angular = "ring_rake", circular = "ring_rake_circular" },
         color = { 0.82, 0.23, 0.14 }, -- its glyph in the settings list
         spellIDs = { 1822, 1823, 1824, 9904 } },
-    { key = "rip", label = "Rip", order = 5, dot = 5, length = 12,
+    { key = "rip", label = "Rip", choice = L["Rip Duration"], order = 5, dot = 5, length = 12,
         textures = { angular = "ring_rip_segments", circular = "ring_rip_circular" },
         color = { 0.69, 0.12, 0.12 },
         spellIDs = { 1079, 9492, 9493, 9752, 9894, 9896 } },
@@ -140,7 +141,8 @@ for _, dot in ipairs(DOTS) do
                 end,
             })
             if IsLoggedIn() and InCombatLockdown() then
-                ns.Print(dot.label .. " will move to combo point " .. slot.index .. " after combat.")
+                ns.Print(L["%s will move to combo point %d after combat."]:format(
+                    ns.SpellName(dot.spellIDs[1]) or dot.label, slot.index))
             end
         end
         return holder
@@ -149,7 +151,7 @@ for _, dot in ipairs(DOTS) do
     local standIn, StartSample, StopSample = StandIn(dot)
     ns.AddComboRingSpell({
         key = dot.key,
-        label = dot.label .. " Duration",
+        label = dot.choice,
         color = dot.color,
         order = dot.order,
         defaultSlot = dot.dot,
@@ -173,6 +175,6 @@ end
 
 if not ns.HAS_AURA_CONTAINER then
     ns.OnLoad(function()
-        ns.Print("DoT rings aren't supported in this version of the game.")
+        ns.Print(L["DoT rings aren't supported in this version of the game."])
     end)
 end

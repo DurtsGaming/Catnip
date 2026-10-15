@@ -18,6 +18,7 @@
 -- ShiftOrbs.lua dims the orbs the cast would cost, fading the dim out with a refund: it's told
 -- through ns.onManaPrediction(cost, strength) and borrows the spend colour.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame, C_Timer = ns.Profiled("ManaPrediction") -- timed by /catnip perf (Profiler.lua)
 
 local MANA = Enum.PowerType.Mana
@@ -374,12 +375,12 @@ end
 ns.RegisterElement({
     id = "resource.prediction",
     zone = "resource",
-    name = "Mana Prediction",
+    name = L["Mana Prediction"],
     hidden = true, -- not offered in the settings for now (Elements.lua)
     glyph = { kind = "arc", color = { 0.23, 0.47, 0.88 } },
     options = {
-        { key = "enabled", type = "checkbox", label = "Show mana cost prediction", default = true },
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "enabled", type = "checkbox", label = L["Show mana cost prediction"], default = true },
+        { key = "opacity", type = "slider", label = L["Opacity"], min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
     },
     apply = function(get)
         enabled = get("enabled")

@@ -7,6 +7,7 @@
 -- Entering stealth the smoke billows out of the glow: it swells outward from just inside the band
 -- and fades in while the clouds whirl fast and slow to their drift. Leaving stealth is instant.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("StealthSmoke") -- timed by /catnip perf (Profiler.lua)
 
 local SMOKE_SIZE = 160 -- the textures' canvas in HUD units (SMOKE_UNITS in make_textures.py)
@@ -83,13 +84,13 @@ end
 ns.RegisterElement({
     id = "swing.smoke",
     zone = "swing",
-    name = "Stealth Smoke",
+    name = L["Stealth Smoke"],
     order = 3, -- after Swing Timer and Cast Timer
     glyph = { kind = "ring", color = { 0.48, 0.33, 0.75 } },
     -- The smoke's visible band: from the gap outside the resource border to where it fades out.
     hit = { kind = "ring", inner = 54, outer = 69, visible = ns.IsStealthMode },
     options = {
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%",
+        { key = "opacity", type = "slider", label = L["Opacity"], min = 0, max = 100, step = 5, format = "%.0f%%",
             default = math.floor(MAIN_ALPHA * 100 + 0.5) },
     },
     apply = function(get)

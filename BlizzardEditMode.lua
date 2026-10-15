@@ -6,6 +6,7 @@
 -- CatnipDB, one for each frame, whichever Edit Mode layout is active. If the library or Blizzard's
 -- Edit Mode is missing, Catnip's own Edit Mode (EditMode.lua) stays in charge.
 local addonName, ns = ...
+local L = ns.L
 
 local lib = ns.LibEditMode
 if not (lib and lib.AddFrame and EditModeManagerFrame) then
@@ -88,24 +89,24 @@ ns.OnSettingsChanged(UpdateHudDefault)
 
 lib:AddFrame(hud, function(frame)
     ns.SetHudPosition(CentreOffset(frame))
-end, hudDefault, "Catnip: Rotation Frame")
+end, hudDefault, "Catnip: " .. L["Rotation Frame"])
 FollowOnClick(hud, "hud")
 SnapOnDrop(hud, function(dx, dy)
     ns.SetHudPosition(ns.db.x + dx, ns.db.y + dy)
 end)
-AddButtons(hud, { { text = "Catnip Settings", click = function() ns.OpenSettings("hud") end } })
+AddButtons(hud, { { text = L["Catnip Settings"], click = function() ns.OpenSettings("hud") end } })
 
 -- Cooldown Frame ---------------------------------------------------------------------------------
 
 lib:AddFrame(cooldowns, function(frame)
     local x, y = CentreOffset(frame)
     ns.Cooldowns.SetLayout(x, y, ns.db.cdWidth, ns.db.cdHeight)
-end, { point = "CENTER", x = ns.defaults.cdX, y = ns.defaults.cdY }, "Catnip: Cooldown Frame")
+end, { point = "CENTER", x = ns.defaults.cdX, y = ns.defaults.cdY }, "Catnip: " .. L["Cooldown Frame"])
 FollowOnClick(cooldowns, "cooldowns")
 SnapOnDrop(cooldowns, function(dx, dy)
     ns.Cooldowns.SetLayout(ns.db.cdX + dx, ns.db.cdY + dy, ns.db.cdWidth, ns.db.cdHeight)
 end)
-AddButtons(cooldowns, { { text = "Catnip Settings", click = function() ns.OpenSettings("cooldowns") end } })
+AddButtons(cooldowns, { { text = L["Catnip Settings"], click = function() ns.OpenSettings("cooldowns") end } })
 
 -- Entering and leaving -----------------------------------------------------------------------------
 
@@ -132,7 +133,7 @@ end)
 -- Opening Edit Mode (/catnip edit, the Move in Edit Mode buttons in Catnip's settings) now opens Blizzard's.
 function ns.OpenEditMode()
     if InCombatLockdown() then
-        ns.Print("Edit Mode can't open in combat.")
+        ns.Print(L["Edit Mode can't open in combat."])
         return
     end
     reopenSettings = _G.CatnipOptions and _G.CatnipOptions:IsShown() or false

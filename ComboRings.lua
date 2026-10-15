@@ -17,6 +17,7 @@
 --   StartSample(slot), StopSample()   preview mode's looping copy, in slot.sampleGate (restarted
 --                  when its shape changes)
 local addonName, ns = ...
+local L = ns.L
 
 local COUNT = 5
 local NONE = "none"
@@ -31,7 +32,7 @@ local NONE_GLYPH = { kind = "ring", color = { 0.4, 0.38, 0.34 } }
 -- Segment shapes: Angular, pointed on the inside edge with 1-unit gaps (the DoTs' default, telling
 -- them apart from the cooldowns); Circular, square-ended with 2-unit gaps (the cooldowns' default).
 local SHAPE_NONE = "circular" -- shown, greyed out, for an empty slot
-local SHAPES = { { value = "angular", text = "Angular" }, { value = "circular", text = "Circular" } }
+local SHAPES = { { value = "angular", text = L["Angular"] }, { value = "circular", text = L["Circular"] } }
 
 local entries = {} -- by key
 
@@ -140,14 +141,14 @@ for index = 1, COUNT do
     -- the combo dots outside Cat and Bear Form), preview mode's samples in comboSample.
     slot.gate = ns.ComboRingGate(ns.comboLive)
     slot.sampleGate = ns.ComboRingGate(ns.comboSample)
-    slot.spellOption = { key = "spell", type = "choice", label = "Shows", values = choices, default = NONE }
+    slot.spellOption = { key = "spell", type = "choice", label = L["Shows"], values = choices, default = NONE }
     slots[index] = slot
     -- The shown ability's shape, if it has one (else greyed out).
     local function Shaped()
         local key = Picked(slot)
         return key and entries[key].shape and key or nil
     end
-    local shapeOption = { key = "segments", type = "choice", label = "Segments", values = SHAPES,
+    local shapeOption = { key = "segments", type = "choice", label = L["Segments"], values = SHAPES,
         enabled = function() return Shaped() ~= nil end,
         get = function()
             local key = Shaped()
@@ -164,7 +165,7 @@ for index = 1, COUNT do
     ns.RegisterElement({
         id = slot.id,
         zone = "combo",
-        name = "Combo Ring " .. index,
+        name = L["Combo Ring %d"]:format(index),
         glyph = function()
             local entry = entries[Picked(slot)]
             return entry and entry.glyph or NONE_GLYPH
@@ -176,7 +177,7 @@ for index = 1, COUNT do
         options = {
             slot.spellOption,
             shapeOption,
-            { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+            { key = "opacity", type = "slider", label = L["Opacity"], min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
         },
         onReset = function()
             -- Reset to defaults puts the shown ability's shape back too: it's on this page.

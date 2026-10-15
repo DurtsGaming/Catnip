@@ -9,6 +9,9 @@
 libs\LibEditMode\namespaced.lua
 libs\LibEditMode\embed.xml
 
+Locales\enUS.lua
+Locales\zhCN.lua
+
 Catnip.lua
 Profiler.lua
 SpellTiming.lua

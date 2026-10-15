@@ -16,6 +16,7 @@
 -- sp_arc_outline (make_textures.py sp_arc_geometry, and sp_colour colours each of the four), so
 -- changing the segment count means redrawing those.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("ShiftingPower") -- timed by /catnip perf (Profiler.lua)
 
 -- Geometry, in step with make_textures.py (SP_CANVAS, SP_SPAN): the arc textures are drawn on a
@@ -162,7 +163,7 @@ end
 ns.RegisterElement({
     id = "under.sp",
     zone = "under",
-    name = "Shifting Power Arc",
+    name = L["Shifting Power Arc"],
     hidden = true, -- offered as one setting with the Growl arc: "Cooldown Arc" (GrowlArc.lua)
     -- Cat Form and Caster run the sample (Shifting Power shows in both); Bear shows Growl's
     -- (GrowlArc.lua).

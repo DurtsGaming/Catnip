@@ -2,6 +2,7 @@
 -- the blue nine-slice highlight over the frame, brighter while the mouse is over it (an additive
 -- copy on top) with "Click To Edit" in the middle. Clicking opens its settings.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("UnlockOverlay") -- timed by /catnip perf (Profiler.lua)
 
 local TEXTURE_KIT = "editmode-actionbar-highlight" -- Edit Mode's blue; "-selected" is its yellow
@@ -103,7 +104,7 @@ function ns.CreateUnlockOverlay(parent, name, onClick)
     text:SetFrameLevel(glow:GetFrameLevel() + 1)
     local label = text:CreateFontString(nil, "OVERLAY", LABEL_FONT)
     label:SetPoint("CENTER")
-    label:SetText("Click to edit")
+    label:SetText(L["Click to edit"])
     -- A heavier shadow than the font's own, so it reads on the bright highlight like Blizzard's.
     label:SetShadowColor(0, 0, 0, 1)
     label:SetShadowOffset(2, -2)

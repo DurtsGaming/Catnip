@@ -5,6 +5,7 @@
 -- is up and our crescent rides on it; our code never learns whether the proc is up.
 -- Fallback without AuraContainer: the Cooldown Manager (user must track Omen of Clarity there).
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("Proc") -- timed by /catnip perf (Profiler.lua)
 
 local OMEN_OF_CLARITY = 16864 -- what the Cooldown Manager tracks
@@ -105,7 +106,7 @@ local function SetupCooldownManagerFallback()
         if active == nil then
             if not warnedUntracked then
                 warnedUntracked = true
-                ns.Print("To see Clearcasting in combat, add Omen of Clarity to the Cooldown Manager's tracked buffs.")
+                ns.Print(L["To see Clearcasting in combat, add Omen of Clarity to the Cooldown Manager's tracked buffs."])
             end
             active = false
         end
@@ -154,12 +155,12 @@ CreateCrescentFrame(standIn)
 ns.RegisterElement({
     id = "resource.proc",
     zone = "resource",
-    name = "Clearcasting",
+    name = ns.SpellName(CLEARCASTING) or "Clearcasting",
     glyph = { kind = "arc", color = { 1, 0.96, 0.78 } },
     hit = { kind = "circle", x = 0, y = SIZE * 0.36, radius = SIZE * 0.14,
         visible = function() return standIn:IsVisible() end },
     options = {
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "opacity", type = "slider", label = L["Opacity"], min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
     },
     apply = function(get)
         liveGate:SetAlpha(get("opacity") / 100)

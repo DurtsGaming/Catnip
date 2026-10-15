@@ -1,0 +1,30 @@
+# Fails when text in the code changed but the translation files weren't updated, so translators
+# always see the current text. To fix a failure, run "py tools/locales.py" and commit the result.
+# (Idea from EllesmereUI's locale-check.yml.)
+name: Locales
+
+on:
+  push:
+    paths:
+      - "**.lua"
+      - "Catnip.toc"
+      - "tools/locales.py"
+      - ".github/workflows/locales.yml"
+  pull_request:
+    paths:
+      - "**.lua"
+      - "Catnip.toc"
+      - "tools/locales.py"
+      - ".github/workflows/locales.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Translation files up to date
+        run: python3 tools/locales.py --check

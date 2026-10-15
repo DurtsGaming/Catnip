@@ -8,9 +8,9 @@ Plan for translating Catnip, starting with Simplified Chinese (zhCN) from a volu
 |------|-------|
 | 1. Look up spells by ID, not by English name | Verified in-game (English) 2026-10-15: `ns.SPELL`, `ns.SpellName`, `ns.IsSpellNamed` (Catnip.lua). Shifting Power's ID (1322605) added after. `CooldownItems.lua`'s "Potion" name fallback left as is. zhCN check is in step 6 |
 | 2. English wording pass | Done, approved by the owner in-game 2026-10-15 (the table below, plus all element names in Title Case and the chat messages) |
-| 3. Locale files and `L` table | Not started |
-| 4. Move strings into `L`, file by file | Not started |
-| 5. Translator kit: check script, contributor notes | Not started |
+| 3. Locale files and `L` table | Done 2026-10-15, to verify in-game: `Locales/enUS.lua`, `Locales/zhCN.lua` (empty, 136 keys to translate) |
+| 4. Move strings into `L`, file by file | Done 2026-10-15, to verify in-game (English should look unchanged). Rules now in architecture.md's Localization section |
+| 5. Translator kit: check script, contributor notes | Done 2026-10-15: `tools/locales.py` rewrites the language files (not just a check), zhCN.lua header explains translating, README "Translations" section |
 | 6. zhCN client checks (fonts, widths) | Not started: needs the translator or a zhCN client |
 
 Order matters. Step 1 fixes bugs that affect every non-English player, translated or not. Step 2 comes before step 4 so the translator works from final English, not text we're about to rewrite.
@@ -90,7 +90,7 @@ Do it file by file, about 25 files, Options.lua (~220 strings) the largest. Chec
 
 ## 5. Translator kit
 
-- `tools/check_locales.py`: scans the `.lua` files for `L["..."]`, compares with `Locales/zhCN.lua`, and lists missing keys (needs translating) and unused keys (English changed or text removed). Run it before each release.
+- `tools/locales.py` (built 2026-10-15; it rewrites the files rather than only checking): scans the `.lua` files for `L["..."]`, adds missing keys to each language file as placeholders, and moves translations whose English is gone to a "No longer used" section. `--check` only reports. Run it after changing text and before each release.
 - In `Locales/zhCN.lua`, group entries by where they appear (General tab, Rotation tab, Cooldown tab, chat), with a comment where length matters (side tabs, buttons, the Preview row).
 - A short section in README.md, or a CONTRIBUTING.md, on how to submit translations.
 

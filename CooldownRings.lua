@@ -9,6 +9,7 @@
 -- (`art`_circular, `art`_angular), so a different segment count means regenerating those. The
 -- timing runs whether or not the ring is in a slot.
 local addonName, ns = ...
+local L = ns.L
 
 local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- same as DotRings.lua; the ring textures have ring_rip's band
 
@@ -20,7 +21,8 @@ end
 local RINGS = {
     {
         key = "ff", -- saved in the combo ring settings
-        label = "Faerie Fire",
+        label = "Faerie Fire", -- debug output
+        choice = L["Faerie Fire Cooldown"], -- the combo ring dropdown
         order = 1, -- in the settings dropdown
         dot = 1, -- its slot by default
         art = "ring_faerie",
@@ -35,6 +37,7 @@ local RINGS = {
     {
         key = "pb",
         label = "Primal Bite",
+        choice = L["Primal Bite Cooldown"],
         order = 2,
         dot = 3,
         art = "ring_primal_bite",
@@ -78,7 +81,7 @@ for _, ring in ipairs(RINGS) do
 
     ns.AddComboRingSpell({
         key = ring.key,
-        label = ring.label .. " Cooldown",
+        label = ring.choice,
         color = ring.color,
         order = ring.order,
         defaultSlot = ring.dot,

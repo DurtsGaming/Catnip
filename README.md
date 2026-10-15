@@ -40,3 +40,9 @@ Your settings are saved between sessions. The cooldown list is saved per charact
 ## Updating
 
 Download the latest release zip and replace your `AddOns\Catnip` folder with the new one. Your settings are stored separately and are kept.
+
+## Translations
+
+Catnip shows in your game's language where a translation exists (Simplified Chinese is in progress), and in English otherwise. Spell names always come from the game, so they're already in your language.
+
+To help translate, edit `Locales/<your language>.lua` (for example `Locales/zhCN.lua`). Each line to translate looks like `-- L["Reset"] = ""`: remove the `-- ` and type the translation between the empty quotes. The file's header explains the details. Send it back as a pull request, or open an issue if your language has no file yet.

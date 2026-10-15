@@ -1,5 +1,6 @@
 -- The big middle circle: energy / rage / mana, filling from the bottom, with the raw value in the middle.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("Resource") -- timed by /catnip perf (Profiler.lua)
 
 local SIZE = ns.RESOURCE_SIZE
@@ -261,14 +262,14 @@ end
 ns.RegisterElement({
     id = "resource.circle",
     zone = "resource",
-    name = "Resource Circle",
+    name = L["Resource Circle"],
     hidden = true, -- not offered in the settings for now (Elements.lua)
     glyph = { kind = "disc", color = { 0.96, 0.77, 0.26 } },
     hit = { kind = "circle", radius = SIZE / 2 + 3 },
     options = {
-        PercentSlider("fillOpacity", "Fill opacity", 100),
-        PercentSlider("backgroundOpacity", "Background opacity", 40),
-        PercentSlider("borderOpacity", "Border opacity", 100),
+        PercentSlider("fillOpacity", L["Fill opacity"], 100),
+        PercentSlider("backgroundOpacity", L["Background opacity"], 40),
+        PercentSlider("borderOpacity", L["Border opacity"], 100),
     },
     apply = function(get)
         fillOpacity = get("fillOpacity") / 100
@@ -301,12 +302,12 @@ ns.RegisterElement({
 -- The number's font, size and outline, and how mana shows. A raw mana
 -- value is secret in combat too, but SetText takes it as-is.
 local numberOptions = ns.TextOptions(20)
-numberOptions[#numberOptions + 1] = { key = "manaFormat", type = "choice", label = "Mana as", default = "percent",
-    values = { { value = "percent", text = "Percent" }, { value = "value", text = "Value" } } }
+numberOptions[#numberOptions + 1] = { key = "manaFormat", type = "choice", label = L["Mana as"], default = "percent",
+    values = { { value = "percent", text = L["Percent"] }, { value = "value", text = L["Value"] } } }
 ns.RegisterElement({
     id = "resource.number",
     zone = "resource",
-    name = "Resource Value",
+    name = L["Resource Value"],
     glyph = { kind = "text", color = { 1, 1, 1 } },
     hit = { kind = "text", region = text, anchor = textLayer, point = "CENTER", chars = 4 },
     options = numberOptions,

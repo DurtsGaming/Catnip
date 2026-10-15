@@ -1,6 +1,7 @@
 -- Moving and resizing the HUD. Unlock mode (Catnip Edit Mode): drag to move, click
 -- to open its settings (on/off, scale and opacity are set there).
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("Layout") -- timed by /catnip perf (Profiler.lua)
 
 local DEFAULTS = { x = 0, y = -285, scale = 1, hudAlpha = 0.95, hudEnabled = true }
@@ -81,7 +82,7 @@ end
 
 -- Unlock overlay: catches the mouse only while unlocked, so the HUD never blocks clicks otherwise.
 -- Clicking it opens the settings where its position and scale are.
-local overlay = ns.CreateUnlockOverlay(hud, "Rotation Frame", function() ns.OpenSettings("hud") end)
+local overlay = ns.CreateUnlockOverlay(hud, L["Rotation Frame"], function() ns.OpenSettings("hud") end)
 
 ns.MIN_SCALE, ns.MAX_SCALE, ns.SCALE_STEP = MIN_SCALE, MAX_SCALE, SCALE_STEP
 
@@ -144,11 +145,11 @@ ns.OnLoad(ApplyLayout)
 -- Shadowmeld) the HUD's opacity is the share of Overall opacity, one value for both.
 ns.RegisterElement({
     id = "stealth",
-    name = "Stealth Mode",
+    name = L["Stealth Mode"],
     glyph = { kind = "disc", color = { 0.56, 0.55, 0.94 } },
     options = {
-        { key = "enabled", type = "checkbox", label = "Enabled", default = true },
-        { key = "opacity", type = "slider", label = "Opacity while stealthed", min = 10, max = 100, step = 5,
+        { key = "enabled", type = "checkbox", label = L["Enabled"], default = true },
+        { key = "opacity", type = "slider", label = L["Opacity while stealthed"], min = 10, max = 100, step = 5,
             format = "%.0f%%", default = 100 },
     },
     apply = function(get)

@@ -42,6 +42,7 @@
 -- that's 1 below that, so again the secret mana stays engine-side. The curves depend on the cast's
 -- cost, so they're made when a cast starts (kept per cost); if that fails in combat, no prediction.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("ShiftOrbs") -- timed by /catnip perf (Profiler.lua)
 
 local COMBAT_ONLY = false -- off for now: the orbs show in and out of combat
@@ -415,14 +416,14 @@ end
 ns.RegisterElement({
     id = "under.orbs",
     zone = "under",
-    name = "Shift Orbs",
+    name = L["Shift Orbs"],
     glyph = { kind = "dots", color = { 0.31, 0.56, 0.91 } },
     hit = { kind = "circles", radius = ORB_SIZE / 2, centres = OrbCentres, -- outlines just meet
         visible = function() return holder:IsVisible() end },
     options = {
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "opacity", type = "slider", label = L["Opacity"], min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
         -- Previewed in every form: the fifth orb grey.
-        { key = "ghost", type = "checkbox", label = "Show almost-ready orb", default = false },
+        { key = "ghost", type = "checkbox", label = L["Show almost-ready orb"], default = false },
     },
     apply = function(get)
         opacity = get("opacity") / 100

@@ -3,6 +3,7 @@
 -- unfilled part shows it. It's an AuraContainer (see AuraContainer.lua): Blizzard shows the disc
 -- while Enrage is up, even in combat when the buff is secret to us.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("Enrage") -- timed by /catnip perf (Profiler.lua)
 
 local ENRAGE = 5229 -- the buff's aura ID (verified in Forever)
@@ -44,7 +45,7 @@ if ns.HAS_AURA_CONTAINER then
     })
 else
     ns.OnLoad(function()
-        ns.Print("The Enrage tint isn't supported in this version of the game.")
+        ns.Print(L["The Enrage tint isn't supported in this version of the game."])
     end)
 end
 
@@ -65,11 +66,11 @@ standInTint:SetVertexColor(COLOR[1], COLOR[2], COLOR[3], COLOR[4])
 ns.RegisterElement({
     id = "resource.enrage",
     zone = "resource",
-    name = "Enrage Tint",
+    name = L["Enrage Tint"],
     hidden = true, -- not offered in the settings for now (Elements.lua)
     glyph = { kind = "disc", color = { 0.85, 0.20, 0.17 } },
     options = {
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "opacity", type = "slider", label = L["Opacity"], min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
     },
     apply = function(get)
         group:SetAlpha(get("opacity") / 100)

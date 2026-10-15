@@ -5,6 +5,7 @@
 -- Built from Blizzard's stock textures and templates (dialog border, red panel buttons) to match
 -- its look.
 local addonName, ns = ...
+local L = ns.L
 
 local WIDTH, HEIGHT = 360, 132
 
@@ -34,7 +35,7 @@ end
 
 local title = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
 title:SetPoint("TOP", 0, -20)
-title:SetText("Catnip Edit Mode")
+title:SetText(L["Catnip Edit Mode"])
 
 -- Blizzard's red X; a plain text button if the template is missing.
 local ok, close = pcall(CreateFrame, "Button", nil, panel, "UIPanelCloseButton")
@@ -49,7 +50,7 @@ close:SetScript("OnClick", function() panel:Hide() end)
 local hint = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 hint:SetPoint("TOPLEFT", 24, -50)
 hint:SetPoint("TOPRIGHT", -24, -50)
-hint:SetText("Drag a frame to move it. Click it for its settings.")
+hint:SetText(L["Drag a frame to move it. Click it for its settings."])
 
 -- Blizzard's red buttons along the bottom.
 local function BottomButton(text, point, x, onClick)
@@ -60,11 +61,11 @@ local function BottomButton(text, point, x, onClick)
     button:SetScript("OnClick", onClick)
 end
 
-BottomButton("Reset Positions", "BOTTOMLEFT", 20, function()
+BottomButton(L["Reset Positions"], "BOTTOMLEFT", 20, function()
     ns.ResetHudPosition()
     ns.Cooldowns.ResetPosition()
 end)
-BottomButton("Done", "BOTTOMRIGHT", -20, function() panel:Hide() end)
+BottomButton(L["Done"], "BOTTOMRIGHT", -20, function() panel:Hide() end)
 
 -- Closing the panel (X, Done, Esc) leaves edit mode.
 panel:SetScript("OnHide", function()

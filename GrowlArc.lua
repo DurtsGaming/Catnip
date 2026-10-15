@@ -13,6 +13,7 @@
 -- Timed by SegmentedCooldown.lua like the others (the game's own cooldown). The art is make_textures.py's Shifting Power arc in Growl's colours (growl_arc), with
 -- Shifting Power's own outline, so the two stay in step.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("GrowlArc") -- timed by /catnip perf (Profiler.lua)
 
 local CANVAS = 164 -- as ShiftingPower.lua
@@ -94,7 +95,7 @@ local StartSample, StopSample = ns.ArcSampler(sampleArc, 8)
 ns.RegisterElement({
     id = "under.growl",
     zone = "under",
-    name = "Growl Arc",
+    name = L["Growl Arc"],
     hidden = true, -- offered as one setting with the Shifting Power arc: "Cooldown Arc" (below)
     sample = function(state)
         if state == "bear" then
@@ -112,7 +113,7 @@ ns.RegisterElement({
 ns.RegisterElement({
     id = "under.arc",
     zone = "under",
-    name = "Cooldown Arc",
+    name = L["Cooldown Arc"],
     glyph = { kind = "arc", color = { 0.42, 0.66, 1 } },
     hit = { kind = "ring", inner = ns.ARC_HIT.inner, outer = ns.ARC_HIT.outer, angle = ns.ARC_HIT.angle,
         spread = ns.ARC_HIT.spread,
@@ -120,10 +121,10 @@ ns.RegisterElement({
             return ns.ShiftingPowerArcShown() or arc.frame:IsVisible() or sampleArc.frame:IsVisible()
         end },
     options = {
-        { key = "shiftingPower", type = "checkbox", label = "Shifting Power", default = true },
-        { key = "growl", type = "checkbox", label = "Growl", default = true },
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
-        { key = "readyPulse", type = "checkbox", label = "Shifting Power ready pulse",
+        { key = "shiftingPower", type = "checkbox", label = ns.SpellName(ns.SPELL.SHIFTING_POWER) or "Shifting Power", default = true },
+        { key = "growl", type = "checkbox", label = ns.SpellName(ns.SPELL.GROWL) or "Growl", default = true },
+        { key = "opacity", type = "slider", label = L["Opacity"], min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "readyPulse", type = "checkbox", label = L["Shifting Power ready pulse"],
             default = true },
     },
     apply = function(get) -- the gates' alpha; UpdatePriority only shows and hides `gate`

@@ -24,17 +24,18 @@
 -- Stored in CatnipDB.elements[id][key]; nil means the default (or General's value, for inherit).
 -- Shared across Edit Mode layouts.
 local addonName, ns = ...
+local L = ns.L
 
 -- The settings window's zones (after its own General zone), from the top of the HUD down. Each
 -- lists elements in groups, by the elements' `zone` field (resource, combo, swing, under, text); a
 -- group's name is a heading over its elements.
 ns.ZONES = {
-    { id = "above", name = "Above",
+    { id = "above", name = L["Above"],
         groups = { { zone = "combo" } } },
-    { id = "circle", name = "Circle",
-        groups = { { zone = "resource", name = "Fill" }, { zone = "swing", name = "Ring" } } },
-    { id = "below", name = "Below",
-        groups = { { zone = "under", name = "Arcs and Orbs" }, { zone = "text", name = "Text" } } },
+    { id = "circle", name = L["Circle"],
+        groups = { { zone = "resource", name = L["Fill"] }, { zone = "swing", name = L["Ring"] } } },
+    { id = "below", name = L["Below"],
+        groups = { { zone = "under", name = L["Arcs and Orbs"] }, { zone = "text", name = L["Text"] } } },
 }
 
 ns.elements = {} -- in registration order
@@ -176,9 +177,9 @@ for _, font in ipairs(ns.FONTS) do
 end
 
 ns.OUTLINES = {
-    { value = "none", text = "None", flags = "" },
-    { value = "thin", text = "Thin", flags = "OUTLINE" },
-    { value = "thick", text = "Thick", flags = "THICKOUTLINE" },
+    { value = "none", text = L["None"], flags = "" },
+    { value = "thin", text = L["Thin"], flags = "OUTLINE" },
+    { value = "thick", text = L["Thick"], flags = "THICKOUTLINE" },
 }
 local outlineFlags = {}
 for _, outline in ipairs(ns.OUTLINES) do
@@ -219,10 +220,10 @@ end
 -- Font and outline are hidden for now (owner, 2026-10-09: bloat), so text uses General's defaults.
 function ns.TextOptions(defaultSize)
     return {
-        { key = "font", type = "choice", label = "Font", values = ns.FONTS, inherit = "font", fontPreview = true,
+        { key = "font", type = "choice", label = L["Font"], values = ns.FONTS, inherit = "font", fontPreview = true,
             hidden = true },
-        { key = "size", type = "slider", label = "Size", min = 6, max = 40, step = 1, format = "%.0f", default = defaultSize },
-        { key = "outline", type = "choice", label = "Outline", values = ns.OUTLINES, inherit = "outline", hidden = true },
+        { key = "size", type = "slider", label = L["Size"], min = 6, max = 40, step = 1, format = "%.0f", default = defaultSize },
+        { key = "outline", type = "choice", label = L["Outline"], values = ns.OUTLINES, inherit = "outline", hidden = true },
     }
 end
 
@@ -230,11 +231,11 @@ end
 -- now). The HUD's on/off, scale, opacity and position sit above the zones in the settings window.
 ns.RegisterElement({
     id = "general",
-    name = "Text",
+    name = L["Text"],
     hidden = true, -- not offered in the settings for now: font and outline are bloat (owner, 2026-10-09)
     glyph = { kind = "text", color = { 0.95, 0.93, 0.89 } },
     options = {
-        { key = "font", type = "choice", label = "Font", values = ns.FONTS, default = "default", fontPreview = true },
-        { key = "outline", type = "choice", label = "Outline", values = ns.OUTLINES, default = "thin" },
+        { key = "font", type = "choice", label = L["Font"], values = ns.FONTS, default = "default", fontPreview = true },
+        { key = "outline", type = "choice", label = L["Outline"], values = ns.OUTLINES, default = "thin" },
     },
 })

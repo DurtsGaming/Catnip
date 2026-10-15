@@ -1,6 +1,7 @@
 -- Five combo point dots along the arc above the resource circle. Shown in Cat and Bear Form, so
 -- points and DoTs left over from Cat stay visible while tanking.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("ComboPoints") -- timed by /catnip perf (Profiler.lua)
 
 local COUNT = 5
@@ -137,13 +138,13 @@ end
 ns.RegisterElement({
     id = "combo.points",
     zone = "combo",
-    name = "Combo Points",
+    name = L["Combo Points"],
     glyph = { kind = "dots", color = { 0.96, 0.77, 0.26 } },
     order = 0,
     hit = { kind = "circles", radius = DOT_SIZE / 2 - 2, centres = function() return centres end,
         visible = function() return group:IsVisible() end },
     options = {
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "opacity", type = "slider", label = L["Opacity"], min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
     },
     apply = function(get)
         for _, bar in ipairs(bars) do

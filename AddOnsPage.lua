@@ -2,6 +2,7 @@
 -- window, so the page only points there: the druid icon, name and version, a button that closes
 -- Blizzard's settings and opens ours, and the /catnip command. Same idea as Leatrix Plus's page.
 local addonName, ns = ...
+local L = ns.L
 
 if not (Settings and Settings.RegisterCanvasLayoutCategory and Settings.RegisterAddOnCategory) then
     return
@@ -30,7 +31,7 @@ version:SetText(GetMetadata and GetMetadata(addonName, "Version") or "")
 local open = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
 open:SetSize(200, 32)
 open:SetPoint("TOP", version, "BOTTOM", 0, -40)
-open:SetText("Open Catnip Settings")
+open:SetText(L["Open Catnip Settings"])
 open:SetScript("OnClick", function()
     if SettingsPanel and SettingsPanel:IsShown() then
         HideUIPanel(SettingsPanel)
@@ -40,7 +41,7 @@ end)
 
 local command = page:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 command:SetPoint("TOP", open, "BOTTOM", 0, -16)
-command:SetText("or type /catnip")
+command:SetText(L["or type /catnip"])
 
 local category = Settings.RegisterCanvasLayoutCategory(page, "Catnip")
 Settings.RegisterAddOnCategory(category)

@@ -20,6 +20,7 @@
 -- Tracked entries (CatnipDB.chars[character].cdTracked, in priority order) are spell IDs (numbers) or item entries
 -- (strings: "potion", "item:<id>"), which CooldownItems.lua handles.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame, C_Timer = ns.Profiled("Cooldowns") -- timed by /catnip perf (Profiler.lua)
 
 local SLOT = 64 -- icons are built at this size, then scaled to fit the box
@@ -756,7 +757,7 @@ function Cooldowns.ResetPosition()
 end
 
 -- Shown while the HUD is unlocked: catches the mouse only then. Clicking it opens the Cooldown tab.
-local overlay = ns.CreateUnlockOverlay(widget, "Cooldown Frame", function() ns.OpenSettings("cooldowns") end)
+local overlay = ns.CreateUnlockOverlay(widget, L["Cooldown Frame"], function() ns.OpenSettings("cooldowns") end)
 
 overlay:SetScript("OnDragStart", function()
     widget:StartMoving()

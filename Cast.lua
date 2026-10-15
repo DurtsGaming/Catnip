@@ -11,6 +11,7 @@
 -- Cooldown swipe (clockwise only) plus two rotated half-ring arcs for the counter-clockwise cast fill,
 -- which needed the cast's progress as a number and fell back to the swipe when it was secret.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame, C_Timer = ns.Profiled("Cast") -- timed by /catnip perf (Profiler.lua)
 
 local SIZE = ns.SWING_RING_SIZE
@@ -54,7 +55,7 @@ nameText:SetPoint("TOP", timeText, "BOTTOM", 0, -2)
 ns.RegisterElement({
     id = "text.castTime",
     zone = "text",
-    name = "Cast Time",
+    name = L["Cast Time"],
     hidden = true, -- offered as one setting with the swing text: "Swing/Cast Timer" (below)
 })
 
@@ -70,7 +71,7 @@ end
 ns.RegisterElement({
     id = "text.under",
     zone = "text",
-    name = "Swing/Cast Timer",
+    name = L["Swing/Cast Timer"],
     glyph = { kind = "text", color = { 0.95, 0.93, 0.89 } },
     hit = { kind = "text", point = "TOP",
         region = function() return CastShowing() and timeText or ns.swingTimeText end,
@@ -80,11 +81,11 @@ ns.RegisterElement({
             return CastShowing() and ns.ElementOption("text.under", "nameSize") + 2 or 0
         end },
     options = {
-        { key = "size", type = "slider", label = "Timer size", min = 6, max = 40, step = 1, format = "%.0f", default = 14 },
-        { key = "nameSize", type = "slider", label = "Spell name size", min = 6, max = 40, step = 1, format = "%.0f",
+        { key = "size", type = "slider", label = L["Timer size"], min = 6, max = 40, step = 1, format = "%.0f", default = 14 },
+        { key = "nameSize", type = "slider", label = L["Spell name size"], min = 6, max = 40, step = 1, format = "%.0f",
             default = 12 },
         -- Read by Swing.lua: the swing time takes the Maul queued colour while Maul is queued.
-        { key = "matchMaul", type = "checkbox", label = "Match Maul color when queued", default = true },
+        { key = "matchMaul", type = "checkbox", label = L["Match Maul color when queued"], default = true },
     },
     apply = function(get)
         local font, outline = ns.ElementOption("general", "font"), ns.ElementOption("general", "outline")
@@ -279,7 +280,7 @@ end)
 -- Preview mode's sample (Preview.lua's "Caster" state, which shows a spell being cast, unless
 -- stealthed): a cast looping on the ring and text (info's OnUpdate); in other states no cast. nil
 -- hands back to the real cast, if any.
-local SAMPLE_NAME = "Regrowth"
+local SAMPLE_NAME = ns.SpellName(ns.SPELL.REGROWTH) or "Regrowth"
 
 local function Sample(state)
     sampling = state ~= nil
@@ -313,13 +314,13 @@ end
 ns.RegisterElement({
     id = "swing.cast",
     zone = "swing",
-    name = "Cast Timer",
+    name = L["Cast Timer"],
     order = 2, -- after Swing Timer, before Stealth smoke
     glyph = { kind = "ring", color = { 0.91, 0.72, 0.19 } },
     hit = { kind = "ring", inner = ns.SWING_BAND.inner, outer = ns.SWING_BAND.outer, visible = ns.CastBarShown },
     options = {
-        { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
-        { key = "color", type = "color", label = "Color", default = CAST_COLOR },
+        { key = "opacity", type = "slider", label = L["Opacity"], min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
+        { key = "color", type = "color", label = L["Color"], default = CAST_COLOR },
     },
     apply = function(get)
         local alpha = get("opacity") / 100

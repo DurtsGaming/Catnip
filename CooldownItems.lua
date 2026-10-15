@@ -11,6 +11,7 @@
 -- EllesmereUI found that once the last of a kind is drunk it only reports on that item's ID, so we
 -- remember the last potion used (per character: CatnipDB.chars[character].cdLastPotion).
 local addonName, ns = ...
+local L = ns.L
 
 local Items = {}
 ns.CooldownItems = Items
@@ -142,7 +143,7 @@ function Items.Name(entry)
         for _, itemID in ipairs(ns.db.cdPotionItems) do
             names[#names + 1] = ItemName(itemID)
         end
-        return #names > 0 and ("Potions (" .. table.concat(names, ", ") .. ")") or "Potions"
+        return #names > 0 and L["Potions (%s)"]:format(table.concat(names, ", ")) or L["Potions"]
     end
     return ItemName(EntryItem(entry))
 end
@@ -168,7 +169,7 @@ end
 -- An item dropped on the Cooldowns tab. Returns the entry to track, or nil and why not.
 function Items.Add(itemID)
     if not UseSpell(itemID) then
-        return nil, ItemName(itemID) .. " has no Use: effect, so there's no cooldown to track."
+        return nil, L["%s has no Use: effect, so there's no cooldown to track."]:format(ItemName(itemID))
     end
     if IsPotion(itemID) then
         local potions = ns.db.cdPotionItems
@@ -178,7 +179,7 @@ function Items.Add(itemID)
             end
         end
         potions[#potions + 1] = itemID
-        ns.Print("Tracking Potions: " .. ItemName(itemID) .. "'s buff will light up the Potions icon.")
+        ns.Print(L["Tracking Potions: %s's buff will light up the Potions icon."]:format(ItemName(itemID)))
         return POTION_ENTRY
     end
     return "item:" .. itemID

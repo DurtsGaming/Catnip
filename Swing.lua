@@ -4,6 +4,7 @@
 -- while Maul is queued. Below it, "elapsed / total" text while a swing counts down, also tinted
 -- while Maul is queued unless the Swing/Cast Timer's "Match Maul Color When Queued" is off.
 local addonName, ns = ...
+local L = ns.L
 local CreateFrame = ns.Profiled("Swing") -- timed by /catnip perf (Profiler.lua)
 
 local SIZE = ns.SWING_RING_SIZE
@@ -158,7 +159,7 @@ end
 ns.RegisterElement({
     id = "text.swing",
     zone = "text",
-    name = "Swing Time",
+    name = L["Swing Time"],
     hidden = true, -- offered as one setting with the cast text: "Swing/Cast Timer" (Cast.lua)
     -- No swing while stealthed (the preview's Stealth toggle), or in Caster, which shows a cast in
     -- the ring's place; nil puts back the real swing, if one is still running.
@@ -227,16 +228,16 @@ ns.SWING_BAND = { inner = RING_INNER, outer = RING_OUTER } -- Cast.lua's ring si
 ns.RegisterElement({
     id = "swing.ring",
     zone = "swing",
-    name = "Swing Timer",
+    name = L["Swing Timer"],
     order = 1, -- in the Ring group: Swing Timer, Cast Timer, Stealth smoke (owner, 2026-10-09)
     glyph = { kind = "ring", color = { 0.91, 0.89, 0.82 } },
     hit = { kind = "ring", inner = RING_INNER, outer = RING_OUTER,
         visible = function() return not ns.IsStealthMode() and not (ns.CastBarShown and ns.CastBarShown()) end },
     options = {
-        Percent("barOpacity", "Bar opacity", 100),
-        Percent("glowOpacity", "Background opacity", 75),
-        { key = "color", type = "color", label = "Color", default = COLOR },
-        { key = "maulColor", type = "color", label = "Maul queued color", default = MAUL_COLOR },
+        Percent("barOpacity", L["Bar opacity"], 100),
+        Percent("glowOpacity", L["Background opacity"], 75),
+        { key = "color", type = "color", label = L["Color"], default = COLOR },
+        { key = "maulColor", type = "color", label = L["Maul queued color"], default = MAUL_COLOR },
     },
     -- Every element reapplies on any change, so this also picks up "Match Maul Color When Queued" (Cast.lua).
     apply = function(get)
@@ -258,12 +259,12 @@ ns.RegisterElement({
 ns.RegisterElement({
     id = "swing.maul",
     zone = "swing",
-    name = "Maul Orb",
+    name = L["Maul Orb"],
     hidden = true, -- not offered in the settings for now (Elements.lua)
     glyph = { kind = "disc", color = { 0.91, 0.64, 0.23 } },
     hit = { kind = "circle", x = 0, y = MARKER_Y, radius = MARKER_SIZE / 2 + 3,
         visible = function() return marker:IsShown() end },
-    options = { Percent("opacity", "Opacity", 100) },
+    options = { Percent("opacity", L["Opacity"], 100) },
     apply = function(get)
         marker:SetAlpha(get("opacity") / 100)
     end,
@@ -283,7 +284,7 @@ end)
 
 ns.OnLoad(function()
     if not hasSwingEvent then
-        ns.Print("The swing timer isn't supported in this version of the game.")
+        ns.Print(L["The swing timer isn't supported in this version of the game."])
     end
     ns.Debug("swing event:", hasSwingEvent, "C_SwingTimer:", C_SwingTimer and "present" or "missing")
 end)
