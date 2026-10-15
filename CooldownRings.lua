@@ -25,10 +25,9 @@ local RINGS = {
         dot = 1, -- its slot by default
         art = "ring_faerie",
         color = { 0.69, 0.31, 0.82 }, -- its glyph in the settings list
-        -- In Cat and Bear Form the spell becomes Faerie Fire (Feral) (unverified whether the
-        -- spellbook finds it by that name, so the caster one stands in for "known").
-        names = { "Faerie Fire (Feral)", "Faerie Fire" },
-        castNames = { ["Faerie Fire (Feral)"] = true, ["Faerie Fire"] = true },
+        -- In Cat and Bear Form the spell may become Faerie Fire (Feral); in Forever its casts seem
+        -- to keep the plain name. The caster one stands in for "known" either way.
+        spells = { ns.SPELL.FAERIE_FIRE_FERAL, ns.SPELL.FAERIE_FIRE },
         castAllowed = InFeralForm, -- the caster version has no cooldown
         defaultLength = 6,
         command = "ff",
@@ -40,8 +39,7 @@ local RINGS = {
         dot = 3,
         art = "ring_primal_bite",
         color = { 0.91, 0.86, 0.75 },
-        names = { "Primal Bite" },
-        castNames = { ["Primal Bite"] = true },
+        spells = { ns.SPELL.PRIMAL_BITE },
         defaultLength = 6, -- for the preview and the sample
         command = "pb",
     },
@@ -67,8 +65,7 @@ for _, ring in ipairs(RINGS) do
     local arc = Arc()
     ns.CreateSegmentedCooldown({
         label = ring.label,
-        names = ring.names,
-        castNames = ring.castNames,
+        spells = ring.spells,
         castAllowed = ring.castAllowed,
         defaultLength = ring.defaultLength,
         command = ring.command, -- /catnip <command> [seconds], in Cat or Bear Form (shows only while in a slot)

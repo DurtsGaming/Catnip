@@ -176,10 +176,14 @@ end
 -- an AuraContainer with no IDs to match might match everything, so a placeholder stands in.
 -- Abilities shown for their cooldown only, never as active: Faerie Fire's debuff (~40s) would keep
 -- its icon lit long after the 6s Cat/Bear cooldown that matters.
-local COOLDOWN_ONLY_NAMES = { ["Faerie Fire"] = true }
+local COOLDOWN_ONLY = { ns.SPELL.FAERIE_FIRE }
+
+local function CooldownOnly(entry)
+    return not Items.IsItemEntry(entry) and ns.IsSpellNamed(C_Spell.GetSpellName(entry), COOLDOWN_ONLY)
+end
 
 local function EntryAuraIDs(entry)
-    if not Items.IsItemEntry(entry) and COOLDOWN_ONLY_NAMES[C_Spell.GetSpellName(entry) or ""] then
+    if CooldownOnly(entry) then
         return { 1 } -- spell 1 is never an aura: nothing counts as active
     end
     local spells = Items.IsItemEntry(entry) and Items.UseSpells(entry) or { entry }
@@ -426,10 +430,6 @@ local function CreateSample()
     IgnoreBoxOpacity(sample.highlight)
     EditModeOutline(sample.highlight, true)
     return sample
-end
-
-local function CooldownOnly(entry)
-    return not Items.IsItemEntry(entry) and COOLDOWN_ONLY_NAMES[C_Spell.GetSpellName(entry) or ""] or false
 end
 
 local function UpdateSamples()
@@ -856,14 +856,14 @@ end
 -- Why a spellbook entry isn't offered, or nil if it is.
 -- Spells whose cooldown only exists in some forms, offered even when we haven't seen it yet:
 -- Faerie Fire becomes Faerie Fire (Feral), which has a cooldown, in Cat and Bear Form.
-local FORM_COOLDOWN_NAMES = { ["Faerie Fire"] = true }
+local FORM_COOLDOWN = { ns.SPELL.FAERIE_FIRE }
 
 -- Does the spell have a cooldown of its own (not just the GCD), in any form? Checks the spellbook
 -- entry, its base spell and the current form's version; a form version seen with a cooldown is
 -- remembered (CatnipDB.cdFormCooldowns), so the spell stays listed in forms where it has none.
 local function HasCooldown(spellID)
     local base = BaseSpell(spellID)
-    if ns.db.cdFormCooldowns[base] or FORM_COOLDOWN_NAMES[C_Spell.GetSpellName(base) or ""] then
+    if ns.db.cdFormCooldowns[base] or ns.IsSpellNamed(C_Spell.GetSpellName(base), FORM_COOLDOWN) then
         return true
     end
     if not GetSpellBaseCooldown then

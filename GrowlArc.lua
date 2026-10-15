@@ -75,8 +75,7 @@ events:SetScript("OnEvent", UpdatePriority)
 
 ns.CreateSegmentedCooldown({
     label = "Growl",
-    names = { "Growl" },
-    castNames = { ["Growl"] = true },
+    spells = { ns.SPELL.GROWL },
     defaultLength = 8, -- for the preview command (~8s seen 2026-10-04)
     command = "growl", -- /catnip growl [seconds]
     arc = arc,
@@ -95,7 +94,7 @@ local StartSample, StopSample = ns.ArcSampler(sampleArc, 8)
 ns.RegisterElement({
     id = "under.growl",
     zone = "under",
-    name = "Growl arc",
+    name = "Growl Arc",
     hidden = true, -- offered as one setting with the Shifting Power arc: "Cooldown Arc" (below)
     sample = function(state)
         if state == "bear" then

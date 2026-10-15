@@ -168,7 +168,7 @@ end
 -- An item dropped on the Cooldowns tab. Returns the entry to track, or nil and why not.
 function Items.Add(itemID)
     if not UseSpell(itemID) then
-        return nil, ItemName(itemID) .. " has no Use: effect, so it has no cooldown to track."
+        return nil, ItemName(itemID) .. " has no Use: effect, so there's no cooldown to track."
     end
     if IsPotion(itemID) then
         local potions = ns.db.cdPotionItems
@@ -178,7 +178,7 @@ function Items.Add(itemID)
             end
         end
         potions[#potions + 1] = itemID
-        ns.Print("tracking Potions; " .. ItemName(itemID) .. "'s buff will show as active.")
+        ns.Print("Tracking Potions: " .. ItemName(itemID) .. "'s buff will light up the Potions icon.")
         return POTION_ENTRY
     end
     return "item:" .. itemID

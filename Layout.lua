@@ -148,7 +148,7 @@ ns.RegisterElement({
     glyph = { kind = "disc", color = { 0.56, 0.55, 0.94 } },
     options = {
         { key = "enabled", type = "checkbox", label = "Enabled", default = true },
-        { key = "opacity", type = "slider", label = "Share of Overall opacity", min = 10, max = 100, step = 5,
+        { key = "opacity", type = "slider", label = "Opacity while stealthed", min = 10, max = 100, step = 5,
             format = "%.0f%%", default = 100 },
     },
     apply = function(get)

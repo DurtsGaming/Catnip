@@ -109,8 +109,7 @@ end
 
 ns.CreateSegmentedCooldown({
     label = "Shifting Power",
-    names = { "Shifting Power" },
-    castNames = { ["Shifting Power"] = true },
+    spells = { ns.SPELL.SHIFTING_POWER },
     defaultLength = 16, -- for the preview command
     arc = arc,
     command = "sp", -- /catnip sp [seconds]
@@ -163,7 +162,7 @@ end
 ns.RegisterElement({
     id = "under.sp",
     zone = "under",
-    name = "Shifting Power arc",
+    name = "Shifting Power Arc",
     hidden = true, -- offered as one setting with the Growl arc: "Cooldown Arc" (GrowlArc.lua)
     -- Cat Form and Caster run the sample (Shifting Power shows in both); Bear shows Growl's
     -- (GrowlArc.lua).

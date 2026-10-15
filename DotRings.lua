@@ -140,7 +140,7 @@ for _, dot in ipairs(DOTS) do
                 end,
             })
             if IsLoggedIn() and InCombatLockdown() then
-                ns.Print(dot.label .. " shows around combo point " .. slot.index .. " after combat.")
+                ns.Print(dot.label .. " will move to combo point " .. slot.index .. " after combat.")
             end
         end
         return holder
@@ -173,6 +173,6 @@ end
 
 if not ns.HAS_AURA_CONTAINER then
     ns.OnLoad(function()
-        ns.Print("this client has no AuraContainer, so the DoT rings are unavailable.")
+        ns.Print("DoT rings aren't supported in this version of the game.")
     end)
 end

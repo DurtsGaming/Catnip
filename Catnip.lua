@@ -41,11 +41,64 @@ function ns.TryRegisterEvent(frame, event)
     return ok
 end
 
--- The ID of the first of `names` that's in the spellbook, else nil. By name, since IDs differ by
--- rank and client.
-function ns.FindKnownSpell(names)
-    for _, name in ipairs(names) do
-        local info = C_Spell.GetSpellInfo(name)
+-- Spells we look for, by the ID of any rank (rank 1 here). Forever keeps Classic's IDs; ranks from
+-- ForeverAuras' SecretAuraRanks.lua (talentsforever.com data). Never look a spell up by an English
+-- name: other clients name it in their own language.
+ns.SPELL = {
+    BEAR_FORM = 5487,
+    CAT_FORM = 768,
+    CLAW = 1082,
+    DIRE_BEAR_FORM = 9634,
+    FAERIE_FIRE = 770,
+    FAERIE_FIRE_FERAL = 16857, -- Classic's; in Forever the form version seems to keep the plain name
+    GROWL = 6795,
+    MAUL = 6807,
+    PRIMAL_BITE = 407995,
+    PROWL = 5215,
+    SHADOWMELD = 20580,
+    SHIFTING_POWER = "Shifting Power", -- TODO: its ID, unknown yet; a name only works in English
+    SHRED = 5221,
+    WRATH = 5176,
+}
+
+-- The client's name for a spell, in its own language, from the ID of any rank (or a name, passed
+-- through). nil while unknown.
+local spellNames = {}
+function ns.SpellName(spell)
+    if type(spell) == "string" then
+        return spell
+    end
+    local name = spellNames[spell]
+    if not name then
+        name = C_Spell.GetSpellName(spell)
+        if ns.IsSecret(name) then
+            return nil
+        end
+        spellNames[spell] = name
+    end
+    return name
+end
+
+-- Whether a spell name (e.g. from C_Spell.GetSpellName on a cast's ID) is the name of one of
+-- `spells` (ns.SPELL entries): any rank or form version that shares the name. False if secret.
+function ns.IsSpellNamed(name, spells)
+    if name == nil or ns.IsSecret(name) then
+        return false
+    end
+    for _, spell in ipairs(spells) do
+        if ns.SpellName(spell) == name then
+            return true
+        end
+    end
+    return false
+end
+
+-- The ID of the first of `spells` (IDs of any rank, see ns.SPELL) that's in the spellbook, at the
+-- highest rank known, else nil. Looked up by the spell's name, since each rank has its own ID.
+function ns.FindKnownSpell(spells)
+    for _, spell in ipairs(spells) do
+        local name = ns.SpellName(spell)
+        local info = name and C_Spell.GetSpellInfo(name)
         local id = info and info.spellID
         if id and not ns.IsSecret(id) and not (IsPlayerSpell and not IsPlayerSpell(id)) then
             return id
@@ -87,13 +140,23 @@ SlashCmdList.CATNIP = function(msg)
     if handler then
         handler(arg)
     else
-        ns.Print("commands: /catnip (settings), /catnip edit (settings + Edit Mode), /catnip debug, /catnip perf start [label] | stop (time Catnip's code), /catnip cdm, /catnip spells, /catnip item <id>, /catnip sp [seconds] (Shifting Power preview), /catnip ff|pb [seconds] (Faerie Fire, Primal Bite ring previews, in Cat or Bear Form), /catnip growl [seconds] (Growl arc preview), /catnip omen [seconds] (Omen of Clarity ICD ring preview), /catnip art (mouse over a window), /catnip icon (mouse over an icon)")
+        ns.Print("/catnip: open settings")
+        ns.Print("/catnip edit: settings and Edit Mode")
+        ns.Print("/catnip debug: debug messages on or off")
+        ns.Print("/catnip dev: tools for testing and development")
     end
+end
+
+ns.commands.dev = function()
+    ns.Print("/catnip perf start [label] | stop: time Catnip's code")
+    ns.Print("/catnip cdm, /catnip spells, /catnip item <id>: list what Catnip sees")
+    ns.Print("/catnip sp | ff | pb | growl | omen [seconds]: preview the Shifting Power arc, Faerie Fire, Primal Bite, Growl or Omen of Clarity ring")
+    ns.Print("/catnip art | icon: record the window or icon under the mouse")
 end
 
 ns.commands.debug = function()
     ns.db.debug = not ns.db.debug
-    ns.Print("debug " .. (ns.db.debug and "on" or "off"))
+    ns.Print("Debug messages " .. (ns.db.debug and "on" or "off"))
     ns.SettingsChanged()
 end
 

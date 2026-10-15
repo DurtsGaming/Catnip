@@ -374,7 +374,7 @@ end
 ns.RegisterElement({
     id = "resource.prediction",
     zone = "resource",
-    name = "Mana prediction",
+    name = "Mana Prediction",
     hidden = true, -- not offered in the settings for now (Elements.lua)
     glyph = { kind = "arc", color = { 0.23, 0.47, 0.88 } },
     options = {

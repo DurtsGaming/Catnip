@@ -44,7 +44,7 @@ if ns.HAS_AURA_CONTAINER then
     })
 else
     ns.OnLoad(function()
-        ns.Print("this client has no AuraContainer, so the Enrage tint is unavailable.")
+        ns.Print("The Enrage tint isn't supported in this version of the game.")
     end)
 end
 
@@ -65,7 +65,7 @@ standInTint:SetVertexColor(COLOR[1], COLOR[2], COLOR[3], COLOR[4])
 ns.RegisterElement({
     id = "resource.enrage",
     zone = "resource",
-    name = "Enrage tint",
+    name = "Enrage Tint",
     hidden = true, -- not offered in the settings for now (Elements.lua)
     glyph = { kind = "disc", color = { 0.85, 0.20, 0.17 } },
     options = {

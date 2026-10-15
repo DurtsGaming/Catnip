@@ -17,7 +17,7 @@ local ICD = 10 -- seconds; 5 segments of 2s, drawn into ring_omen_circular and _
 local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- as CooldownRings.lua
 -- Abilities Clearcasting makes free, first known wins. Shred is verified; the others are guesses
 -- for characters without it (Wrath: every druid has it, if its mana cost reads 0 the same way).
-local WATCHED = { "Shred", "Claw", "Wrath" }
+local WATCHED = { ns.SPELL.SHRED, ns.SPELL.CLAW, ns.SPELL.WRATH }
 
 local function Arc()
     local arc = ns.CreateSegmentedArc({

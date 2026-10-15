@@ -164,7 +164,7 @@ for index = 1, COUNT do
     ns.RegisterElement({
         id = slot.id,
         zone = "combo",
-        name = "Combo ring " .. index,
+        name = "Combo Ring " .. index,
         glyph = function()
             local entry = entries[Picked(slot)]
             return entry and entry.glyph or NONE_GLYPH

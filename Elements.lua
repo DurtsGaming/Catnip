@@ -34,7 +34,7 @@ ns.ZONES = {
     { id = "circle", name = "Circle",
         groups = { { zone = "resource", name = "Fill" }, { zone = "swing", name = "Ring" } } },
     { id = "below", name = "Below",
-        groups = { { zone = "under", name = "Arcs and orbs" }, { zone = "text", name = "Text" } } },
+        groups = { { zone = "under", name = "Arcs and Orbs" }, { zone = "text", name = "Text" } } },
 }
 
 ns.elements = {} -- in registration order

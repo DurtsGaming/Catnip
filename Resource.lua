@@ -261,7 +261,7 @@ end
 ns.RegisterElement({
     id = "resource.circle",
     zone = "resource",
-    name = "Resource circle",
+    name = "Resource Circle",
     hidden = true, -- not offered in the settings for now (Elements.lua)
     glyph = { kind = "disc", color = { 0.96, 0.77, 0.26 } },
     hit = { kind = "circle", radius = SIZE / 2 + 3 },

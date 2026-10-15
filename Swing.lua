@@ -158,7 +158,7 @@ end
 ns.RegisterElement({
     id = "text.swing",
     zone = "text",
-    name = "Swing time",
+    name = "Swing Time",
     hidden = true, -- offered as one setting with the cast text: "Swing/Cast Timer" (Cast.lua)
     -- No swing while stealthed (the preview's Stealth toggle), or in Caster, which shows a cast in
     -- the ring's place; nil puts back the real swing, if one is still running.
@@ -199,7 +199,8 @@ local function ShowMaul(queued)
 end
 
 local function UpdateMaul()
-    local queued = IsCurrentSpell("Maul")
+    local name = ns.SpellName(ns.SPELL.MAUL) -- any rank, by the client's name for it
+    local queued = name and IsCurrentSpell(name)
     if ns.IsSecret(queued) then
         queued = false -- can't read it; show as not queued
     end
@@ -257,7 +258,7 @@ ns.RegisterElement({
 ns.RegisterElement({
     id = "swing.maul",
     zone = "swing",
-    name = "Maul orb",
+    name = "Maul Orb",
     hidden = true, -- not offered in the settings for now (Elements.lua)
     glyph = { kind = "disc", color = { 0.91, 0.64, 0.23 } },
     hit = { kind = "circle", x = 0, y = MARKER_Y, radius = MARKER_SIZE / 2 + 3,
@@ -282,7 +283,7 @@ end)
 
 ns.OnLoad(function()
     if not hasSwingEvent then
-        ns.Print("PLAYER_SWING isn't available in this client, so the swing timer is inactive.")
+        ns.Print("The swing timer isn't supported in this version of the game.")
     end
     ns.Debug("swing event:", hasSwingEvent, "C_SwingTimer:", C_SwingTimer and "present" or "missing")
 end)

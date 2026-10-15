@@ -13,9 +13,9 @@
 --
 -- spec:
 --   label          the spell's name, for debug output
---   names          spellbook names to look for, first known wins; nothing shows while none is known
---   castNames      set of spell names whose casts are this spell (a form's version may have its own
---                  ID, whose cooldown is then the one read)
+--   spells         the spell's IDs (any rank, ns.SPELL), first known wins; nothing shows while none
+--                  is known. A cast of anything with one of their names is this spell (a form's
+--                  version may have its own ID, whose cooldown is then the one read)
 --   castAllowed    optional function(): false to ignore a cast (e.g. a form without the cooldown)
 --   defaultLength  seconds, for the preview command
 --   arc            from ns.CreateSegmentedArc
@@ -139,7 +139,7 @@ function ns.CreateSegmentedCooldown(spec)
         if id == nil or ns.IsSecret(id) then
             return
         end
-        if not spec.castNames[C_Spell.GetSpellName(id) or ""] then
+        if not ns.IsSpellNamed(C_Spell.GetSpellName(id), spec.spells) then
             return
         end
         if spec.castAllowed and not spec.castAllowed() then
@@ -150,9 +150,9 @@ function ns.CreateSegmentedCooldown(spec)
         Sync(id)
     end
 
-    -- Finds the spell in the spellbook by name (its ID may differ by rank or client).
+    -- Finds the spell in the spellbook, at the highest rank known.
     local function Resolve()
-        local id = ns.FindKnownSpell(spec.names)
+        local id = ns.FindKnownSpell(spec.spells)
         if id ~= knownID then
             ns.Debug(spec.label .. ": spell", id or "not known")
         end

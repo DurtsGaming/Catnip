@@ -54,7 +54,7 @@ nameText:SetPoint("TOP", timeText, "BOTTOM", 0, -2)
 ns.RegisterElement({
     id = "text.castTime",
     zone = "text",
-    name = "Cast time",
+    name = "Cast Time",
     hidden = true, -- offered as one setting with the swing text: "Swing/Cast Timer" (below)
 })
 
@@ -84,7 +84,7 @@ ns.RegisterElement({
         { key = "nameSize", type = "slider", label = "Spell name size", min = 6, max = 40, step = 1, format = "%.0f",
             default = 12 },
         -- Read by Swing.lua: the swing time takes the Maul queued colour while Maul is queued.
-        { key = "matchMaul", type = "checkbox", label = "Match Maul Color When Queued", default = true },
+        { key = "matchMaul", type = "checkbox", label = "Match Maul color when queued", default = true },
     },
     apply = function(get)
         local font, outline = ns.ElementOption("general", "font"), ns.ElementOption("general", "outline")

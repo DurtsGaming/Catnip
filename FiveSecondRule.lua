@@ -126,7 +126,7 @@ end
 ns.RegisterElement({
     id = "resource.fsr",
     zone = "resource",
-    name = "Five-second ring",
+    name = "Five-Second Ring",
     hidden = true, -- not offered in the settings for now (Elements.lua)
     glyph = { kind = "ring", color = { 0.35, 0.31, 0.78 } },
     options = {

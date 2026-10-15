@@ -105,7 +105,7 @@ local function SetupCooldownManagerFallback()
         if active == nil then
             if not warnedUntracked then
                 warnedUntracked = true
-                ns.Print("add Omen of Clarity to the Cooldown Manager's tracked buffs so Clearcasting shows in combat.")
+                ns.Print("To see Clearcasting in combat, add Omen of Clarity to the Cooldown Manager's tracked buffs.")
             end
             active = false
         end

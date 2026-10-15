@@ -54,8 +54,8 @@ local STEALTH_ALPHA = 0.6 -- 30% was too much
 local NEAR = 0.8 -- a ghost orb shows once the next orb is this far paid for (owner's eyeball)
 local GHOST_GREY = 0.55 -- the ghost's desaturated art is darkened to this
 local MANA = Enum.PowerType.Mana
-local SHIFT_SPELLS = { "Cat Form", "Dire Bear Form", "Bear Form" } -- all cost the same
-local SHIFTING_POWER = { "Shifting Power" }
+local SHIFT_SPELLS = { ns.SPELL.CAT_FORM, ns.SPELL.DIRE_BEAR_FORM, ns.SPELL.BEAR_FORM } -- all cost the same
+local SHIFTING_POWER = { ns.SPELL.SHIFTING_POWER }
 local CAN_COUNT = UnitPowerPercent ~= nil and C_CurveUtil ~= nil and C_CurveUtil.CreateCurve ~= nil
     and Enum.LuaCurveType ~= nil
 
@@ -415,14 +415,14 @@ end
 ns.RegisterElement({
     id = "under.orbs",
     zone = "under",
-    name = "Shift orbs",
+    name = "Shift Orbs",
     glyph = { kind = "dots", color = { 0.31, 0.56, 0.91 } },
     hit = { kind = "circles", radius = ORB_SIZE / 2, centres = OrbCentres, -- outlines just meet
         visible = function() return holder:IsVisible() end },
     options = {
         { key = "opacity", type = "slider", label = "Opacity", min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
         -- Previewed in every form: the fifth orb grey.
-        { key = "ghost", type = "checkbox", label = "Almost-ready orb", default = false },
+        { key = "ghost", type = "checkbox", label = "Show almost-ready orb", default = false },
     },
     apply = function(get)
         opacity = get("opacity") / 100

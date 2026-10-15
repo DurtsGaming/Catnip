@@ -293,10 +293,11 @@ local function BookmarkTabs(anchor, firstX, edge, height, level)
 end
 
 -- Side tab icons: classic WoW icons by path, and Shifting Power's (a blue spirit cat) looked up by
--- spell name once spell data has loaded, with a cat's face (SIDE_TAB_FALLBACKS) until then or if
--- it isn't found.
+-- spell once spell data has loaded, with a cat's face (SIDE_TAB_FALLBACKS) until then or if it
+-- isn't found.
 local function ShiftingPowerIcon()
-    local info = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo("Shifting Power")
+    local name = ns.SpellName(ns.SPELL.SHIFTING_POWER)
+    local info = name and C_Spell.GetSpellInfo(name)
     return info and info.iconID
 end
 
@@ -513,7 +514,7 @@ local function Color(label, get, set)
             cancelFunc = function() set({ old[1], old[2], old[3] }) end,
         }
         if not (ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow) then
-            ns.Print("the color picker isn't available in this client.")
+            ns.Print("The color picker isn't available in this version of the game.")
             return
         end
         ColorPickerFrame:SetupColorPickerAndShow(info)
@@ -1137,7 +1138,7 @@ local function FramePanel(parent, spec)
     confirmText:SetTextColor(unpack(MUTED))
     confirmText:SetText(spec.resetText)
     local everything = CreateFrame("Button", nil, confirm, "UIPanelButtonTemplate")
-    everything:SetText("Everything back to defaults")
+    everything:SetText("Reset")
     everything:SetSize(CONFIRM_WIDTH - 2 * CONFIRM_INSET, 22)
     everything:SetPoint("TOPLEFT", confirmText, "BOTTOMLEFT", 0, -10)
     everything:SetScript("OnClick", function()
@@ -1216,7 +1217,7 @@ Checkbox("Hide Blizzard's cast bar",
     function(hide)
         ns.db.hideBlizzardCastBar = hide
         if InCombatLockdown() then
-            ns.Print("the Blizzard cast bar will update after combat.")
+            ns.Print("Blizzard's cast bar will change after combat.")
         end
         ns.UpdateBlizzardCastBar()
     end)
@@ -1234,7 +1235,7 @@ Checkbox("Hide Stance Bar",
         ns.db.hideStanceBar = hide
         ns.UpdateBlizzardBars()
     end)
-Hint("Hidden bars' keybinds still work.")
+Hint("Keybinds still work while the bars are hidden.")
 
 Section("Troubleshooting")
 
@@ -1267,7 +1268,7 @@ do
         name = "Rotation Frame",
         isOn = function() return ns.db.hudEnabled end,
         setOn = ns.SetHudEnabled,
-        resetText = "Every element's settings, Scale, Overall opacity, position and the Rotation Frame switch go back to their defaults.",
+        resetText = "Resets every element, plus the frame's scale, opacity and position.",
         reset = function()
             ns.ResetAllElements()
             ns.ResetHudLook()
@@ -1589,7 +1590,7 @@ do
     if not generalElement.hidden then
         local textPage = AddRow(generalZone, generalElement.name, generalElement.glyph, "general")
         Section("Text")
-        Hint("Fonts and outline for all text, unless an element picks its own.")
+        Hint("Default font and outline. Elements can choose their own.")
         ElementControls(generalElement)
         paneButtons[#paneButtons + 1] = Button("Reset to defaults", function() ns.ResetElement("general") end)
         EndTab(textPage)
@@ -1668,7 +1669,7 @@ do
         name = "Cooldown Frame",
         isOn = function() return ns.db.cdEnabled end,
         setOn = ns.Cooldowns.SetEnabled,
-        resetText = "Height, Width, position, Icon size, Overflow, both opacities, Alignment and the Cooldown Frame switch go back to their defaults. Tracked abilities stay.",
+        resetText = "Resets the frame's size, position, icons and opacity. Your tracked abilities are kept.",
         reset = ns.Cooldowns.ResetLayout,
         sliders = {
             { "Height", ns.Cooldowns.MIN_SIZE, function() return math.floor(UIParent:GetHeight()) end, 1, "%.0f",
@@ -1710,7 +1711,7 @@ end
 
 Section("Abilities")
 
-Hint("Tick the abilities to show. Drag ticked ones up or down to set their priority: higher ones sit closer to the anchor point (Alignment, below). Unticked items drop off the list.")
+Hint("Check the abilities to show, then drag them to set their order. Higher ones sit closer to the anchor (see Alignment). Unchecked items are removed from the list.")
 
 -- The list: one row per ability with a cooldown, in its own scrolling area. Rows are pooled and
 -- rebuilt on every refresh from ns.Cooldowns.Candidates() (tracked first, in priority order). It
@@ -1950,7 +1951,7 @@ drop:SetScript("OnLeave", function()
 end)
 y = y - 4
 Place(drop, DROP_HEIGHT)
-Hint("Items with a Use: effect (Hearthstone, trinkets) get their own icon. Every potion shares one Potions icon; a dropped potion's buff (e.g. Mighty Rage Potion) shows as Potions being active.")
+Hint("Items with a Use: effect, like trinkets, get their own icon. All potions share one Potions icon, which lights up while a potion's buff is active.")
 
 -- Icons ----------------------------------------------------------------------------------------------
 
@@ -1963,11 +1964,11 @@ Pair(SLIDER_HEIGHT, function(parent)
         ns.Cooldowns.SetIconSize)
 end, function(parent)
     return ChoiceWidget(parent, "Overflow", {
-        { value = "hide", text = "Hidden" },
+        { value = "hide", text = "Hide" },
         { value = "spill", text = "Spill" },
     }, function() return ns.db.cdOverflow end, ns.Cooldowns.SetOverflow)
 end)
-Hint("Icons that don't fit in the box: hidden, lowest priority first, or shown past its edge.")
+Hint("When icons don't fit: hide the lowest-priority ones, or let them spill past the edge.")
 
 -- Active: icons whose buff or debuff is up; inactive: grey icons on cooldown (owner, 2026-10-09).
 Pair(SLIDER_HEIGHT, function(parent)
@@ -1981,11 +1982,11 @@ end, function(parent)
 end)
 
 AnchorGrid("Alignment", function() return ns.db.cdAlign end, ns.Cooldowns.SetAlignment)
-Hint("Where the shown icons gather in the box: a corner, the middle of a side, or the centre.")
+Hint("Where icons gather inside the frame.")
 
 -- No checkbox for the countdownForCooldowns CVar: SetCVar from our code was the likely source of a
 -- taint error in Blizzard's chat (2026-10-02; see docs/api-research.md). Players change it in WoW's options.
-Hint("Countdown numbers follow WoW's own setting: Options > Action Bars > Show Numbers for Cooldowns.")
+Hint("To show countdown numbers, turn on Options > Action Bars > Show Numbers for Cooldowns.")
 
 -- End of the tab: its height counts the frame controls above the body, and the Abilities list
 -- (the body's Stretch) grows to fill the window (UpdateCanvas reads it from the tab's page).

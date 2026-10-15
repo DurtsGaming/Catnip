@@ -233,7 +233,7 @@ end)
 ns.RegisterElement({
     id = "resource.gcd",
     zone = "resource",
-    name = "GCD pie",
+    name = "GCD Pie",
     hidden = true, -- not offered in the settings for now (Elements.lua)
     glyph = { kind = "disc", color = { 0.43, 0.40, 0.36 } },
     options = {
