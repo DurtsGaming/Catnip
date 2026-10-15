@@ -42,7 +42,7 @@ If you have any feedback or bug reports, please post on the linked discord!
 
 **Languages**
 
-Catnip follows your game's language. English is complete, and Simplified Chinese (简体中文) is in progress.
+Catnip follows your game's language: English, or Simplified Chinese (简体中文), translated by [dodoels](https://github.com/dodoels).
 
 Want Catnip in your language? Translating is just filling in a list of phrases, no coding needed. Ask on the Discord, or see [Translations on GitHub](https://github.com/DurtsGaming/Catnip#translations).
 

@@ -136,6 +136,6 @@ How each piece works is in [architecture.md](architecture.md); the API facts beh
 | Cooldown widget items (drop box, per-item icons, shared Potions icon with special-case potion buffs) | Built, **untested** in-game |
 | Cooldown widget (tracked list with drag-to-reorder, grey icon + timer on cooldown, coloured buff icon + running dashed border + timer, learns buffs with a different ID while the buff is up, move/resize) | Built, **untested** in-game |
 | Cooldown box preview (Cooldown tab and both Edit Modes: sample icons, mixed cooldown and active looks, placeholder when empty, box outline, Abilities row hover) | Built, **untested** in-game |
-| Localization: all visible text through `L`, spells found by ID; Simplified Chinese (zhCN) with a translator (2026-10-15) | English verified in-game 2026-10-15; zhCN not yet translated or checked on a Chinese client (see Localization in architecture.md) |
+| Localization: all visible text through `L`, spells found by ID; Simplified Chinese (zhCN) with a translator (2026-10-15) | English verified in-game 2026-10-15; zhCN fully translated by dodoels (PR #1, 2026-10-15), not yet checked on a Chinese client (see Localization in architecture.md) |
 
 Next candidates: items from "Later".

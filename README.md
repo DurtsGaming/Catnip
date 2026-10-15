@@ -43,6 +43,6 @@ Download the latest release zip and replace your `AddOns\Catnip` folder with the
 
 ## Translations
 
-Catnip follows your game's language. English is complete, and Simplified Chinese (简体中文) is in progress; anything not yet translated shows in English. Spell names always come from the game, so they're already in your language.
+Catnip follows your game's language: English, or Simplified Chinese (简体中文), translated by [dodoels](https://github.com/dodoels). Other languages show in English until someone translates them. Spell names always come from the game, so they're already in your language.
 
 **Help translate.** Translating is just filling in a list of phrases, no coding needed. Each language has a file, `Locales/<language>.lua` (for example `Locales/zhCN.lua`), where each line to translate looks like `-- L["Reset"] = ""`: remove the `-- ` and type the translation between the empty quotes. The file's header explains the details. Send it back as a pull request. Not on GitHub, or your language has no file yet? Ask on the [Discord](https://discord.gg/E8J5E9W5Zj) or open an issue, and we'll set you up.
