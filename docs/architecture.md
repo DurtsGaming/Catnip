@@ -65,7 +65,7 @@ Libraries live in `libs/` and load first from the `.toc`. **LibEditMode** (`libs
 - `ns.commands.<name> = fn(arg)`: adds `/catnip <name> <arg>`. `ns.commands[""]` is plain `/catnip`. Update the help text in `Catnip.lua` when adding one: player commands in the plain help, testing and dev tools under `/catnip dev`.
 - `ns.Print(...)`, `ns.Debug(...)` (only with `/catnip debug` on; secret-safe), `ns.Describe(v)`, `ns.IsSecret(v)`.
 - `ns.TryRegisterEvent(frame, event)`: registers an event that may not exist in this client; returns success.
-- `ns.SPELL`: the spells we look for, by the ID of any rank (`ns.SPELL.GROWL`...). **Never look a spell up by an English name**: other clients name spells in their own language (docs/localization-plan.md).
+- `ns.SPELL`: the spells we look for, by the ID of any rank (`ns.SPELL.GROWL`...). **Never look a spell up by an English name**: other clients name spells in their own language (see **Localization** below).
 - `ns.SpellName(spell)`: the client's name for an `ns.SPELL` entry (cached; nil while unknown).
 - `ns.FindKnownSpell(spells)`: ID of the first of `spells` in the spellbook, at the highest rank known (looked up by the client's name for it, then `IsPlayerSpell`), else nil.
 - `ns.IsSpellNamed(name, spells)`: whether a spell name (e.g. a cast's, from `C_Spell.GetSpellName`) belongs to one of `spells`, any rank or form version. False for a secret name.
@@ -126,6 +126,15 @@ Every piece of text a player sees goes through `local L = ns.L` (each file sets 
 - **Spell names come from the game, not `L`**: `ns.SpellName(ns.SPELL.PROWL) or "Prowl"` (the English fallback only covers spell data not being loaded). A phrase containing a spell name is one key (`L["Shifting Power ready pulse"]`); the translator writes the spell's name in.
 - **Display text is never an ID.** Things keyed by name get an untranslated key next to the label: `topTabs.Add(L["General"], "General")` (the side tab icons are looked up by the second). Element `label`s on AuraContainer, SegmentedCooldown and ActionBar specs only reach debug output and stay English; the combo ring dropdown text is a separate `choice` field.
 - Left in English: `ns.Debug` output, `/catnip dev` tools and their output (`perf`, `cdm`, `spells`, `item`, `art`, `icon`, the ring previews), slash command names, font names.
+- **Adding a language:** `py tools/locales.py <code>` (e.g. `deDE`) creates the file with every key as a placeholder; then add `Locales\<code>.lua` to `Catnip.toc` after the others. Volunteers can ask on the Discord rather than use GitHub (README "Translations"); the CurseForge description (`docs/curseforge.md`) points there too. CurseForge's own translation site, injected by the packager's `@localization@`, is the fallback if several translators who don't use GitHub join.
+
+**Open items** (zhCN sent to the translator 2026-10-15; they report back on a Chinese client):
+- **Fonts.** `Elements.lua` offers Friz Quadrata (`STANDARD_TEXT_FONT`, which is a CJK font on a zhCN client), Arial Narrow, Skurri and Morpheus by file path. The last three may lack Chinese glyphs or not exist there, so spell names in the cast text could show as boxes. Possible fixes: offer only the standard font on CJK clients, or use the zhCN client's own font files. The label "Friz Quadrata" is also wrong there; "Game Default" would fit every locale.
+- **Widths.** Fixed-width spots to check: side tabs, the Preview row's form and stealth buttons, the reset dialog, the Cooldown drop box.
+- **Spell lookups on zhCN.** Rings, arcs, shift orbs, Maul colour, Omen ring. Also unverified: that `C_Spell.GetSpellInfo(<localized name>)` returns the highest known rank there as it does in English.
+- **`%2$d` reordering** (mentioned in zhCN.lua's header) is unverified in this client; only "%s will move to combo point %d after combat." has two placeholders.
+- **`## Title-zhCN:` / `## Notes-zhCN:`** in `Catnip.toc` (the AddOns list): waiting on the translator's text for "Druid addon for WoW Forever".
+- Small gaps, left as is: `CooldownItems.lua`'s `ItemName(itemID):find("Potion")` only matches English (a fallback after the subclass check); nameless items and spells fall back to English "item 123" / "spell 123"; GCD lengths are learned by spell name, so switching client language relearns them.
 
 ## Textures
 
