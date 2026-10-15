@@ -133,8 +133,7 @@ Every piece of text a player sees goes through `local L = ns.L` (each file sets 
 - **Widths.** Fixed-width spots to check: side tabs, the Preview row's form and stealth buttons, the reset dialog, the Cooldown drop box.
 - **Spell lookups on zhCN.** Rings, arcs, shift orbs, Maul colour, Omen ring. Also unverified: that `C_Spell.GetSpellInfo(<localized name>)` returns the highest known rank there as it does in English.
 - **`%2$d` reordering** (mentioned in zhCN.lua's header) is unverified in this client; only "%s will move to combo point %d after combat." has two placeholders.
-- **`## Title-zhCN:` / `## Notes-zhCN:`** in `Catnip.toc` (the AddOns list): waiting on the translator's text for "Druid addon for WoW Forever".
-- Small gaps, left as is: `CooldownItems.lua`'s `ItemName(itemID):find("Potion")` only matches English (a fallback after the subclass check); nameless items and spells fall back to English "item 123" / "spell 123"; GCD lengths are learned by spell name, so switching client language relearns them.
+- Small gaps, left as is: the AddOns list description (`## Notes:` in `Catnip.toc`, read before any Lua runs, so only a `## Notes-zhCN:` line could translate it) stays English (owner, 2026-10-15); `CooldownItems.lua`'s `ItemName(itemID):find("Potion")` only matches English (a fallback after the subclass check); nameless items and spells fall back to English "item 123" / "spell 123"; GCD lengths are learned by spell name, so switching client language relearns them.
 
 ## Textures
 
