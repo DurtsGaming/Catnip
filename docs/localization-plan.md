@@ -6,7 +6,7 @@ Plan for translating Catnip, starting with Simplified Chinese (zhCN) from a volu
 
 | Step | State |
 |------|-------|
-| 1. Look up spells by ID, not by English name | Verified in-game (English) 2026-10-15: `ns.SPELL`, `ns.SpellName`, `ns.IsSpellNamed` (Catnip.lua). Shifting Power's ID still unknown (looked up by English name until then). `CooldownItems.lua`'s "Potion" name fallback left as is. zhCN check is in step 6 |
+| 1. Look up spells by ID, not by English name | Verified in-game (English) 2026-10-15: `ns.SPELL`, `ns.SpellName`, `ns.IsSpellNamed` (Catnip.lua). Shifting Power's ID (1322605) added after. `CooldownItems.lua`'s "Potion" name fallback left as is. zhCN check is in step 6 |
 | 2. English wording pass | Done, approved by the owner in-game 2026-10-15 (the table below, plus all element names in Title Case and the chat messages) |
 | 3. Locale files and `L` table | Not started |
 | 4. Move strings into `L`, file by file | Not started |

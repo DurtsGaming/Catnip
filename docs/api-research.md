@@ -169,7 +169,7 @@ The Cooldown Manager viewers (`BuffIconCooldownViewer`, `BuffBarCooldownViewer`,
 | Rank 1 IDs in `ns.SPELL` (Catnip.lua), from ForeverAuras' `SecretAuraRanks.lua` (talentsforever.com data, 2026-09-24): Forever keeps Classic's IDs | Bear Form 5487, Cat Form 768, Dire Bear Form 9634, Claw 1082, Shred 5221, Faerie Fire 770, Growl 6795, Maul 6807, Primal Bite 407995 (ranks 1238069, 1238070, 1238073), Prowl 5215, Wrath 5176 |
 | Shadowmeld | 20580 (a Night Elf druid's tracked cooldowns, 2026-10-15) |
 | Faerie Fire (Feral) | 16857 is Classic's, unverified. In Forever, Cat/Bear casts seem to keep the name "Faerie Fire" (only that name shows in learned GCD lengths) |
-| Shifting Power | Unknown yet; looked up by English name until found |
+| Shifting Power | 1322605 (`/dump C_Spell.GetSpellInfo("Shifting Power").spellID`, 2026-10-15: the highest rank that character knew) |
 
 ## Dead ends (don't retry)
 

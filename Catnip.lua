@@ -56,18 +56,14 @@ ns.SPELL = {
     PRIMAL_BITE = 407995,
     PROWL = 5215,
     SHADOWMELD = 20580,
-    SHIFTING_POWER = "Shifting Power", -- TODO: its ID, unknown yet; a name only works in English
+    SHIFTING_POWER = 1322605, -- from /dump in-game, 2026-10-15 (the rank the player knew)
     SHRED = 5221,
     WRATH = 5176,
 }
 
--- The client's name for a spell, in its own language, from the ID of any rank (or a name, passed
--- through). nil while unknown.
+-- The client's name for a spell, in its own language, from the ID of any rank. nil while unknown.
 local spellNames = {}
 function ns.SpellName(spell)
-    if type(spell) == "string" then
-        return spell
-    end
     local name = spellNames[spell]
     if not name then
         name = C_Spell.GetSpellName(spell)
