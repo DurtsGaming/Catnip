@@ -152,6 +152,7 @@ ns.commands.dev = function()
     ns.Print("/catnip cdm, /catnip spells, /catnip item <id>: list what Catnip sees")
     ns.Print("/catnip sp | ff | pb | growl | omen [seconds]: preview the Shifting Power arc, Faerie Fire, Primal Bite, Growl or Omen of Clarity ring")
     ns.Print("/catnip art | icon: record the window or icon under the mouse")
+    ns.Print("/catnip moon: Eclipse moon (Balance test) on or off for this character")
 end
 
 ns.commands.debug = function()

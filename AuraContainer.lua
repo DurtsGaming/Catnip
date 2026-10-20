@@ -25,6 +25,8 @@ end
 --   unit        "player" or "target"
 --   filter      "HELPFUL" or "HARMFUL" (only auras we applied are matched)
 --   spellIDs    list of aura spell IDs to show (every rank, on Forever)
+--   maxDuration optional: only auras whose full duration (not the time left) is at most this many
+--               seconds; Blizzard checks it, so it works on secret auras
 --   width, height, x, y   button size, and its centre's offset from relativeTo's centre
 --   relativeTo  frame to position and layer against (default the HUD)
 --   level       frame level above relativeTo
@@ -43,7 +45,7 @@ function ns.CreateAuraContainer(options)
     local function Apply()
         container:SetUnit(options.unit)
         container:SetAuraGroupFilterString("main", options.filter .. "|PLAYER")
-        container:SetAuraGroupCandidateFilters("main", { includeSpellIDs = spellSet })
+        container:SetAuraGroupCandidateFilters("main", { includeSpellIDs = spellSet, maxDuration = options.maxDuration })
         container:SetAuraGroupMaxFrameCount("main", 1)
         container:SetAuraGroupLayout("main", { elementWidth = options.width, elementHeight = options.height })
         container:SetFlowLayoutMaximumLineSize(options.width)

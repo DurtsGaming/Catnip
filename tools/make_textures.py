@@ -542,8 +542,62 @@ def rim_glow(size):
     return alpha
 
 
+# Eclipse moon (EclipseMoon.lua): a dark disc with a black rim like the combo points', and four lit
+# phases drawn over it, waxing from the left like the Eclipse buff icon. Silver-blue, pale where the
+# light is strongest (top left) to deep blue at the far edge. Coloured, drawn untinted.
+MOON_RIM = 6  # black rim thickness in a 128 texture (the combo points' 3 in 64)
+MOON_DARK = (10, 16, 34)
+MOON_LIT = [(244, 248, 255), (169, 200, 255), (45, 79, 158)]
+
+
+def moon_dark(size):
+    r = size / 2 - 1
+    inner = r - MOON_RIM
+
+    def shape(d, *_):
+        inside = clamp01(inner - d + 0.5)  # 1 inside the rim, 0 on it
+        colour = tuple(c / 255 * inside for c in MOON_DARK)
+        return clamp01(r - d + 0.5) * (1 - 0.1 * inside), colour
+    return shape
+
+
+def moon_phase(size, f):
+    """The lit part for f = 0.25 (crescent), 0.5 (half), 0.75 (gibbous), 1 (full), inside the rim.
+    The terminator is half an ellipse: on each row it sits at (2f - 1) of the row's half-width."""
+    r = size / 2 - 1 - MOON_RIM + 0.5  # just over the rim's inner edge, so no dark seam
+
+    def shape(d, dx, dy):
+        half = math.sqrt(max(0.0, r * r - dy * dy))
+        a = clamp01(r - d + 0.5) * (1.0 if f >= 1 else clamp01((2 * f - 1) * half - dx + 0.5))
+        t = math.hypot(dx + 0.3 * r, dy + 0.2 * r) / (1.25 * r)
+        colour = tuple(c / 255 for c in sample(MOON_LIT, t))
+        return a, colour
+    return shape
+
+
+# Balance DoT dots (BalanceDots.lua): a disc in the spell's colours (combo_fill, a measured-bar list)
+# and a segmented ring, one segment per damage tick (Moonfire 3s, Insect Swarm 2s), cut like the
+# DoT rings (pointed inside). Base and Nature's Splendor lengths: Moonfire 12s / 15s, Insect Swarm
+# 12s / 14s. Violet for Moonfire (apart from the moon's silver-blue), lime for Insect Swarm.
+MOONFIRE_BAR = [(74, 37, 144), (154, 108, 255), (241, 230, 255)]
+SWARM_BAR = [(74, 107, 30), (155, 197, 61), (238, 248, 168)]
+MOONFIRE_STOPS = [tuple(c / 255 for c in s) for s in MOONFIRE_BAR]
+SWARM_STOPS = [tuple(c / 255 for c in s) for s in SWARM_BAR]
+
+
 TEXTURES = {
     # name: (size, shape)  -- numbers match docs/design.md
+    "disc_moonfire": (64, combo_fill(64, MOONFIRE_BAR)),    # Moonfire dot (BalanceDots.lua)
+    "disc_swarm": (64, combo_fill(64, SWARM_BAR)),          # Insect Swarm dot
+    "ring_moonfire4": (128, coloured_ring(128, 16, MOONFIRE_STOPS, 4, DOT_GAP, DOT_POINT)),  # Moonfire 12s
+    "ring_moonfire5": (128, coloured_ring(128, 16, MOONFIRE_STOPS, 5, DOT_GAP, DOT_POINT)),  # Moonfire 15s (Nature's Splendor)
+    "ring_swarm6": (128, coloured_ring(128, 16, SWARM_STOPS, 6, DOT_GAP, DOT_POINT)),        # Insect Swarm 12s
+    "ring_swarm7": (128, coloured_ring(128, 16, SWARM_STOPS, 7, DOT_GAP, DOT_POINT)),        # Insect Swarm 14s (Nature's Splendor)
+    "moon_dark": (128, moon_dark(128)),                     # Eclipse moon: the empty disc and rim
+    "moon_phase1": (128, moon_phase(128, 0.25)),            # Eclipse moon, 1 stack: crescent
+    "moon_phase2": (128, moon_phase(128, 0.5)),             # 2 stacks: half
+    "moon_phase3": (128, moon_phase(128, 0.75)),            # 3 stacks: gibbous
+    "moon_phase4": (128, moon_phase(128, 1)),               # 4 stacks: full
     "circle_hard": (256, circle_hard(256)),                 # 1
     "circle_soft": (256, circle_soft(256)),                 # 2
     "circle_feather": (256, circle_feather(256)),           # 1, soft-edged: resource fill mask, GCD, Enrage

@@ -43,6 +43,9 @@ GrowlArc.lua
 ShiftOrbs.lua
 CooldownRings.lua
 OmenRing.lua
+BalanceDots.lua
+NaturesGrace.lua
+EclipseMoon.lua
 CooldownItems.lua
 Cooldowns.lua
 EditMode.lua
