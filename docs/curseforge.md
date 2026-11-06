@@ -23,6 +23,7 @@ If you have any feedback or bug reports, please post on the linked discord!
 **Combo points, DoT durations, Rotation Cooldowns**
 
 *   Combo points tracking
+*   Lacerate stacks and duration in Bear Form
 *   Rake and Rip duration timers
 *   Cooldowns for rotational abilities like Primal Bite and Shifting Power
 *   Omen of Clarity Internal Cooldown Tracker

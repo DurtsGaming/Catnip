@@ -598,6 +598,7 @@ TEXTURES = {
     "combo_fill": (128, combo_fill(128)),                   # 1, combo points
     "fill_energy_prowl": (128, power_fill(128, PROWL_PERIWINKLE)),  # 1, resource fill in Cat Form while stealthed
     "combo_fill_prowl": (128, combo_fill(128, PROWL_PERIWINKLE)),   # 1, combo points while stealthed
+    "combo_fill_rage": (128, combo_fill(128, FOREVER_RAGE)),        # 1, Lacerate stacks in Bear Form
     # Stealth mode's shadow smoke: white, tinted and rotated in-game (StealthSmoke.lua)
     "smoke_base": (256, smoke_edges(256, smoke_ring(256, 64, 19, 4.2))),
     "smoke_a": (256, smoke_edges(256, cloud_ring(256, 64, 19, 0.035, 5, 3.2, -1.0, 3.2, 2.1))),

@@ -1,6 +1,6 @@
 # Catnip
 
-A compact circular HUD for Feral Druids in **World of Warcraft: Forever** (currently in beta). It shows your energy, rage or mana (as a %, with a five-second-rule ring and the cost of the spell you're casting marked), combo points with rings for your DoTs and short cooldowns (Rip, Rake, Faerie Fire, Primal Bite and Omen of Clarity's internal cooldown), a swing timer that becomes a cast bar while you cast, the global cooldown, Clearcasting procs, Enrage (in Bear Form), the Shifting Power and Growl cooldowns and how many shapeshifts your mana pays for, all in one place. A separate box tracks the other cooldowns you pick. No setup needed beyond installing it, but nearly every part can be adjusted (see **Customizing**).
+A compact circular HUD for Feral Druids in **World of Warcraft: Forever** (currently in beta). It shows your energy, rage or mana (as a %, with a five-second-rule ring and the cost of the spell you're casting marked), combo points with rings for your DoTs and short cooldowns (Rip, Rake, Faerie Fire, Primal Bite and Omen of Clarity's internal cooldown), Lacerate stacks in Bear Form, a swing timer that becomes a cast bar while you cast, the global cooldown, Clearcasting procs, Enrage (in Bear Form), the Shifting Power and Growl cooldowns and how many shapeshifts your mana pays for, all in one place. A separate box tracks the other cooldowns you pick. No setup needed beyond installing it, but nearly every part can be adjusted (see **Customizing**).
 
 ## Installing
 

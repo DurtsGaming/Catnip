@@ -53,6 +53,7 @@ ns.SPELL = {
     FAERIE_FIRE = 770,
     FAERIE_FIRE_FERAL = 16857, -- Classic's; in Forever the form version seems to keep the plain name
     GROWL = 6795,
+    LACERATE = 1328617, -- from /dump in-game, 2026-11-06 (the rank the player knew)
     MAUL = 6807,
     PRIMAL_BITE = 407995,
     PROWL = 5215,
