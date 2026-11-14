@@ -107,6 +107,7 @@ L["To see Clearcasting in combat, add Omen of Clarity to the Cooldown Manager's 
 -- DotRings.lua
 L["Rake Duration"] = "扫击持续时间"
 L["Rip Duration"] = "撕扯持续时间"
+-- L["Demoralizing Roar Duration"] = ""
 L["%s will move to combo point %d after combat."] = "%s 将在战斗结束后移到第 %d 个连击点。"
 L["DoT rings aren't supported in this version of the game."] = "当前游戏版本不支持 DoT 外环。"
 
