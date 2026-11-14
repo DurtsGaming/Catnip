@@ -358,6 +358,7 @@ OMEN_STOPS = [(0.10, 0.40, 0.32), (0.28, 0.68, 0.50), (0.52, 0.86, 0.64), (0.88,
 # DoT rings (DotRings.lua): Rake and Rip share one red, sampled by eye from their icons, dark
 # crimson through red to a hot orange-red, clockwise from 12 o'clock.
 DOT_STOPS = [(0.42, 0.02, 0.02), (0.78, 0.07, 0.04), (0.98, 0.22, 0.08), (1.0, 0.50, 0.22)]
+ROAR_STOPS = [(0.30, 0.18, 0.08), (0.58, 0.38, 0.16), (0.82, 0.62, 0.32), (0.96, 0.86, 0.62)]
 # The combo point rings are drawn 46 units across (ComboPoints.lua COMBO_DOT_SIZE + 8); gaps are
 # cut 2 units wide on the band's centre line, like CooldownRings.lua's GAP.
 COMBO_RING_UNITS = 46
@@ -592,6 +593,8 @@ TEXTURES = {
     "ring_rip_segments": (128, coloured_ring(128, 16, DOT_STOPS, 6, DOT_GAP, DOT_POINT)),  # Rip DoT ring: 6 segments (12s, 2s ticks), pointed inside
     "ring_rake_circular": (128, coloured_ring(128, 16, DOT_STOPS, 3)),  # the same, Segments: Circular (square ends, 2-unit gaps)
     "ring_rip_circular": (128, coloured_ring(128, 16, DOT_STOPS, 6)),
+    "ring_roar": (128, coloured_ring(128, 16, ROAR_STOPS, 6, DOT_GAP, DOT_POINT)),  # Demoralizing Roar debuff ring: 6 segments (30s, 5s each), pointed inside
+    "ring_roar_circular": (128, coloured_ring(128, 16, ROAR_STOPS, 6)),
     "fill_energy": (128, power_fill(128, FOREVER_ENERGY)),  # 1, resource fill in Cat Form
     "fill_rage": (128, power_fill(128, FOREVER_RAGE)),      # 1, resource fill in Bear Form
     "fill_mana": (128, power_fill(128, FOREVER_MANA)),      # 1, resource fill otherwise

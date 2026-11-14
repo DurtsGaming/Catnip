@@ -30,6 +30,10 @@ local DOTS = {
         textures = { angular = "ring_rip_segments", circular = "ring_rip_circular" },
         color = { 0.69, 0.12, 0.12 },
         spellIDs = { 1079, 9492, 9493, 9752, 9894, 9896 } },
+    { key = "roar", label = "Demoralizing Roar", choice = L["Demoralizing Roar Duration"], order = 6, length = 30,
+        textures = { angular = "ring_roar", circular = "ring_roar_circular" },
+        color = { 0.82, 0.62, 0.32 },
+        spellIDs = { 99, 1735, 9490, 9747, 9898 } },
 }
 local LEVEL = 5 -- above the HUD, as the AuraContainers
 local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- ~5.75px band (16px thick in 128), covering the dot's border ring; make_textures.py COMBO_RING_UNITS
