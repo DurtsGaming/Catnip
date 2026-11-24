@@ -10,6 +10,10 @@
 --   { kind = "ring", inner = r1, outer = r2, x = 0, y = 0 } -- a band round the HUD's centre (+ x, y)
 --     with angle = a, spread = s: only the part within s radians of maths angle a (counter-
 --     clockwise from 3 o'clock; 6 o'clock is -pi/2), s under pi/2; only for rings round the centre
+--     with notch = function: a small box also picked as part of the ring (a combo ring's DoT end
+--     marker, which stands out past the band); it returns left, bottom, width, height in HUD
+--     units from the HUD's centre, or nil while there's none. Padded by NOTCH_PAD, as it's thin.
+--     Outlined as a tab growing out of the ring's outer edge (a whole box over the band looked bad)
 --   { kind = "circles", radius = r, centres = function } -- several circles picked as one: centres()
 --     returns the current { x, y } list (it may change, e.g. how many orbs show)
 -- Circles and rings may have `visible = function` (pickable only while it returns true).
@@ -30,6 +34,7 @@ local GOLD = { 1, 0.82, 0 }
 local IDLE_ALPHA = 0.4 -- outlines of elements not hovered or selected
 local GLOW_ALPHA = 0.4 -- the additive copy that brightens a hovered outline, as in UnlockOverlay.lua
 local TEXT_PAD = 4 -- around a text's box, for the hit and the outline
+local NOTCH_PAD = 3 -- around a ring's notch, for the hit and the outline
 local CHAR_WIDTH = 0.55 -- a character's estimated width, as a fraction of the font size
 local CATCHER_SIZE = 320 -- covers the HUD and the text under it
 
@@ -165,11 +170,83 @@ local function RingHighlight(hit)
             texture:AddMaskTexture(below)
         end
     end
+    -- The notch: a tab growing out of the band's outer edge over it, filled like the band, edged on
+    -- its sides and top only, and the ring's outer edge line gapped under it, so ring and tab read
+    -- as one shape. Re-placed on every refresh: its size follows a setting.
+    local notch, notchFill, notchEdges, SetGap
+    if hit.notch then
+        -- The outer edge line becomes two copies, one each side of a gap at 12 o'clock of half-angle
+        -- g, by half_plane masks centred on the ring (Mask(r) shows angles r + 90 .. r + 270
+        -- degrees, as above): one shows 90 + g .. 270 + g, the other the rest but the gap,
+        -- -90 + g .. 90 - g. Masks only intersect, hence two copies; g = 0 closes the gap.
+        local maskSize = 2 * hit.outer + 8 -- the edge line fits in its inscribed circle, so rotating is safe
+        local function Mask()
+            local mask = frame:CreateMaskTexture()
+            mask:SetTexture(ns.MEDIA .. "half_plane", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+            mask:SetSize(maskSize, maskSize)
+            mask:SetPoint("CENTER", hit.x or 0, hit.y or 0)
+            return mask
+        end
+        local outerEdge = edges[2]
+        local otherSide = frame:CreateTexture(nil, "OVERLAY")
+        otherSide:SetTexture(ns.MEDIA .. "ring_thin")
+        otherSide:SetAllPoints(outerEdge)
+        edges[3] = otherSide
+        local leftMask, rightMaskA, rightMaskB = Mask(), Mask(), Mask()
+        outerEdge:AddMaskTexture(leftMask)
+        otherSide:AddMaskTexture(rightMaskA)
+        otherSide:AddMaskTexture(rightMaskB)
+        function SetGap(g)
+            leftMask:SetRotation(g)
+            rightMaskA:SetRotation(g - math.pi)
+            rightMaskB:SetRotation(-g - math.pi)
+        end
+        SetGap(0)
+
+        notch = CreateFrame("Frame", nil, frame)
+        notchFill = notch:CreateTexture(nil, "ARTWORK")
+        notchFill:SetAllPoints()
+        notchEdges = {}
+        for i, side in ipairs({ { "TOPLEFT", "BOTTOMLEFT" }, { "TOPRIGHT", "BOTTOMRIGHT" }, { "TOPLEFT", "TOPRIGHT" } }) do
+            local edge = notch:CreateTexture(nil, "OVERLAY")
+            edge:SetPoint(side[1])
+            edge:SetPoint(side[2])
+            if i <= 2 then
+                edge:SetWidth(1)
+            else
+                edge:SetHeight(1)
+            end
+            notchEdges[i] = edge
+        end
+        function frame.Place()
+            local left, bottom, width, height = hit.notch()
+            notch:SetShown(left ~= nil)
+            if not left then
+                SetGap(0)
+                return
+            end
+            -- From the band's outer edge (half a pixel in, so no seam shows) to the marker's top,
+            -- padded; the edge line's gap is as wide as the tab, where its sides meet the line.
+            local half = width / 2 + NOTCH_PAD
+            local foot = (hit.y or 0) + hit.outer - 0.5
+            local top = bottom + height + NOTCH_PAD
+            notch:ClearAllPoints()
+            notch:SetPoint("BOTTOMLEFT", hud, "CENTER", left - NOTCH_PAD, foot)
+            notch:SetSize(2 * half, math.max(1, top - foot))
+            SetGap(math.asin(math.min(1, half / (hit.outer + 0.5))))
+        end
+    end
     function frame.SetState(state)
         local colour = state == "selected" and GOLD or BLUE
         fill:SetVertexColor(colour[1], colour[2], colour[3], state == "idle" and 0.15 or 0.35)
         for _, edge in ipairs(edges) do
             edge:SetVertexColor(colour[1], colour[2], colour[3], 1)
+        end
+        if notch then
+            notchFill:SetColorTexture(colour[1], colour[2], colour[3], state == "idle" and 0.15 or 0.35)
+            for _, edge in ipairs(notchEdges) do
+                edge:SetColorTexture(colour[1], colour[2], colour[3], 1)
+            end
         end
         frame:SetAlpha(state == "idle" and IDLE_ALPHA or 1)
     end
@@ -301,6 +378,14 @@ local function Contains(target)
     end
     local dx, dy = x / scale - cx - (hit.x or 0), y / scale - cy - (hit.y or 0)
     local distance = dx * dx + dy * dy
+    if hit.notch then
+        local left, bottom, width, height = hit.notch()
+        local hx, hy = x / scale - cx, y / scale - cy
+        if left and hx >= left - NOTCH_PAD and hx <= left + width + NOTCH_PAD
+            and hy >= bottom - NOTCH_PAD and hy <= bottom + height + NOTCH_PAD then
+            return true
+        end
+    end
     if hit.kind == "ring" then
         if distance < hit.inner * hit.inner or distance > hit.outer * hit.outer then
             return false

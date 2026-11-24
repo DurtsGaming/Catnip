@@ -12,9 +12,10 @@
 -- segments are cut into the swipe texture instead (make_textures.py ring_rake, ring_rip_segments,
 -- and their _circular versions; change the count there and regenerate). No per-segment pulses, for
 -- the same reason.
--- A red tick stands across each ring at 12 o'clock. It's on the button, so Blizzard shows and
--- hides it with the DoT itself: a plain on/off for "is it still up", which the draining swipe makes
--- hard to read near the end.
+-- A red tick (the "End Marker" setting) stands across each ring at 12 o'clock. It's on the button,
+-- so Blizzard shows and hides it with the DoT itself: a plain on/off for "is it still up", which the
+-- draining swipe makes hard to read near the end. Being on the button, it can't be resized after
+-- setup either, so like the shape, each size gets its own AuraContainer.
 local addonName, ns = ...
 local L = ns.L
 local CreateFrame = ns.Profiled("DotRings") -- timed by /catnip perf (Profiler.lua)
@@ -34,13 +35,38 @@ local DOTS = {
 local LEVEL = 5 -- above the HUD, as the AuraContainers
 local RING_SIZE = ns.COMBO_DOT_SIZE + 8 -- ~5.75px band (16px thick in 128), covering the dot's border ring; make_textures.py COMBO_RING_UNITS
 local BAND_INNER = RING_SIZE * 47 / 128 -- the band's inner edge (63 out, 16 thick, in 128)
-local TICK_TOP = RING_SIZE * 63 / 128 + 3 -- the band's outer edge, plus how far the tick stands above it
-local TICK_WIDTH = 2.5
+local BAND_OUTER = RING_SIZE * 63 / 128 -- the band's outer edge
 local TICK_OUTLINE = 0.75
+-- DoT End Marker sizes: the bar's width, and how far it stands above the band's outer edge. Until
+-- 2026-11-20 there was one size, 2.5 wide and 3 above.
+local TICK_SIZES = {
+    small = { width = 3.5, rise = 5 },
+    medium = { width = 4.25, rise = 6.5 },
+    large = { width = 5.5, rise = 9 },
+}
+local TICK_DEFAULT = "medium"
+
+-- Sizes the tick to `size` (a TICK_SIZES key), or hides it for "off".
+local function SizeTick(tick, size)
+    local dims = TICK_SIZES[size]
+    tick:SetShown(dims ~= nil)
+    if dims then
+        tick:SetSize(dims.width + 2 * TICK_OUTLINE, BAND_OUTER + dims.rise - BAND_INNER + 2 * TICK_OUTLINE)
+    end
+end
+
+-- The part of a `size` tick that stands out past the band, for preview mode's hit (ComboRings.lua
+-- TickRect): width, bottom, top from the ring's centre; nil for "off".
+local function TickRect(size)
+    local dims = TICK_SIZES[size]
+    if dims then
+        return dims.width + 2 * TICK_OUTLINE, BAND_OUTER, BAND_OUTER + dims.rise + TICK_OUTLINE
+    end
+end
 
 -- The ring and tick on `owner` (an aura button, or preview mode's stand-in); returns the ring's
--- Cooldown.
-local function BuildRing(owner, texture)
+-- Cooldown and the tick's frame.
+local function BuildRing(owner, texture, tickSize)
     local ring = CreateFrame("Cooldown", nil, owner, "CooldownFrameTemplate")
     ring:ClearAllPoints() -- the template pins it to its parent; set it ourselves
     ring:SetAllPoints(owner)
@@ -54,7 +80,7 @@ local function BuildRing(owner, texture)
     -- outline, standing across the band at 12 o'clock (where the last segment ends) from its inner
     -- edge to a little above it. On its own frame so it draws over the swipe.
     local tick = CreateFrame("Frame", nil, owner)
-    tick:SetSize(TICK_WIDTH + 2 * TICK_OUTLINE, TICK_TOP - BAND_INNER + 2 * TICK_OUTLINE)
+    SizeTick(tick, tickSize)
     tick:SetPoint("BOTTOM", owner, "CENTER", 0, BAND_INNER - TICK_OUTLINE)
     tick:SetFrameLevel(ring:GetFrameLevel() + 1)
 
@@ -66,24 +92,25 @@ local function BuildRing(owner, texture)
     fill:SetTexture(ns.MEDIA .. "tick_dot")
     fill:SetPoint("TOPLEFT", TICK_OUTLINE, -TICK_OUTLINE)
     fill:SetPoint("BOTTOMRIGHT", -TICK_OUTLINE, TICK_OUTLINE)
-    return ring
+    return ring, tick
 end
 
-local function StyleButton(button, texture)
+local function StyleButton(button, texture, tickSize)
     ns.HideAuraButtonArt(button)
-    local ring = BuildRing(button, texture)
+    local ring = BuildRing(button, texture, tickSize)
     button:SetDurationCooldown(ring) -- Blizzard runs it with the aura's real (secret) timing
 end
 
 -- Preview mode's stand-in: the same ring and tick, draining over the DoT's length in a loop (plain
 -- numbers, so SetCooldown takes them); ns.PlaceComboRing moves it into a slot's sample gate. Not an
--- aura button, so Start can swap in the current shape's texture. Returns the frame, and Start/Stop.
+-- aura button, so Start can swap in the current shape's texture and tick size. Returns the frame,
+-- and Start/Stop.
 local function StandIn(dot)
     local frame = CreateFrame("Frame")
     frame:SetSize(RING_SIZE, RING_SIZE)
     ns.PlaceComboRing(frame, nil)
     frame:Hide()
-    local ring = BuildRing(frame, dot.textures.angular)
+    local ring, tick = BuildRing(frame, dot.textures.angular, TICK_DEFAULT)
     local started
     local driver = CreateFrame("Frame")
     driver:Hide()
@@ -95,6 +122,7 @@ local function StandIn(dot)
     end)
     local function Start()
         ring:SetSwipeTexture(ns.MEDIA .. dot.textures[ns.ComboRingShape(dot.key)])
+        SizeTick(tick, ns.ComboRingTick(dot.key))
         started = GetTime()
         ring:SetCooldown(started, dot.length)
         frame:Show()
@@ -113,10 +141,10 @@ for _, dot in ipairs(DOTS) do
     -- the buttons can't be touched after setup, so this applies live, even to the real ring, and
     -- hides with the combo dots outside Cat and Bear Form). Showing and hiding the holder picks
     -- which slot's ring, in which shape, is live.
-    local holders = {} -- by slot index and shape ("5 angular")
+    local holders = {} -- by slot index, shape and tick size ("5 angular medium")
     local current
-    local function Holder(slot, shape)
-        local id = slot.index .. " " .. shape
+    local function Holder(slot, shape, tickSize)
+        local id = slot.index .. " " .. shape .. " " .. tickSize
         local holder = holders[id]
         if holder then
             return holder
@@ -137,7 +165,7 @@ for _, dot in ipairs(DOTS) do
                 level = LEVEL,
                 parent = holder,
                 initialize = function(button)
-                    StyleButton(button, dot.textures[shape])
+                    StyleButton(button, dot.textures[shape], tickSize)
                 end,
             })
             if IsLoggedIn() and InCombatLockdown() then
@@ -156,11 +184,13 @@ for _, dot in ipairs(DOTS) do
         order = dot.order,
         defaultSlot = dot.dot,
         shape = "angular", -- by default
+        tick = TICK_DEFAULT,
+        TickRect = function() return TickRect(ns.ComboRingTick(dot.key)) end,
         Place = function(slot)
             if current then
                 current:Hide()
             end
-            current = slot and Holder(slot, ns.ComboRingShape(dot.key))
+            current = slot and Holder(slot, ns.ComboRingShape(dot.key), ns.ComboRingTick(dot.key))
             if current then
                 current:Show()
             end

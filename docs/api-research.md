@@ -180,16 +180,18 @@ The Cooldown Manager viewers (`BuffIconCooldownViewer`, `BuffBarCooldownViewer`,
 |------|-----|
 | Clearcasting (buff) | 16870 |
 | Omen of Clarity (talent; Cooldown Manager tracks this) | 16864 |
-| Rip ranks (each rank's aura has its own ID) | 1079, 9492, 9493, 9752, 9894, 9896 |
-| Rake ranks | 1822, 1823, 1824, 9904 (not yet unlocked in the beta) |
+| Rip ranks (each rank's aura has its own ID) | 1079, 9492, 9493, 9752, 9894, 9896 (levels 20-60, Wowhead Forever 2026-11-23; TBC's 27008 isn't in Forever) |
+| Rake ranks | 1822, 1823, 1824, 9904 (levels 24/34/44/54 on Wowhead's Forever data, 2026-11-23; TBC's rank 5, 27003, isn't in Forever) |
 | Enrage (Bear; buff, 10s) | 5229 (**verified** 2026-09-27) |
-| GCD spell | 29515 |
+| GCD spell | 29515 ("TEST Scorch", a Mage test spell, on Wowhead; works, see Gcd.lua) |
 | Tiger's Fury / Berserk (from Blood in the Water) | 5217 / 417141 |
 | Rank 1 IDs in `ns.SPELL` (Catnip.lua), from ForeverAuras' `SecretAuraRanks.lua` (talentsforever.com data, 2026-09-24): Forever keeps Classic's IDs | Bear Form 5487, Cat Form 768, Dire Bear Form 9634, Claw 1082, Shred 5221, Faerie Fire 770, Growl 6795, Maul 6807, Primal Bite 407995 (ranks 1238069, 1238070, 1238073), Prowl 5215, Wrath 5176 |
 | Shadowmeld | 20580 (a Night Elf druid's tracked cooldowns, 2026-10-15) |
-| Faerie Fire (Feral) | 16857 is Classic's, unverified. In Forever, Cat/Bear casts seem to keep the name "Faerie Fire" (only that name shows in learned GCD lengths) |
+| Faerie Fire (Feral) | 16857 is Classic's and **not in Forever** ("Entity not found" on Wowhead's Forever data, as are its ranks 17390-17392, 2026-11-23), so `ns.SPELL.FAERIE_FIRE_FERAL` finds nothing and Faerie Fire (770) does the work. In Forever, Cat/Bear casts seem to keep the name "Faerie Fire" (only that name shows in learned GCD lengths) |
 | Shifting Power | 1322605 (`/dump C_Spell.GetSpellInfo("Shifting Power").spellID`, 2026-10-15: the highest rank that character knew) |
-| Lacerate | 1328617 (`/dump C_Spell.GetSpellInfo("Lacerate").spellID`, 2026-11-06: the highest rank that character knew; **not** in ForeverAuras' list below, so that list is incomplete). The debuff has the same ID as the spell, at least for that rank (the stacks showed in the owner's test, 2026-11-06). Also listed: 414644, 1235826, 1235827 (ForeverAuras, unconfirmed) |
+| Lacerate | 1328617 (`/dump C_Spell.GetSpellInfo("Lacerate").spellID`, 2026-11-06: the highest rank that character knew; **not** in ForeverAuras' list below, so that list is incomplete). The debuff has the same ID as the spell, at least for that rank (the stacks showed in the owner's test, 2026-11-06). All five ranks on Wowhead's Forever data (2026-11-23): 1328617 rank 1 (level 25), 1328616 rank 2 (34), 414644 rank 3 (42), 1235826 rank 4 (50), 1235827 rank 5 (58). Rank 1 being 1328617 means the 2026-11-06 character knew only rank 1 |
+
+**Checking IDs on Wowhead (2026-11-23):** the site's pages answer scripts with a bot challenge (HTTP 202, empty body), but the tooltip endpoint answers: `https://nether.wowhead.com/tooltip/spell/<id>?dataEnv=16` (16 is Forever, `CLASSICPLUS` in Wowhead's `tooltips.js`; 4 is Classic). It returns JSON with the name, and rank and level in the tooltip HTML, or `"Entity not found"`. It can't search, so new ranks are found by trying nearby IDs. One request every few seconds.
 
 ## Dead ends (don't retry)
 

@@ -67,8 +67,13 @@ L["Opacity"] = "不透明度"
 -- ComboRings.lua
 L["Angular"] = "棱角"
 L["Circular"] = "圆形"
+-- L["Off"] = ""
+-- L["Small"] = ""
+-- L["Medium"] = ""
+-- L["Large"] = ""
 L["Shows"] = "显示"
 L["Segments"] = "分段"
+-- L["DoT End Marker"] = ""
 L["Combo Ring %d"] = "连击点外环 %d"
 
 -- Swing.lua
@@ -77,6 +82,7 @@ L["Swing Timer"] = "平砍计时条"
 L["Bar opacity"] = "计时条不透明度"
 L["Color"] = "颜色"
 L["Maul queued color"] = "槌击排队颜色"
+-- L["Show swing timer value as text"] = ""
 L["Maul Orb"] = "槌击光球"
 L["The swing timer isn't supported in this version of the game."] = "当前游戏版本不支持平砍计时条。"
 
@@ -157,6 +163,13 @@ L["Caster"] = "人形态"
 L["Bear"] = "熊"
 L["Cat"] = "豹"
 
+-- Changelog.lua
+-- L["DoT End Marker: pick the size of the bar at the top of the Rake and Rip rings (Off, Small, Medium or Large) on the Combo Ring pages. It's bigger by default."] = ""
+-- L["Changelog: a new settings tab showing what's new in each version."] = ""
+-- L["The settings window opens where you last left it."] = ""
+-- L["Swing timer text is now an option"] = ""
+-- L["Fixed an issue where some spell IDs were being learned incorrectly."] = ""
+
 -- Options.lua
 L["The color picker isn't available in this version of the game."] = "当前游戏版本无法使用颜色选择器。"
 L["General (%s)"] = "通用（%s）"
@@ -205,6 +218,12 @@ L["Inactive opacity"] = "未生效时不透明度"
 L["Alignment"] = "对齐"
 L["Where icons gather inside the frame."] = "图标在框体内聚集的位置。"
 L["To show countdown numbers, turn on Options > Action Bars > Show Numbers for Cooldowns."] = "要显示倒计时数字，请开启 选项 > 动作条 > 显示冷却时间。"
+-- L["Changelog"] = ""
+-- L["New Features"] = ""
+-- L["Improvements"] = ""
+-- L["Fixes"] = ""
+-- L["Version %s"] = ""
+-- L["Not yet released"] = ""
 
 -- AddOnsPage.lua
 L["Open Catnip Settings"] = "打开 Catnip 设置"

@@ -12,10 +12,14 @@
 --   shape          optional: its segments can be "angular" or "circular" (ns.ComboRingShape(key)),
 --                  and this is its default; the slot showing it offers the choice (greyed out for
 --                  None). The shape belongs to the ability, so it follows it from slot to slot
+--   tick           optional: it has an end marker, "off", "small", "medium" or "large"
+--                  (ns.ComboRingTick(key)), and this is its default; offered like shape
+--   TickRect()     with tick: the marker's box around the ring's centre, for preview mode's hit:
+--                  width, bottom, top (nil while it's off)
 --   Place(slot)    show the real ring in slot (nil: nowhere); slot = { index, gate, sampleGate };
---                  called again when its shape changes
+--                  called again when its shape or tick changes
 --   StartSample(slot), StopSample()   preview mode's looping copy, in slot.sampleGate (restarted
---                  when its shape changes)
+--                  when its shape or tick changes)
 local addonName, ns = ...
 local L = ns.L
 
@@ -34,6 +38,15 @@ local NONE_GLYPH = { kind = "ring", color = { 0.4, 0.38, 0.34 } }
 local SHAPE_NONE = "circular" -- shown, greyed out, for an empty slot
 local SHAPES = { { value = "angular", text = L["Angular"] }, { value = "circular", text = L["Circular"] } }
 
+-- End marker sizes (DotRings.lua draws them). Off is shown, greyed out, for a slot without one.
+local TICK_NONE = "off"
+local TICKS = {
+    { value = "off", text = L["Off"] },
+    { value = "small", text = L["Small"] },
+    { value = "medium", text = L["Medium"] },
+    { value = "large", text = L["Large"] },
+}
+
 local entries = {} -- by key
 
 -- An ability's own settings, stored as a pseudo-element ("dot.rip"; the name is from when only the
@@ -45,6 +58,17 @@ end
 -- A shaped ability's segment shape: "angular" or "circular".
 function ns.ComboRingShape(key)
     return ns.ElementOption(AbilityId(key), "shape") or entries[key].shape
+end
+
+-- A ticked ability's end marker size: "off", "small", "medium" or "large".
+function ns.ComboRingTick(key)
+    local size = ns.ElementOption(AbilityId(key), "tick")
+    for _, entry in ipairs(TICKS) do
+        if entry.value == size then
+            return size
+        end
+    end
+    return entries[key].tick -- not set (or a value from a test build)
 end
 
 -- Gives a SegmentedArc.lua ring of ability `key` its shape's look: `art`_angular or `art`_circular,
@@ -96,15 +120,17 @@ local function Arrange()
     end
     for key, entry in pairs(entries) do
         local slot = where[key]
-        local shape = entry.shape and ns.ComboRingShape(key) or nil
-        if entry.slot ~= slot or entry.shape ~= shape then
-            entry.slot, entry.shape = slot, shape
+        -- Its look: shape and tick, either of which can be nil (the ability has no such setting).
+        local look = tostring(entry.shape and ns.ComboRingShape(key)) .. " "
+            .. tostring(entry.tick and ns.ComboRingTick(key))
+        if entry.slot ~= slot or entry.look ~= look then
+            entry.slot, entry.look = slot, look
             entry.Place(slot)
         end
         local sampleSlot = Sampling() and slot or nil
-        if entry.sampleSlot ~= sampleSlot or entry.sampleShape ~= shape then
+        if entry.sampleSlot ~= sampleSlot or entry.sampleLook ~= look then
             entry.StopSample()
-            entry.sampleSlot, entry.sampleShape = sampleSlot, shape
+            entry.sampleSlot, entry.sampleLook = sampleSlot, look
             if sampleSlot then
                 entry.StartSample(sampleSlot)
             end
@@ -161,6 +187,25 @@ for index = 1, COUNT do
             end
         end,
     }
+    -- The shown ability's end marker, if it has one (else greyed out at Off). Like the shape, it
+    -- belongs to the ability.
+    local function Ticked()
+        local key = Picked(slot)
+        return key and entries[key].tick and key or nil
+    end
+    local tickOption = { key = "endMarker", type = "choice", label = L["DoT End Marker"], values = TICKS,
+        enabled = function() return Ticked() ~= nil end,
+        get = function()
+            local key = Ticked()
+            return key and ns.ComboRingTick(key) or TICK_NONE
+        end,
+        set = function(value)
+            local key = Ticked()
+            if key then
+                ns.SetElementOption(AbilityId(key), "tick", value ~= entries[key].tick and value or nil)
+            end
+        end,
+    }
 
     ns.RegisterElement({
         id = slot.id,
@@ -173,15 +218,25 @@ for index = 1, COUNT do
         order = index,
         -- Pickable whenever the combo points show in preview mode, even while the slot's sample is
         -- between loops or the slot is empty.
-        hit = ns.ComboRingHit(index, Sampling),
+        hit = ns.ComboRingHit(index, Sampling, function()
+            -- The shown DoT's end marker sticks out past the band: clicking it opens this page too.
+            local key = Ticked()
+            local width, bottom, top
+            if key and entries[key].TickRect then
+                width, bottom, top = entries[key].TickRect()
+            end
+            return width, bottom, top
+        end),
         options = {
             slot.spellOption,
             shapeOption,
+            tickOption,
             { key = "opacity", type = "slider", label = L["Opacity"], min = 0, max = 100, step = 5, format = "%.0f%%", default = 100 },
         },
         onReset = function()
-            -- Reset to defaults puts the shown ability's shape back too: it's on this page.
-            local key = Shaped()
+            -- Reset to defaults puts the shown ability's shape and end marker back too: they're on
+            -- this page.
+            local key = Picked(slot)
             if key then
                 ns.db.elements[AbilityId(key)] = nil
             end

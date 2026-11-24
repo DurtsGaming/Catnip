@@ -49,10 +49,18 @@ end
 
 -- Preview mode's hit for a ring around dot i: its band (ring_rip's, 47-63 of 128 on a canvas
 -- DOT_SIZE + 8 across) from just inside the dot's edge, so the dot keeps its middle.
-function ns.ComboRingHit(i, visible)
+-- tick(), if given, returns the box of a marker standing at the ring's 12 o'clock (width, bottom,
+-- top from the dot's centre; nil for none), added to the hit as `notch` (see Preview.lua).
+function ns.ComboRingHit(i, visible, tick)
     local x, y = ns.ComboDotOffset(i)
+    local notch = tick and function()
+        local width, bottom, top = tick()
+        if width then
+            return x - width / 2, y + bottom, width, top - bottom
+        end
+    end
     return { kind = "ring", x = x, y = y, inner = DOT_SIZE / 2 - 2, outer = (DOT_SIZE + 8) * 63 / 128 + 2,
-        visible = visible }
+        visible = visible, notch = notch }
 end
 
 -- Each fill is a StatusBar ranging i-1..i, fed the raw count: full when points >= i, empty below.
@@ -91,9 +99,9 @@ end
 -- vertical StatusBar Blizzard runs from the debuff's real time left: every stack shown drains top to
 -- bottom together, and full again when a new stack refreshes it. Buttons can't be touched after setup, so
 -- each carries its own fill and border, and doesn't follow stealth mode.
--- Every rank's aura has its own ID: the one from in-game, ForeverAuras' data (unconfirmed), and
--- whichever rank the player knows, added as it's learned.
-local LACERATE = { ns.SPELL.LACERATE, 414644, 1235826, 1235827 }
+-- Every rank's aura has its own ID: ranks 1-5 (checked on Wowhead's Forever data, 2026-11-23), and
+-- whichever rank the player knows, added as it's learned, in case a rank changes.
+local LACERATE = { ns.SPELL.LACERATE, 1328616, 414644, 1235826, 1235827 }
 local CAN_COUNT = C_AuraContainerUtil and C_AuraContainerUtil.ProcessCustomAuraButtonApplicationBarOptions and true or false
 local LACERATE_LEVEL = 1 -- above the HUD, under the rings around the dots
 

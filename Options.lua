@@ -6,7 +6,7 @@
 --
 -- Controls are grouped into tabs (and a tab can have sub-tabs); each tab is a page laid out top to
 -- bottom. Pages sit in a scroll area, so the window can be resized smaller than its content: drag
--- the bottom-right corner (size saved in CatnipDB.optionsWidth/optionsHeight). Controls stretch to
+-- the bottom-right corner (size saved in CatnipDB.optionsWidth/optionsHeight, position in optionsLeft/optionsTop). Controls stretch to
 -- the window's width.
 local addonName, ns = ...
 local L = ns.L
@@ -129,9 +129,25 @@ window:SetClampedToScreen(true)
 window:SetMovable(true)
 window:EnableMouse(true)
 window:RegisterForDrag("LeftButton")
+-- Where it was left (its top-left corner from the screen's bottom left), saved in CatnipDB
+-- (optionsLeft/optionsTop) after a move or resize and put back on load; centred until then.
+-- Re-anchored by that corner, as the resize grip needs.
+local function SavePosition()
+    local left, top = window:GetLeft(), window:GetTop()
+    if not (left and top) then
+        return
+    end
+    window:ClearAllPoints()
+    window:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+    ns.db.optionsLeft = math.floor(left + 0.5)
+    ns.db.optionsTop = math.floor(top + 0.5)
+end
 window:SetScript("OnDragStart", window.StartMoving)
-window:SetScript("OnDragStop", window.StopMovingOrSizing)
-if window.SetDontSavePosition then
+window:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+    SavePosition()
+end)
+if window.SetDontSavePosition then -- we save it ourselves
     window:SetDontSavePosition(true)
 end
 window:Hide()
@@ -213,6 +229,7 @@ grip:SetScript("OnMouseUp", function(self)
     self:SetScript("OnUpdate", nil)
     ns.db.optionsWidth = math.floor(window:GetWidth() + 0.5)
     ns.db.optionsHeight = math.floor(window:GetHeight() + 0.5)
+    SavePosition()
 end)
 
 -- Tabs -------------------------------------------------------------------------------------------
@@ -307,6 +324,7 @@ local SIDE_TAB_ICONS = {
     General = "Interface\\Icons\\INV_Misc_Gear_01", -- a cog
     Rotation = ShiftingPowerIcon,
     Cooldown = "Interface\\Icons\\INV_Misc_PocketWatch_01", -- a pocket watch
+    Changelog = "Interface\\Icons\\INV_Misc_Note_01", -- a note
 }
 
 -- A makeTab for TabGroup: side tabs down the window's right edge, as on Blizzard's Character
@@ -1999,6 +2017,207 @@ cooldowns.height = cooldowns.bodyTop - y
 cooldowns.page:SetHeight(cooldowns.height)
 cooldowns.page.stretch = page.stretch
 
+-- Changelog tab ----------------------------------------------------------------------------------
+
+-- What's new in each version (Changelog.lua). On the left, a scrolling list of versions, newest
+-- first; filling the rest, a scrolling black box with the picked version's notes: its number and
+-- date, then New Features (the headline), Improvements and Fixes, a bulleted line per change,
+-- wrapped to the box's width. Built in a block of its own so its locals end with it, as the
+-- Rotation tab is (a Lua function, this file's main chunk included, has at most 200).
+local changelog = topTabs.Add(L["Changelog"], "Changelog")
+changelog.wide = true -- room for the version list beside the notes
+do
+    local LIST_WIDTH = 120 -- the card's painted edge takes ~9px a side
+    local ROW_HEIGHT = 36
+    local GAP = 8 -- between the list and the notes
+    local NOTES_PAD = 12
+    local BULLET_INDENT = 14
+    local GUTTER = ns.OptionsScrollWidth + 4 -- room for a box's scrollbar, inside its edge
+    local CATEGORIES = {
+        { key = "features", name = L["New Features"] },
+        { key = "improvements", name = L["Improvements"] },
+        { key = "fixes", name = L["Fixes"] },
+    }
+
+    local holder = CreateFrame("Frame", nil, Host())
+
+    -- A scrolling box on holder: with `card`, the settings panels' card (as under the Rotation
+    -- tab's element list), else black (the Abilities list's look). Returns the box (to place), the
+    -- ScrollFrame inside its edge, the scrolled content and its scroller (bar inside the edge).
+    local function ScrollBox(gutter, card)
+        local box = CreateFrame("Frame", nil, holder)
+        local inset
+        if card then
+            art.Panel(box)
+            inset = art.EDGE_INSET + 3
+        else
+            Box(box, WELL, BRONZE_DIM)
+            inset = 1
+        end
+        local frame = CreateFrame("ScrollFrame", nil, box)
+        frame:SetPoint("TOPLEFT", inset, -inset)
+        frame:SetPoint("BOTTOMRIGHT", -inset, inset)
+        local content = CreateFrame("Frame", nil, frame)
+        content:SetSize(1, 1)
+        frame:SetScrollChild(content)
+        local scroller = ns.OptionsScroll(frame, content, SCROLL_STEP, gutter)
+        scroller.bar:SetPoint("TOPRIGHT", -2, -2)
+        scroller.bar:SetPoint("BOTTOMRIGHT", -2, 2)
+        return box, frame, content, scroller
+    end
+
+    -- Rows narrow while its bar shows.
+    local listBox, list, listContent, listScroll = ScrollBox(GUTTER, true)
+    listBox:SetPoint("TOPLEFT")
+    listBox:SetPoint("BOTTOMLEFT")
+    listBox:SetWidth(LIST_WIDTH)
+    list:SetScript("OnSizeChanged", function()
+        listContent:SetWidth(list:GetWidth())
+        listScroll.Update()
+    end)
+
+    -- Room for the bar is always kept (Layout).
+    local notesBox, notes, notesContent, notesScroll = ScrollBox()
+    notesBox:SetPoint("TOPLEFT", listBox, "TOPRIGHT", GAP, 0)
+    notesBox:SetPoint("BOTTOMRIGHT")
+
+    local function Text(parent, font, text, colour)
+        local region = parent:CreateFontString(nil, "OVERLAY", font)
+        region:SetJustifyH("LEFT")
+        region:SetJustifyV("TOP")
+        region:SetText(text)
+        if colour then
+            region:SetTextColor(unpack(colour))
+        end
+        return region
+    end
+
+    -- A version's notes, made the first time it's picked. Layout(width) wraps and stacks its lines
+    -- to `width` and returns their height.
+    local function NotesPage(release)
+        local page = CreateFrame("Frame", nil, notesContent)
+        page:SetPoint("TOPLEFT", NOTES_PAD, -NOTES_PAD)
+        local lines = {} -- in order: { text, gap above, bullet (for a change) }
+        lines[#lines + 1] = { text = Text(page, "GameFontNormalLarge", L["Version %s"]:format(release.version), GOLD), gap = 0 }
+        lines[#lines + 1] = { text = Text(page, "GameFontHighlightSmall", release.date or L["Not yet released"], MUTED), gap = 3 }
+        for _, category in ipairs(CATEGORIES) do
+            local changes = release[category.key]
+            if changes and #changes > 0 then
+                lines[#lines + 1] = { text = Text(page, "GameFontNormal", category.name, GOLD), gap = 16 }
+                for i, change in ipairs(changes) do
+                    local bullet = page:CreateTexture(nil, "OVERLAY")
+                    bullet:SetTexture(ns.MEDIA .. "circle_small")
+                    bullet:SetSize(5, 5)
+                    bullet:SetVertexColor(unpack(GOLD))
+                    lines[#lines + 1] = { text = Text(page, "GameFontHighlight", change), gap = i == 1 and 8 or 6, bullet = bullet }
+                end
+            end
+        end
+        function page.Layout(width)
+            local y = 0
+            for _, line in ipairs(lines) do
+                y = y + line.gap
+                local indent = line.bullet and BULLET_INDENT or 0
+                line.text:SetWidth(width - indent)
+                line.text:ClearAllPoints()
+                line.text:SetPoint("TOPLEFT", indent, -y)
+                if line.bullet then
+                    line.bullet:ClearAllPoints()
+                    line.bullet:SetPoint("TOPLEFT", 3, -y - 4) -- centred on the first line
+                end
+                y = y + line.text:GetStringHeight()
+            end
+            page:SetSize(width, math.max(1, y))
+            return y
+        end
+        return page
+    end
+
+    local pages = {} -- by release
+    local selected -- the release shown
+
+    -- Wraps the shown notes to the box's width (less room for its scrollbar) and fits the scrolling.
+    local function Layout()
+        local page = selected and pages[selected]
+        local width = notes:GetWidth() - 2 * NOTES_PAD - GUTTER
+        if not page or width <= 0 then
+            return -- not sized yet: OnSizeChanged will come
+        end
+        local height = page.Layout(width)
+        notesContent:SetSize(notes:GetWidth(), height + 2 * NOTES_PAD)
+        notesScroll.Update()
+    end
+    notes:SetScript("OnSizeChanged", Layout)
+
+    -- The version rows: the number, and the date (or "Not yet released") under it; gold when
+    -- picked, blue on hover, as the Rotation tab's element rows.
+    local rows = {}
+    local function Select(release)
+        if selected and pages[selected] then
+            pages[selected]:Hide()
+        end
+        selected = release
+        pages[release] = pages[release] or NotesPage(release)
+        pages[release]:Show()
+        for _, row in ipairs(rows) do
+            row.Paint()
+        end
+        notesScroll.ScrollTo(0)
+        Layout()
+    end
+
+    for i, release in ipairs(ns.CHANGELOG) do
+        local row = CreateFrame("Button", nil, listContent)
+        local top = -(i - 1) * (ROW_HEIGHT + 1)
+        row:SetHeight(ROW_HEIGHT)
+        row:SetPoint("TOPLEFT", 0, top)
+        row:SetPoint("TOPRIGHT", 0, top)
+        local fill = row:CreateTexture(nil, "BACKGROUND")
+        fill:SetAllPoints()
+        local outline = Outline(row)
+        local version = Text(row, "GameFontHighlight", release.version)
+        version:SetPoint("TOPLEFT", 8, -5)
+        local released = Text(row, "GameFontHighlightSmall", release.date or L["Not yet released"], MUTED)
+        released:SetPoint("TOPLEFT", version, "BOTTOMLEFT", 0, -3)
+        released:SetPoint("RIGHT", -4, 0)
+        released:SetWordWrap(false)
+
+        local hovered = false
+        function row.Paint()
+            if release == selected then
+                outline(unpack(GOLD))
+                fill:SetColorTexture(GOLD[1], GOLD[2], GOLD[3], 0.12)
+            elseif hovered then
+                outline(HOVER_BLUE[1], HOVER_BLUE[2], HOVER_BLUE[3], 0.7)
+                fill:SetColorTexture(HOVER_BLUE[1], HOVER_BLUE[2], HOVER_BLUE[3], 0.06)
+            else
+                outline(unpack(CLEAR))
+                fill:SetColorTexture(unpack(CLEAR))
+            end
+            version:SetTextColor(unpack(release == selected and WHITE or MUTED))
+        end
+        row:SetScript("OnEnter", function()
+            hovered = true
+            row.Paint()
+        end)
+        row:SetScript("OnLeave", function()
+            hovered = false
+            row.Paint()
+        end)
+        row:SetScript("OnClick", function() Select(release) end)
+        rows[i] = row
+    end
+    listContent:SetHeight(#ns.CHANGELOG * (ROW_HEIGHT + 1))
+
+    if ns.CHANGELOG[1] then
+        Select(ns.CHANGELOG[1]) -- the newest
+    end
+
+    -- The two boxes fill the window below the tab's top.
+    Stretch(holder, 240)
+end
+EndTab(changelog)
+
 -- Wiring -----------------------------------------------------------------------------------------
 
 local function Refresh()
@@ -2027,6 +2246,12 @@ end)
 ns.OnLoad(function()
     -- Clamped, so a saved size from a bigger screen (or a bad resize) can't hide the grip.
     window:SetSize(ClampSize(ns.db.optionsWidth or MIN_WIDTH, ns.db.optionsHeight or DEFAULT_HEIGHT))
+    -- And where it was left. Clamped to the screen (SetClampedToScreen) if that's now off it, e.g.
+    -- after a change to a smaller resolution.
+    if ns.db.optionsLeft and ns.db.optionsTop then
+        window:ClearAllPoints()
+        window:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", ns.db.optionsLeft, ns.db.optionsTop)
+    end
 end)
 
 ns.commands[""] = function()

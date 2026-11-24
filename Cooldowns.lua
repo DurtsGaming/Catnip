@@ -147,10 +147,29 @@ local function CurrentSpell(spellID)
     return (ok and type(current) == "number" and current > 0) and current or spellID
 end
 
+-- Whether auraID is another spell in our spellbook (any rank we know), not spellID under another
+-- rank's ID. Such an aura came from a cast of its own, never as the side effect of spellID: Regrowth's
+-- HoT once got learned as Innervate's buff (cast queued as Regrowth landed, 2026-11-23), lighting
+-- Innervate's icon whenever Regrowth was up.
+local function IsOtherSpellOfMine(auraID, spellID)
+    if not IsPlayerSpell or not IsPlayerSpell(auraID) then
+        return false
+    end
+    local auraName, name = C_Spell.GetSpellName(auraID), C_Spell.GetSpellName(spellID)
+    return not (auraName and auraName == name)
+end
+
 -- The auras that count as "active" for an ability: its own spell ID, plus any aura learned for it.
+-- A learned aura that is another of our spells is a bad guess from before IsOtherSpellOfMine: forget it.
 local function BuffIDs(spellID)
     local ids = { spellID }
-    local learned = ns.db.cdBuffs[C_Spell.GetSpellName(spellID) or ""]
+    local name = C_Spell.GetSpellName(spellID) or ""
+    local learned = ns.db.cdBuffs[name]
+    if learned and IsOtherSpellOfMine(learned, spellID) then
+        ns.Debug("Cooldowns: forgetting", C_Spell.GetSpellName(learned), "as", name .. "'s aura")
+        ns.db.cdBuffs[name] = nil
+        learned = nil
+    end
     if learned and learned ~= spellID then
         ids[2] = learned
     end
@@ -313,6 +332,7 @@ local function LearnBuff(spellID, castTime)
                 return
             end
             if aura.sourceUnit == "player" and auraID and not IGNORED_BUFFS[auraID]
+                and not IsOtherSpellOfMine(auraID, spellID)
                 and duration and duration > 0 and expires then
                 local gap = math.abs(expires - duration - castTime)
                 if gap <= LEARN_WINDOW and (not bestGap or gap < bestGap) then
@@ -1096,6 +1116,7 @@ events:SetScript("OnEvent", function(_, event, _, _, spellID)
     end
     if event == "SPELLS_CHANGED" then
         FollowRanks(KnownCooldownSpells())
+        RefreshAuraFilters() -- the spellbook is known now: BuffIDs can drop learned auras that are our own spells
         ns.SettingsChanged() -- the settings list may need new spells
     end
     RequestUpdate()
