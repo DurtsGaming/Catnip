@@ -27,6 +27,7 @@ local L = ns.L
 ns.CHANGELOG = {
     {
         version = "1.3.0",
+        date = "2026-11-25",
         features = {
             L["DoT End Marker: pick the size of the bar at the top of the Rake and Rip rings (Off, Small, Medium or Large) on the Combo Ring pages. It's bigger by default."],
             L["Changelog: a new settings tab showing what's new in each version."],
