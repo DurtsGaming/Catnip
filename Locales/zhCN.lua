@@ -49,6 +49,10 @@ L["Rotation Frame"] = "循环框体"
 L["Stealth Mode"] = "潜行模式"
 L["Enabled"] = "启用"
 L["Opacity while stealthed"] = "潜行时不透明度"
+-- L["Forms"] = ""
+L["Caster"] = "人形态"
+L["Bear"] = "熊"
+L["Cat"] = "豹"
 
 -- Resource.lua
 L["Resource Circle"] = "资源圆环"
@@ -82,7 +86,6 @@ L["Swing Timer"] = "平砍计时条"
 L["Bar opacity"] = "计时条不透明度"
 L["Color"] = "颜色"
 L["Maul queued color"] = "槌击排队颜色"
--- L["Show swing timer value as text"] = ""
 L["Maul Orb"] = "槌击光球"
 L["The swing timer isn't supported in this version of the game."] = "当前游戏版本不支持平砍计时条。"
 
@@ -95,6 +98,7 @@ L["Swing/Cast Timer"] = "平砍/施法计时"
 L["Timer size"] = "计时文字大小"
 L["Spell name size"] = "法术名称大小"
 L["Match Maul color when queued"] = "槌击排队时同步颜色"
+-- L["Show swing timer value as text"] = ""
 L["Cast Timer"] = "施法计时条"
 
 -- ManaPrediction.lua
@@ -158,16 +162,12 @@ L["Done"] = "完成"
 L["Catnip Settings"] = "Catnip 设置"
 L["Edit Mode can't open in combat."] = "战斗中无法打开编辑模式。"
 
--- Preview.lua
-L["Caster"] = "人形态"
-L["Bear"] = "熊"
-L["Cat"] = "豹"
-
 -- Changelog.lua
 -- L["DoT End Marker: pick the size of the bar at the top of the Rake and Rip rings (Off, Small, Medium or Large) on the Combo Ring pages. It's bigger by default."] = ""
 -- L["Changelog: a new settings tab showing what's new in each version."] = ""
 -- L["The settings window opens where you last left it."] = ""
 -- L["Swing timer text is now an option"] = ""
+-- L["Choose which forms the Rotation Frame shows in (Caster, Bear, Cat) under Rotation > General > Forms."] = ""
 -- L["Fixed an issue where some spell IDs were being learned incorrectly."] = ""
 
 -- Options.lua
@@ -198,6 +198,7 @@ L["Preview"] = "预览"
 L["Stealth"] = "潜行"
 L["Reset to defaults"] = "恢复默认设置"
 L["Default font and outline. Elements can choose their own."] = "默认字体和描边，各元素可单独设置。"
+-- L["Show the Rotation Frame in these forms."] = ""
 L["Cooldown"] = "冷却"
 L["Resets the frame's size, position, icons and opacity. Your tracked abilities are kept."] = "重置框体的大小、位置、图标和不透明度，已追踪的技能会保留。"
 L["Height"] = "高度"

@@ -444,11 +444,24 @@ local function SetMouseHover(element)
     Refresh()
 end
 
+-- While the HUD is hidden in the previewed form (Layout.lua's Forms page), nothing can be picked.
+local formHidden = false
+
 -- Each frame while active: what's under the mouse, and whether texts have come or gone.
 layer:SetScript("OnUpdate", function()
-    SetMouseHover(HitTest())
+    SetMouseHover(not formHidden and HitTest() or nil)
     Refresh()
 end)
+
+-- Layout.lua: the HUD is (or isn't) hidden for its form. The layer ignores the HUD's alpha, so its
+-- outlines are faded here, and hovering and clicking stop.
+function Preview.SetFormHidden(hidden)
+    formHidden = hidden and true or false
+    layer:SetAlpha(formHidden and 0 or 1)
+    if formHidden then
+        SetMouseHover(nil)
+    end
+end
 
 catcher:SetScript("OnMouseUp", function(_, button)
     if button == "LeftButton" and mouseHoverId then
@@ -509,6 +522,9 @@ local function SetState(to, stealth)
     state, stealthed = to, stealth
     if active then
         ApplySamples(state)
+        if ns.RefreshHudAlpha then
+            ns.RefreshHudAlpha() -- the previewed form may be one the HUD is switched off for
+        end
     end
     if Preview.onStateChanged then
         Preview.onStateChanged()
@@ -526,6 +542,9 @@ local function Update()
         SetState(CurrentState()) -- before turning on, so it's read from the game
     end
     active = now
+    if ns.RefreshHudAlpha then
+        ns.RefreshHudAlpha() -- follows the previewed form now, or the real one again
+    end
     if not now then
         SetMouseHover(nil)
     end

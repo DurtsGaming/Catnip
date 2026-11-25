@@ -1618,6 +1618,13 @@ do
         EndTab(textPage)
     end
     ElementPage(ns.GetElement("stealth"), generalZone) -- Stealth Mode (Layout.lua)
+    local formsElement = ns.GetElement("forms") -- Forms (Layout.lua): which forms the frame shows in
+    local formsPage = AddRow(generalZone, formsElement.name, formsElement.glyph, "forms")
+    Section(formsElement.name)
+    Hint(L["Show the Rotation Frame in these forms."])
+    ElementControls(formsElement)
+    paneButtons[#paneButtons + 1] = Button(L["Reset to defaults"], function() ns.ResetElement("forms") end)
+    EndTab(formsPage)
     generalZone.height = -listY
 
     -- Each zone's elements, group by group under the group's heading, by their `order` (e.g. the combo

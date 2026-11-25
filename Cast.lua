@@ -86,6 +86,8 @@ ns.RegisterElement({
             default = 12 },
         -- Read by Swing.lua: the swing time takes the Maul queued colour while Maul is queued.
         { key = "matchMaul", type = "checkbox", label = L["Match Maul color when queued"], default = true },
+        -- Read by Swing.lua: shows or hides the swing time (the cast text isn't affected).
+        { key = "showSwing", type = "checkbox", label = L["Show swing timer value as text"], default = true },
     },
     apply = function(get)
         local font, outline = ns.ElementOption("general", "font"), ns.ElementOption("general", "outline")

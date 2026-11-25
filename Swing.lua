@@ -3,7 +3,7 @@
 -- (Midnight-era API); tints amber (the "Maul queued color" setting), with a dot in the same colour at 12 o'clock,
 -- while Maul is queued. Below it, "elapsed / total" text while a swing counts down, also tinted
 -- while Maul is queued unless the Swing/Cast Timer's "Match Maul Color When Queued" is off. The
--- Swing Timer's "Show swing timer value as text" setting shows or hides the text.
+-- Swing/Cast Timer's "Show swing timer value as text" setting shows or hides the text.
 local addonName, ns = ...
 local L = ns.L
 local CreateFrame = ns.Profiled("Swing") -- timed by /catnip perf (Profiler.lua)
@@ -98,7 +98,7 @@ timeText:SetPoint("TOP")
 ns.swingInfo, ns.swingTimeText = info, timeText
 
 local swingStart, swingDuration
-local showText = true -- the Swing Timer's "Show swing timer value as text" setting (apply, below)
+local showText = true -- the Swing/Cast Timer's "Show swing timer value as text" setting (Cast.lua; read in apply, below)
 
 -- Preview mode (Preview.lua): while sampling, a made-up swing loops on the ring and text (in the
 -- forms that swing: 1.0s in Cat, 2.5s in Bear, roughly their real speeds), and real swings are only
@@ -240,13 +240,13 @@ ns.RegisterElement({
         Percent("glowOpacity", L["Background opacity"], 75),
         { key = "color", type = "color", label = L["Color"], default = COLOR },
         { key = "maulColor", type = "color", label = L["Maul queued color"], default = MAUL_COLOR },
-        { key = "showText", type = "checkbox", label = L["Show swing timer value as text"], default = true },
     },
-    -- Every element reapplies on any change, so this also picks up "Match Maul Color When Queued" (Cast.lua).
+    -- Every element reapplies on any change, so this also picks up the Swing/Cast Timer's "Match Maul
+    -- Color When Queued" and "Show swing timer value as text" (Cast.lua).
     apply = function(get)
         ringOpacity = get("barOpacity") / 100
         glow:SetVertexColor(0, 0, 0, get("glowOpacity") / 100)
-        showText = get("showText")
+        showText = ns.ElementOption("text.under", "showSwing")
         if not showText then
             timeText:Hide() -- OnUpdate keeps it hidden, and shows it again once turned back on
         end

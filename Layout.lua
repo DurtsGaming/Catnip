@@ -14,10 +14,50 @@ end
 
 local hud = ns.hud
 local stealthShare = 1 -- Stealth opacity (below): a share of Overall opacity while stealthed
+local showInForm = { caster = true, bear = true, cat = true } -- the Forms page (below)
 
--- Overall opacity, times Stealth opacity while stealthed (Prowl or Shadowmeld).
+-- The player's form from their power type, as Preview.lua reads it: Rage is Bear Form, Energy (or a
+-- secret power type) Cat Form, anything else (mana: caster, Moonkin, Travel...) Caster.
+local function CurrentForm()
+    local powerType = UnitPowerType("player")
+    if ns.IsSecret(powerType) or powerType == Enum.PowerType.Energy then
+        return "cat"
+    elseif powerType == Enum.PowerType.Rage then
+        return "bear"
+    end
+    return "caster"
+end
+
+-- Whether the HUD shows in the current form. In preview mode (the settings window's Rotation tab)
+-- the form is the previewed one, so switching a form off shows there too. Always while it's being
+-- moved: Catnip's Edit Mode, or Blizzard's.
+local function ShownInForm()
+    if (ns.IsHudUnlocked and ns.IsHudUnlocked())
+        or (EditModeManagerFrame and EditModeManagerFrame:IsShown()) then
+        return true
+    end
+    local previewing = ns.Preview and ns.Preview.IsActive()
+    return showInForm[previewing and ns.Preview.GetState() or CurrentForm()]
+end
+
+-- Overall opacity, times Stealth opacity while stealthed (Prowl or Shadowmeld); 0 in a form the HUD
+-- is switched off for. Alpha rather than Hide: the HUD holds AuraContainers, and alpha is safe to
+-- change in combat, where most form changes happen.
 local function HudAlpha()
+    if not ShownInForm() then
+        return 0
+    end
     return ns.db.hudAlpha * (ns.IsStealthMode() and stealthShare or 1)
+end
+
+-- Re-reads the form (and preview / Edit Mode) and fades the HUD to match.
+function ns.RefreshHudAlpha()
+    if ns.db then
+        hud:SetAlpha(HudAlpha())
+        if ns.Preview and ns.Preview.SetFormHidden then
+            ns.Preview.SetFormHidden(not ShownInForm()) -- its outlines ignore the HUD's alpha
+        end
+    end
 end
 
 hud:SetMovable(true)
@@ -159,3 +199,30 @@ ns.RegisterElement({
     end,
 })
 ns.OnStealthChanged(function() hud:SetAlpha(HudAlpha()) end)
+
+-- Forms, under General in the settings window: which forms the Rotation Frame shows in (all by
+-- default). Switched off in a form, the HUD fades out while in it (HudAlpha).
+ns.RegisterElement({
+    id = "forms",
+    name = L["Forms"],
+    glyph = { kind = "disc", color = { 0.85, 0.65, 0.3 } },
+    options = {
+        { key = "caster", type = "checkbox", label = L["Caster"], default = true },
+        { key = "bear", type = "checkbox", label = L["Bear"], default = true },
+        { key = "cat", type = "checkbox", label = L["Cat"], default = true },
+    },
+    apply = function(get)
+        showInForm.caster, showInForm.bear, showInForm.cat = get("caster"), get("bear"), get("cat")
+        ns.RefreshHudAlpha()
+    end,
+})
+
+local formEvents = CreateFrame("Frame")
+formEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
+formEvents:RegisterUnitEvent("UNIT_DISPLAYPOWER", "player") -- into and out of Bear and Cat Form
+formEvents:SetScript("OnEvent", ns.RefreshHudAlpha)
+ns.OnSettingsChanged(ns.RefreshHudAlpha) -- Catnip's Edit Mode opening or closing
+if EditModeManagerFrame then
+    EditModeManagerFrame:HookScript("OnShow", ns.RefreshHudAlpha)
+    EditModeManagerFrame:HookScript("OnHide", ns.RefreshHudAlpha)
+end

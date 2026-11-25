@@ -34,6 +34,7 @@ ns.CHANGELOG = {
         improvements = {
             L["The settings window opens where you last left it."],
             L["Swing timer text is now an option"],
+            L["Choose which forms the Rotation Frame shows in (Caster, Bear, Cat) under Rotation > General > Forms."],
         },
         fixes = {
             L["Fixed an issue where some spell IDs were being learned incorrectly."],
