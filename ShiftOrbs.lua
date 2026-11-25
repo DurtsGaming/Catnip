@@ -23,6 +23,10 @@
 -- EllesmereUI feeds curve results to SetAlpha). The cost and max mana are plain numbers out of
 -- combat; the curves are rebuilt then.
 --
+-- Because of that, the curves drift if cost or max mana changes mid-fight, and an orb could show
+-- when the shift can't be paid for (seen, 2026-11-24). So C_Spell.IsSpellUsable's "not enough
+-- mana" for the form you'd shift into overrides them: if it's set, no orbs (ShortOnMana).
+--
 -- The design's 0.1s fade when the count changes isn't done: in combat we can't tell the count
 -- changed, so the rows just swap. (Out of combat it could be; not worth it while undecided.)
 --
@@ -56,6 +60,8 @@ local NEAR = 0.8 -- a ghost orb shows once the next orb is this far paid for (ow
 local GHOST_GREY = 0.55 -- the ghost's desaturated art is darkened to this
 local MANA = Enum.PowerType.Mana
 local SHIFT_SPELLS = { ns.SPELL.CAT_FORM, ns.SPELL.DIRE_BEAR_FORM, ns.SPELL.BEAR_FORM } -- all cost the same
+local CAT_SPELLS = { ns.SPELL.CAT_FORM }
+local BEAR_SPELLS = { ns.SPELL.DIRE_BEAR_FORM, ns.SPELL.BEAR_FORM }
 local SHIFTING_POWER = { ns.SPELL.SHIFTING_POWER }
 local CAN_COUNT = UnitPowerPercent ~= nil and C_CurveUtil ~= nil and C_CurveUtil.CreateCurve ~= nil
     and Enum.LuaCurveType ~= nil
@@ -163,6 +169,7 @@ local cost, maxMana -- mana per shift and max mana, as last read out of combat; 
 local fullCurves, shortCurves, almostCurves = {}, {}, {}
 local affordCurve -- 1 from one shift's worth of mana up: gates ShiftingPower.lua's ready pulse
 local hasShiftingPower = false
+local catSpell, bearSpell -- known form spells (highest rank), for the can-afford check; nil if not learned
 local inCombat = false -- from PLAYER_REGEN_DISABLED / _ENABLED
 local lostCurves = {} -- lostCurves[castCost][i]: 1 while orb i would be lost to that cast; reset in Rebuild
 local predictCost -- the cast's mana cost while ManaPrediction.lua shows a band, else nil
@@ -229,6 +236,7 @@ end
 -- combat they keep the values from the last time.
 local function Rebuild()
     hasShiftingPower = ns.FindKnownSpell(SHIFTING_POWER) ~= nil
+    catSpell, bearSpell = ns.FindKnownSpell(CAT_SPELLS), ns.FindKnownSpell(BEAR_SPELLS)
     local spellID = ns.FindKnownSpell(SHIFT_SPELLS)
     if not spellID then
         cost = nil -- no form learned yet
@@ -343,6 +351,33 @@ local function ShowSample()
     end
 end
 
+-- True if the game says you're short on mana for the form you'd shift into (Bear from Cat Form,
+-- else Cat, or Bear before Cat is learned). The curves use cost and max mana from the last time out
+-- of combat, so they drift if either changes in a fight (an Intellect buff dropping off); this asks
+-- the game directly. False if it can't tell (missing API, secret answer).
+local function ShortOnMana()
+    if not (C_Spell and C_Spell.IsSpellUsable) then
+        return false
+    end
+    local powerType = UnitPowerType("player")
+    local spellID
+    if not ns.IsSecret(powerType) and powerType == Enum.PowerType.Energy then
+        spellID = bearSpell or catSpell
+    else
+        spellID = catSpell or bearSpell
+    end
+    if not spellID then
+        return false
+    end
+    local ok, _, noMana = pcall(C_Spell.IsSpellUsable, spellID)
+    if not ok or noMana == nil or ns.IsSecret(noMana) then
+        return false
+    end
+    return noMana and true or false
+end
+
+local lastShort -- ShortOnMana's last answer, for the debug log
+
 local function Update()
     if sampleState then
         ShowSample()
@@ -360,11 +395,24 @@ local function Update()
     -- test them.)
     local almost = showGhost and not ns.InFiveSecondRule()
     local plainCurves = almost and shortCurves or fullCurves
+    -- The game says you can't afford a shift: no orbs, whatever the curves say (only the lone
+    -- ghost for zero may still show).
+    local short = ShortOnMana()
+    if short ~= lastShort then
+        lastShort = short
+        ns.Debug("shift orbs: game says short on mana for a shift:", short)
+    end
     for n, row in ipairs(rows) do
-        row:SetAlpha(UnitPowerPercent("player", MANA, false, plainCurves[n]))
+        if short then
+            row:SetAlpha(0)
+        else
+            row:SetAlpha(UnitPowerPercent("player", MANA, false, plainCurves[n]))
+        end
     end
     for n = 0, MAX_ORBS - 1 do
-        if almost then
+        if short and n > 0 then
+            almostRows[n]:SetAlpha(0)
+        elseif almost then
             almostRows[n]:SetAlpha(UnitPowerPercent("player", MANA, false, almostCurves[n]))
         else
             almostRows[n]:SetAlpha(0)
@@ -449,6 +497,7 @@ events:RegisterEvent("SPELLS_CHANGED")
 events:RegisterUnitEvent("UNIT_POWER_FREQUENT", "player")
 events:RegisterUnitEvent("UNIT_MAXPOWER", "player")
 events:RegisterUnitEvent("UNIT_DISPLAYPOWER", "player")
+ns.TryRegisterEvent(events, "SPELL_UPDATE_USABLE") -- the can-afford check (ShortOnMana)
 ns.TryRegisterEvent(events, "PLAYER_TALENT_UPDATE")
 ns.TryRegisterEvent(events, "TRAIT_CONFIG_UPDATED")
 events:SetScript("OnEvent", function(_, event, _, powerToken)
@@ -456,7 +505,7 @@ events:SetScript("OnEvent", function(_, event, _, powerToken)
         if powerToken == "MANA" then
             Update()
         end
-    elseif event == "UNIT_DISPLAYPOWER" then
+    elseif event == "UNIT_DISPLAYPOWER" or event == "SPELL_UPDATE_USABLE" then
         Update()
     elseif event == "PLAYER_REGEN_DISABLED" then
         inCombat = true

@@ -35,9 +35,11 @@ ns.CHANGELOG = {
             L["The settings window opens where you last left it."],
             L["Swing timer text is now an option"],
             L["Choose which forms the Rotation Frame shows in (Caster, Bear, Cat) under Rotation > General > Forms."],
+            L["Improved Lacerate stack textures"],
         },
         fixes = {
             L["Fixed an issue where some spell IDs were being learned incorrectly."],
+            L["Fixed a bug showing a Shift Orb when you didn't have enough mana to shift into Bear or Cat Form."],
         },
     },
 }

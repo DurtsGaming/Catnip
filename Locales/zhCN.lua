@@ -168,7 +168,9 @@ L["Edit Mode can't open in combat."] = "战斗中无法打开编辑模式。"
 -- L["The settings window opens where you last left it."] = ""
 -- L["Swing timer text is now an option"] = ""
 -- L["Choose which forms the Rotation Frame shows in (Caster, Bear, Cat) under Rotation > General > Forms."] = ""
+-- L["Improved Lacerate stack textures"] = ""
 -- L["Fixed an issue where some spell IDs were being learned incorrectly."] = ""
+-- L["Fixed a bug showing a Shift Orb when you didn't have enough mana to shift into Bear or Cat Form."] = ""
 
 -- Options.lua
 L["The color picker isn't available in this version of the game."] = "当前游戏版本无法使用颜色选择器。"

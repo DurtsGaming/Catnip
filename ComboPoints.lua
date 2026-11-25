@@ -63,6 +63,20 @@ function ns.ComboRingHit(i, visible, tick)
         visible = visible, notch = notch }
 end
 
+-- Frame levels above the HUD: combo fills (the group's, +1), Lacerate's fills (+2), the dots'
+-- outlines (+3), then the rings around the dots (cooldowns +5, DoTs above).
+local LACERATE_LEVEL = 1 -- Lacerate's AuraContainers
+local LACERATE_FILL_LEVEL = 2
+local OUTLINE_LEVEL = 3
+
+-- One black outline per dot, shared by the combo points and Lacerate's stacks. Lacerate's dots used
+-- to draw their own on top of these, and the AuraContainer may place its button on whole pixels
+-- while these sit on fractional ones, so the two outlines could land a fraction of a pixel apart
+-- and soften the edge.
+local outlines = CreateFrame("Frame", nil, group)
+outlines:SetAllPoints()
+outlines:SetFrameLevel(ns.hud:GetFrameLevel() + OUTLINE_LEVEL)
+
 -- Each fill is a StatusBar ranging i-1..i, fed the raw count: full when points >= i, empty below.
 -- A StatusBar takes secret values, so this works even if the count is secret (EllesmereUI's
 -- technique; Blood in the Water found GetComboPoints secret in combat).
@@ -81,11 +95,11 @@ for i = 1, COUNT do
     bar:SetMinMaxValues(i - 1, i)
     bar:SetValue(0)
 
-    -- Border draws above the fill (same frame, higher layer), so a filled dot keeps its outline.
-    local border = bar:CreateTexture(nil, "OVERLAY")
+    -- On the outline frame, above both kinds of fill, so a filled dot keeps its outline.
+    local border = outlines:CreateTexture(nil, "OVERLAY")
     border:SetTexture(ns.MEDIA .. "ring_small")
     border:SetSize(DOT_SIZE, DOT_SIZE)
-    border:SetPoint("CENTER")
+    border:SetPoint("CENTER", bar, "CENTER")
     border:SetVertexColor(0, 0, 0)
 
     bars[i] = bar
@@ -98,14 +112,27 @@ end
 -- shows only at n stacks or more (see docs/api-research.md, "Aura stacks"). Each dot's fill is a
 -- vertical StatusBar Blizzard runs from the debuff's real time left: every stack shown drains top to
 -- bottom together, and full again when a new stack refreshes it. Buttons can't be touched after setup, so
--- each carries its own fill and border, and doesn't follow stealth mode.
+-- each carries its own fill (under the shared outlines above), and doesn't follow stealth mode.
 -- Every rank's aura has its own ID: ranks 1-5 (checked on Wowhead's Forever data, 2026-11-23), and
 -- whichever rank the player knows, added as it's learned, in case a rank changes.
 local LACERATE = { ns.SPELL.LACERATE, 1328616, 414644, 1235826, 1235827 }
 local CAN_COUNT = C_AuraContainerUtil and C_AuraContainerUtil.ProcessCustomAuraButtonApplicationBarOptions and true or false
-local LACERATE_LEVEL = 1 -- above the HUD, under the rings around the dots
 
 local lacerate = ns.ComboRingGate(live) -- hidden outside Bear Form; carries the dots' Opacity
+
+-- A stack's dot, centred on holder: a vertical StatusBar (0-1, full) that fills from the bottom, so
+-- the level falls as its value does. Shared by the real dots and preview mode's stand-ins.
+local function LacerateFill(holder)
+    local fill = CreateFrame("StatusBar", nil, holder)
+    fill:SetSize(DOT_SIZE - 2 * RING_THICKNESS, DOT_SIZE - 2 * RING_THICKNESS)
+    fill:SetPoint("CENTER", holder, "CENTER")
+    fill:SetFrameLevel(ns.hud:GetFrameLevel() + LACERATE_FILL_LEVEL) -- under the outlines, whatever its depth
+    fill:SetOrientation("VERTICAL")
+    fill:SetStatusBarTexture(RAGE_FILL) -- coloured, so untinted
+    fill:SetMinMaxValues(0, 1)
+    fill:SetValue(1)
+    return fill
+end
 
 local function AddLacerateDot(button, stacks)
     ns.HideAuraButtonArt(button)
@@ -121,14 +148,9 @@ local function AddLacerateDot(button, stacks)
         end
         holder = bar
     end
-    local fill = CreateFrame("StatusBar", nil, holder)
-    fill:SetSize(DOT_SIZE - 2 * RING_THICKNESS, DOT_SIZE - 2 * RING_THICKNESS)
-    fill:SetPoint("CENTER", holder, "CENTER")
-    fill:SetOrientation("VERTICAL") -- fills from the bottom, so the level falls as the time runs out
-    fill:SetStatusBarTexture(RAGE_FILL) -- coloured, so untinted
-    fill:SetMinMaxValues(0, 1)
-    fill:SetValue(1) -- if the bar's refused below, the dot still shows the stack, without the drain
-    -- Blizzard runs it with the aura's real (secret) timing
+    -- Full until Blizzard runs it with the aura's real (secret) timing; if it refuses, the dot
+    -- still shows the stack, without the drain.
+    local fill = LacerateFill(holder)
     local ok, err = pcall(button.SetDurationBar, button, fill, {
         interpolation = Enum.StatusBarInterpolation.Immediate,
         direction = Enum.StatusBarTimerDirection.RemainingTime,
@@ -136,15 +158,6 @@ local function AddLacerateDot(button, stacks)
     if not ok then
         ns.Debug("lacerate: stack", stacks, "duration bar refused:", err)
     end
-
-    -- On its own frame so it draws over the fill.
-    local outline = CreateFrame("Frame", nil, holder)
-    outline:SetAllPoints()
-    outline:SetFrameLevel(fill:GetFrameLevel() + 1)
-    local border = outline:CreateTexture(nil, "OVERLAY")
-    border:SetTexture(ns.MEDIA .. "ring_small")
-    border:SetAllPoints()
-    border:SetVertexColor(0, 0, 0)
 end
 
 if ns.HAS_AURA_CONTAINER then
@@ -187,9 +200,34 @@ end
 local SAMPLE_POINTS = 3
 local sampleState
 
--- Stealth mode: periwinkle fill (the black outlines stay). Bear's preview samples Lacerate's red.
+-- Bear's preview: SAMPLE_POINTS stacks as the real dots draw them, all draining together over
+-- Lacerate's duration and full again, in a loop (plain numbers here, so our code sets the value).
+local LACERATE_DURATION = 15
+local sampleStacks = CreateFrame("Frame", nil, sampleHolder)
+sampleStacks:SetAllPoints()
+sampleStacks:Hide()
+local sampleFills = {}
+for i = 1, SAMPLE_POINTS do
+    local x, y = ns.ComboDotOffset(i)
+    local holder = CreateFrame("Frame", nil, sampleStacks)
+    holder:SetSize(DOT_SIZE, DOT_SIZE)
+    holder:SetPoint("CENTER", group, "CENTER", x, y)
+    sampleFills[i] = LacerateFill(holder)
+end
+local sampleStart = 0
+sampleStacks:SetScript("OnShow", function()
+    sampleStart = GetTime()
+end)
+sampleStacks:SetScript("OnUpdate", function()
+    local left = 1 - ((GetTime() - sampleStart) % LACERATE_DURATION) / LACERATE_DURATION
+    for _, fill in ipairs(sampleFills) do
+        fill:SetValue(left)
+    end
+end)
+
+-- Stealth mode: periwinkle fill (the black outlines stay).
 local function StyleFills()
-    local art = ns.IsStealthMode() and STEALTH_FILL or sampleState == "bear" and RAGE_FILL or FILL
+    local art = ns.IsStealthMode() and STEALTH_FILL or FILL
     for _, bar in ipairs(bars) do
         bar:SetStatusBarTexture(art)
     end
@@ -208,8 +246,10 @@ end
 local function Update()
     if sampleState then
         group:SetShown(sampleState ~= "caster")
+        local bear = sampleState == "bear"
+        sampleStacks:SetShown(bear)
         for _, bar in ipairs(bars) do
-            bar:SetValue(SAMPLE_POINTS)
+            bar:SetValue(bear and 0 or SAMPLE_POINTS) -- in Bear the plain dots stay empty, as live
         end
         return
     end
@@ -255,7 +295,9 @@ ns.RegisterElement({
         for _, bar in ipairs(bars) do
             bar:SetAlpha(get("opacity") / 100)
         end
+        outlines:SetAlpha(get("opacity") / 100)
         lacerate:SetAlpha(get("opacity") / 100)
+        sampleStacks:SetAlpha(get("opacity") / 100)
     end,
     sample = function(state)
         sampleState = state
