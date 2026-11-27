@@ -4,7 +4,7 @@
 
 Right now this is mostly built to support feral, although currently work is being done to better support Balance and Resto.
 
-This addon has been developed over the last few weeks of the WoW: Forever Beta. There's still features and customization being actively developed. Expect new versions throughout the rest of the beta, and continued support and development upon release.
+Catnip is an addon I built for my own Druid starting in the WoW: Forever beta, and I'm sharing it in case it's useful to others. I keep improving it as I play, so new features and options show up from time to time.
 
 If you have any feedback or bug reports, please post on the linked discord!
 
